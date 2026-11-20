@@ -70,9 +70,9 @@ Deno.serve(async (req: Request) => {
       if (!row.success) acc.failures += 1;
       acc.promptTokens += Number(row.prompt_tokens ?? 0);
       acc.completionTokens += Number(row.completion_tokens ?? 0);
-      if (row.estimated_cost_usd !== null) acc.estimatedCostUsd += Number(row.estimated_cost_usd);
+      if (row.estimated_cost_usd !== null) { acc.estimatedCostUsd += Number(row.estimated_cost_usd); acc.pricedEntries += 1; }
       return acc;
-    }, { requests: 0, failures: 0, promptTokens: 0, completionTokens: 0, estimatedCostUsd: 0 });
+    }, { requests: 0, failures: 0, promptTokens: 0, completionTokens: 0, estimatedCostUsd: 0, pricedEntries: 0 });
     return respond({ summary, rows });
   }
 
