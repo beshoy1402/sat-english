@@ -8,7 +8,7 @@ export default function MessagingCenter({client,profile}:Props){
  const staff=['admin','teacher','assistant'].includes(profile.role);
  const [conversations,setConversations]=useState<Row[]>([]),[people,setPeople]=useState<Row[]>([]),[messages,setMessages]=useState<Row[]>([]);
  const [selected,setSelected]=useState<Row|null>(null),[subject,setSubject]=useState(''),[firstMessage,setFirstMessage]=useState(''),[recipient,setRecipient]=useState('');
- const [draft,setDraft]=useState(''),[file,setFile]=useState<File|null>(null),[creating,setCreating]=useState(false),[showNew,setShowNew]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+ const [draft,setDraft]=useState(''),[file,setFile]=useState<File|null>(null),[showNew,setShowNew]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const load=useCallback(async()=>{
   const [c,p]=await Promise.all([
    client.from('conversations').select('*').order('updated_at',{ascending:false}),
