@@ -4,3 +4,9 @@
 @media(max-width:620px){.homework-heading{flex-direction:column}.homework-student-list{grid-template-columns:1fr}.homework-form-row{grid-template-columns:1fr}.homework-list>article,.homework-review-list>article{align-items:flex-start;flex-direction:column}.homework-list article>div:last-child{width:100%;justify-content:space-between}.homework-review-side{width:100%;justify-content:space-between}}
 
 .homework-secondary{display:inline-flex;align-items:center;justify-content:center;border:1px solid #456080;border-radius:7px;background:#142b44;color:#cfe0f6;padding:9px 11px;font-size:9px;font-weight:700}.homework-ai-draft{display:grid;gap:5px;padding:10px;background:#172b43;border:1px solid #456080;border-radius:8px}.homework-ai-draft b{font-size:9px;color:#b9d5ff}.homework-ai-draft p{margin:0;color:#e0eaf8;font-size:10px}.homework-ai-draft small{color:#9aabc1;font-size:8px;line-height:1.5}
+
+.homework-ai-builder{display:grid;gap:12px;padding:14px;border:1px solid var(--line,#dbe2ea);border-radius:14px;background:var(--surface-soft,#f7f9fc)}
+.homework-ai-builder-fields{display:grid;gap:12px}
+.homework-ai-builder-fields label{display:grid;gap:6px}
+.homework-ai-builder-fields input,.homework-ai-builder-fields select{width:100%;min-width:0}
+.homework-ai-builder .homework-secondary{justify-self:start}
