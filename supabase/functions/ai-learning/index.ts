@@ -207,7 +207,7 @@ Deno.serve(async (req: Request) => {
       if (action === "study_plan") {
         let plan: any;
         try {
-          const cleaned = content.replace(/^\`\`\`(?:json)?\\s*/i, "").replace(/\\s*\`\`\`$/, "").trim();
+          const cleaned = content.replace(/^\`\`\`(?:json)?\s*/i, "").replace(/\s*\`\`\`$/, "").trim();
           const value = JSON.parse(cleaned);
           plan = {
             overview: String(value.overview ?? "").slice(0, 2000),
