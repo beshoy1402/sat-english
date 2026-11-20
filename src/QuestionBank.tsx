@@ -1,9 +1,9 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
-import {BookOpen,Check,Edit3,Plus,RefreshCw,Search,Trash2,UploadCloud} from 'lucide-react';
+import {BookOpen,Edit3,Plus,RefreshCw,Search,Trash2,UploadCloud} from 'lucide-react';
 import './question-bank.css';
 type Row=Record<string,any>;
 const empty={exam_program:'SAT English',topic:'Grammar',difficulty:'medium',passage:'',prompt:'',question_type:'multiple_choice',choices:'',answer_key:'',explanation:'',points:'1'};
-export default function QuestionBank({client,profile}:{client:any;profile:{id:string}}){
+export default function QuestionBank({client}:{client:any}){
  const [items,setItems]=useState<Row[]>([]),[exams,setExams]=useState<Row[]>([]),[form,setForm]=useState({...empty}),[editing,setEditing]=useState<string|null>(null);
  const [programFilter,setProgramFilter]=useState('all'),[search,setSearch]=useState(''),[selected,setSelected]=useState<string[]>([]),[examId,setExamId]=useState('');
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('');
@@ -23,7 +23,7 @@ export default function QuestionBank({client,profile}:{client:any;profile:{id:st
   if(form.question_type==='multiple_choice'&&(choices.length<2||!choices.includes(form.answer_key.trim()))){setNotice('Multiple-choice questions need at least two options and an answer key that matches one option.');return;}
   const pts=Number(form.points);if(!Number.isFinite(pts)||pts<=0||pts>100){setNotice('Points must be between 0 and 100.');return;}
   setBusy(true);
-  const {data,error}=await client.rpc('staff_save_question_bank_item',{p_id:editing,p_exam_program:form.exam_program,p_topic:form.topic,p_difficulty:form.difficulty,p_passage:form.passage,p_prompt:form.prompt,p_question_type:form.question_type,p_choices:choices,p_answer_key:form.answer_key.trim()?form.answer_key.trim():null,p_explanation:form.explanation,p_points:pts});
+  const {error}=await client.rpc('staff_save_question_bank_item',{p_id:editing,p_exam_program:form.exam_program,p_topic:form.topic,p_difficulty:form.difficulty,p_passage:form.passage,p_prompt:form.prompt,p_question_type:form.question_type,p_choices:choices,p_answer_key:form.answer_key.trim()?form.answer_key.trim():null,p_explanation:form.explanation,p_points:pts});
   setNotice(error?.message||(editing?'Question updated.':'Question added to the bank.'));
   if(!error){reset();await load();}setBusy(false);
  };
