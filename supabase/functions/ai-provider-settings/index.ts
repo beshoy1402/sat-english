@@ -6,10 +6,23 @@ const providers = {
   gemini: { baseUrl: "https://generativelanguage.googleapis.com/v1beta", testUrl: "https://generativelanguage.googleapis.com/v1beta/models", auth: "query" },
   groq: { baseUrl: "https://api.groq.com/openai/v1", testUrl: "https://api.groq.com/openai/v1/models", auth: "bearer" },
   deepseek: { baseUrl: "https://api.deepseek.com/v1", testUrl: "https://api.deepseek.com/v1/models", auth: "bearer" },
-  openrouter: { baseUrl: "https://openrouter.ai/api/v1", testUrl: "https://openrouter.ai/api/v1/models", auth: "bearer" },
+  openrouter: { baseUrl: "https://openrouter.ai/api/v1", auth: "bearer" },
+  openai: { baseUrl: "https://api.openai.com/v1", auth: "bearer" },
+  anthropic: { baseUrl: "https://api.anthropic.com/v1", auth: "anthropic" },
+  meta_llama: { baseUrl: "https://api.together.xyz/v1", auth: "bearer" },
+  custom: { baseUrl: "", auth: "bearer" },
 } as const;
 
 type Provider = keyof typeof providers;
+const safeCustomUrl = (raw: string) => {
+  try {
+    const value = new URL(raw);
+    const host = value.hostname.toLowerCase();
+    if (value.protocol !== "https:" || value.username || value.password || value.search || value.hash) return false;
+    if (host === "localhost" || host.endsWith(".local") || host === "::1" || /^(127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|169\\.254\\.)/.test(host)) return false;
+    return true;
+  } catch { return false; }
+};
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -38,7 +51,7 @@ Deno.serve(async (req: Request) => {
     return respond({ error: "Only active Developer accounts can manage AI provider credentials." }, 403);
   }
 
-  let body: { action?: string; provider?: string; apiKey?: string; model?: string; enabled?: boolean; priority?: number };
+  let body: { action?: string; provider?: string; apiKey?: string; model?: string; enabled?: boolean; priority?: number; baseUrl?: string };
   try { body = await req.json(); } catch { return respond({ error: "Invalid JSON" }, 400); }
   const action = body.action;
 
@@ -51,6 +64,8 @@ Deno.serve(async (req: Request) => {
   const provider = body.provider as Provider;
   if (!provider || !(provider in providers)) return respond({ error: "Choose a supported AI provider." }, 400);
   const config = providers[provider];
+  const baseUrl = provider === "custom" ? (body.baseUrl ?? "").trim().replace(/\\/$/, "") : config.baseUrl;
+  if (provider === "custom" && !safeCustomUrl(baseUrl)) return respond({ error: "Custom endpoints must be public HTTPS URLs. Local and private network addresses are not allowed." }, 400);
 
   if (action === "save") {
     const apiKey = (body.apiKey ?? "").trim();
@@ -58,7 +73,7 @@ Deno.serve(async (req: Request) => {
     const { error } = await admin.rpc("ai_provider_config_save", {
       p_provider: provider,
       p_api_key: apiKey,
-      p_base_url: config.baseUrl,
+      p_base_url: baseUrl,
       p_model: (body.model ?? "").trim().slice(0, 160),
       p_is_enabled: Boolean(body.enabled),
       p_priority: Number.isFinite(body.priority) ? body.priority : 100,
@@ -70,10 +85,11 @@ Deno.serve(async (req: Request) => {
   if (action === "test") {
     const { data: secret, error: secretError } = await admin.rpc("ai_provider_config_read_secret", { p_provider: provider });
     if (secretError || !secret) return respond({ error: "Save an API key before testing this provider." }, 400);
-    const endpoint = config.testUrl;
+    const endpoint = baseUrl + "/models";
     const headers: Record<string,string> = { Accept: "application/json" };
     if (config.auth === "bearer") headers.Authorization = "Bearer " + secret;
     if (config.auth === "query") headers["x-goog-api-key"] = secret;
+    if (config.auth === "anthropic") { headers["x-api-key"] = secret; headers["anthropic-version"] = "2023-06-01"; }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     let status = "Connection failed";
