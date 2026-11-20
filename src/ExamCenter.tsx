@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useMemo,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {BookOpen,ChevronLeft,ChevronRight,Clock3,FileCheck2,Play,Plus,RefreshCw,Send,ShieldCheck,Users} from 'lucide-react';
 import './exam-center.css';
 
@@ -24,7 +24,8 @@ export default function ExamCenter({client,profile}:Props){
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[now,setNow]=useState(Date.now());
  const [selectedExam,setSelectedExam]=useState(''),[selectedStudents,setSelectedStudents]=useState<string[]>([]);
  const [form,setForm]=useState({title:'',description:'',exam_program:'SAT English',duration_minutes:45,mode:'practice',status:'draft',starts_at:'',ends_at:''});
- const [manualScore,setManualScore]=useState(''),[feedback,setFeedback]=useState('');
+ const [manualScore,setManualScore]=useState(''),[feedback,setFeedback]=useState(''),[integrityEvents,setIntegrityEvents]=useState<Attempt[]>([]);
+ const integrityCooldown=useRef<Record<string,number>>({});
  const load=useCallback(async()=>{
   const examQuery=client.from('exams').select('*').order('created_at',{ascending:false});
   const [e,a,t,p]=await Promise.all([
@@ -40,6 +41,30 @@ export default function ExamCenter({client,profile}:Props){
  },[client,staff,selectedExam]);
  useEffect(()=>{void load();},[load]);
  useEffect(()=>{const id=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(id);},[]);
+ useEffect(()=>{
+  if(!activeAttempt||profile.role!=='student')return;
+  const record=(type:string)=>{
+   const time=Date.now();if(time-(integrityCooldown.current[type]??0)<15000)return;integrityCooldown.current[type]=time;
+   void client.rpc('exam_record_integrity_event',{p_attempt_id:activeAttempt.id,p_event_type:type}).then(({error}:any)=>{if(error)setNotice(error.message);});
+  };
+  const visibility=()=>{if(document.visibilityState==='hidden')record('visibility_hidden');};
+  const blur=()=>record('window_blur');
+  const copy=()=>record('copy');
+  const paste=()=>record('paste');
+  const context=()=>record('context_menu');
+  document.addEventListener('visibilitychange',visibility);
+  window.addEventListener('blur',blur);
+  document.addEventListener('copy',copy);
+  document.addEventListener('paste',paste);
+  document.addEventListener('contextmenu',context);
+  return()=>{
+   document.removeEventListener('visibilitychange',visibility);
+   window.removeEventListener('blur',blur);
+   document.removeEventListener('copy',copy);
+   document.removeEventListener('paste',paste);
+   document.removeEventListener('contextmenu',context);
+  };
+ },[client,activeAttempt?.id,profile.role]);
  const pending=useMemo(()=>attempts.filter(a=>a.manual_review_required&&a.status==='submitted'),[attempts]);
  const remaining=activeAttempt?Math.max(0,new Date(activeAttempt.started_at).getTime()+Number(activeAttempt.duration_minutes)*60000-now):0;
  const [questionIndex,setQuestionIndex]=useState(0);
@@ -92,14 +117,18 @@ export default function ExamCenter({client,profile}:Props){
   setNotice(error?.message||'Exam assigned to selected students.');if(!error){setSelectedStudents([]);await load();}setBusy(false);
  };
  const openReview=async(a:Attempt)=>{
-  setReviewAttempt(a);setReviewResult(null);setManualScore('');setFeedback('');
-  const {data,error}=await client.rpc('exam_get_result',{p_attempt_id:a.id});
-  if(error){setNotice(error.message);return;}setReviewResult(data);
+  setReviewAttempt(a);setReviewResult(null);setManualScore('');setFeedback('');setIntegrityEvents([]);
+  const [resultResponse,eventResponse]=await Promise.all([
+   client.rpc('exam_get_result',{p_attempt_id:a.id}),
+   client.from('exam_attempt_events').select('*').eq('attempt_id',a.id).order('created_at',{ascending:false})
+  ]);
+  if(resultResponse.error||eventResponse.error){setNotice(resultResponse.error?.message||eventResponse.error?.message||'Unable to load review details.');return;}
+  setReviewResult(resultResponse.data);setIntegrityEvents(eventResponse.data??[]);
  };
  const submitReview=async(e:React.FormEvent)=>{
   e.preventDefault();if(!reviewAttempt)return;setBusy(true);
   const {error}=await client.rpc('exam_review_attempt',{p_attempt_id:reviewAttempt.id,p_manual_score:Number(manualScore),p_feedback:feedback});
-  setNotice(error?.message||'Manual review saved and final result calculated.');if(!error){setReviewAttempt(null);setReviewResult(null);await load();}setBusy(false);
+  setNotice(error?.message||'Manual review saved and final result calculated.');if(!error){setReviewAttempt(null);setReviewResult(null);setIntegrityEvents([]);await load();}setBusy(false);
  };
  const studentName=(id:string)=>students.find(s=>s.id===id)?.display_name||'Student';
  const q=questions[questionIndex];
@@ -116,6 +145,6 @@ export default function ExamCenter({client,profile}:Props){
    </div>
   </div>
   <section className="exam-panel exam-pending"><h3><ShieldCheck size={16}/> Manual review queue ({pending.length})</h3>{pending.map(a=><article key={a.id}><div><b>{studentName(a.student_profile_id)}</b><small>{exams.find(e=>e.id===a.exam_id)?.title||'Exam'} · Submitted {a.submitted_at?new Date(a.submitted_at).toLocaleString():'—'}</small></div><button onClick={()=>void openReview(a)}>Review attempt</button></article>)}{!pending.length&&<p className="exam-muted">No written responses are waiting for review.</p>}</section>
-  {reviewAttempt&&reviewResult&&<div className="exam-review-modal"><div className="exam-review-card"><div className="exam-review-head"><div><span className="exam-eyebrow">MANUAL GRADING</span><h3>{studentName(reviewAttempt.student_profile_id)} · {exams.find(e=>e.id===reviewAttempt.exam_id)?.title}</h3></div><button onClick={()=>{setReviewAttempt(null);setReviewResult(null);}}>×</button></div><div className="exam-review-questions">{(reviewResult.questions??[]).map((item:any,i:number)=><article key={item.id}><b>Question {i+1}</b><p>{item.prompt}</p><small>Student response: {JSON.stringify(item.student_answer??'No answer')}</small><small>Answer key: {JSON.stringify(item.correct_answer)}</small><small>Available marks: {item.points}</small></article>)}</div><form onSubmit={submitReview}><label>Manual marks (maximum {Math.max(0,Number(reviewResult.max_score)-Number(reviewResult.auto_score))})<input required type="number" min="0" step="0.25" max={Math.max(0,Number(reviewResult.max_score)-Number(reviewResult.auto_score))} value={manualScore} onChange={e=>setManualScore(e.target.value)}/></label><label>Feedback<textarea rows={3} value={feedback} onChange={e=>setFeedback(e.target.value)}/></label><button className="exam-primary" disabled={busy||manualScore===''}>Save review and finalize result</button></form></div></div>}
+  {reviewAttempt&&reviewResult&&<div className="exam-review-modal"><div className="exam-review-card"><div className="exam-review-head"><div><span className="exam-eyebrow">MANUAL GRADING</span><h3>{studentName(reviewAttempt.student_profile_id)} · {exams.find(e=>e.id===reviewAttempt.exam_id)?.title}</h3></div><button onClick={()=>{setReviewAttempt(null);setReviewResult(null);setIntegrityEvents([]);}}>×</button></div><div className="exam-integrity-events"><b>Exam integrity signals ({integrityEvents.length})</b><small>These browser events are review signals, not proof of misconduct.</small>{integrityEvents.map((event:any)=><span key={event.id}>{pretty(event.event_type)} · {new Date(event.created_at).toLocaleString()}</span>)}{!integrityEvents.length&&<span>No browser signals were recorded.</span>}</div><div className="exam-review-questions">{(reviewResult.questions??[]).map((item:any,i:number)=><article key={item.id}><b>Question {i+1}</b><p>{item.prompt}</p><small>Student response: {JSON.stringify(item.student_answer??'No answer')}</small><small>Answer key: {JSON.stringify(item.correct_answer)}</small><small>Available marks: {item.points}</small></article>)}</div><form onSubmit={submitReview}><label>Manual marks (maximum {Math.max(0,Number(reviewResult.max_score)-Number(reviewResult.auto_score))})<input required type="number" min="0" step="0.25" max={Math.max(0,Number(reviewResult.max_score)-Number(reviewResult.auto_score))} value={manualScore} onChange={e=>setManualScore(e.target.value)}/></label><label>Feedback<textarea rows={3} value={feedback} onChange={e=>setFeedback(e.target.value)}/></label><button className="exam-primary" disabled={busy||manualScore===''}>Save review and finalize result</button></form></div></div>}
  </section>;
 }
