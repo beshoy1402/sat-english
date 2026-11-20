@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
-import {CheckCircle2,ClipboardList,Clock3,Download,FileText,MessageSquare,Plus,RefreshCw,Send,Upload,Users,X} from 'lucide-react';
+import {ClipboardList,Clock3,Download,MessageSquare,Plus,RefreshCw,Send,Upload,X} from 'lucide-react';
 import './homework-center.css';
 
 type Row=Record<string,any>;
@@ -96,7 +96,6 @@ export default function HomeworkCenter({client,profile,view='assignments'}:Props
   if(error){setNotice(error.message);return;}window.open(data.signedUrl,'_blank','noopener,noreferrer');
  };
  const studentName=(id:string)=>students.find(s=>s.id===id)?.display_name||children.find(s=>s.id===id)?.display_name||'Student';
- const myAssignment=activeAssignment?submissionByAssignment[activeAssignment.id]:null;
  const isLate=(a:Row)=>a.due_at&&new Date(a.due_at).getTime()<Date.now();
  const canSubmit=(a:Row)=>a.status==='published'&&(!isLate(a)||a.allow_late_submission)&&(!submissionByAssignment[a.id]?.reviewed_at);
  return <section className="homework-center">
