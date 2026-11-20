@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import './TeachingAI.css';
 import { BrainCircuit, Copy, Download, RefreshCw, Sparkles } from 'lucide-react';
 
 type WorksheetQuestion = { prompt: string; choices?: string[]; answer: string; explanation: string; difficulty?: string };
