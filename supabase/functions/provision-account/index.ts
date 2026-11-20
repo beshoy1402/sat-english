@@ -22,7 +22,7 @@ Deno.serve(async (req: Request) => {
   const { data: userData, error: authError } = await service.auth.getUser(token);
   if (authError || !userData.user) return respond({ error: "Invalid session" }, 401);
   const { data: actor, error: actorError } = await service.from("profiles").select("id,role,is_active").eq("id", userData.user.id).single();
-  if (actorError || !actor?.is_active || !["admin", "teacher", "assistant"].includes(actor.role)) {
+  if (actorError || !actor?.is_active || !["admin", "developer", "teacher", "assistant"].includes(actor.role)) {
     return respond({ error: "Only active Admin, Teacher, or Assistant accounts can provision accounts." }, 403);
   }
 
@@ -32,9 +32,9 @@ Deno.serve(async (req: Request) => {
   const displayName = (body.display_name ?? "").trim();
   const password = body.password ?? "";
   const role = body.role ?? "";
-  const allowedRoles = ["student", "parent", "teacher", "assistant"];
-  if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(username) || !displayName || password.length < 8 || !allowedRoles.includes(role)) {
-    return respond({ error: "Use a 3–30 character username, a display name, a password of at least 8 characters, and an allowed role." }, 400);
+  const allowedRoles = actor.role === "admin" ? ["student", "parent", "teacher", "assistant", "developer", "designer"] : actor.role === "developer" ? ["student", "parent", "teacher", "assistant", "designer"] : ["student", "parent"];
+  if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(username) || !displayName || password.length < 12 || !allowedRoles.includes(role)) {
+    return respond({ error: "Use a 3–30 character username, a display name, a password of at least 12 characters, and a role permitted for your account." }, 400);
   }
 
   let linkedStudentId: string | null = null;
