@@ -47,7 +47,8 @@ Deno.serve(async (req: Request) => {
   } else if (body.linked_student_profile_id) {
     return respond({ error: "Only parent accounts can be linked to a student during creation." }, 400);
   }
-\n  const email = username + "@accounts.northstar.invalid";
+
+  const email = username + "@accounts.northstar.invalid";
   const { data: created, error: createError } = await service.auth.admin.createUser({
     email, password, email_confirm: true, user_metadata: { display_name: displayName }, app_metadata: { role },
   });
