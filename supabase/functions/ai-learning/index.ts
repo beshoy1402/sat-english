@@ -227,8 +227,8 @@ Deno.serve(async (req: Request) => {
         } catch { throw new Error("AI response could not be parsed as a study plan."); }
         const { data: saved, error: saveError } = await admin.from("student_study_plans").insert({
           student_profile_id: actor.id, exam_program: body.exam_program, target_date: body.target_date || null,
-          current_score: Number.isFinite(Number(body.current_score)) ? Number(body.current_score) : null,
-          target_score: Number.isFinite(Number(body.target_score)) ? Number(body.target_score) : null,
+          current_score: body.current_score === null || body.current_score === undefined || body.current_score === '' ? null : (Number.isFinite(Number(body.current_score)) ? Number(body.current_score) : null),
+          target_score: body.target_score === null || body.target_score === undefined || body.target_score === '' ? null : (Number.isFinite(Number(body.target_score)) ? Number(body.target_score) : null),
           weekly_hours: Number(body.weekly_hours ?? 5), plan_json: plan, created_by: actor.id,
         }).select("*").single();
         if (saveError) throw new Error("Could not save your study plan.");
