@@ -70,9 +70,10 @@ Deno.serve(async (req: Request) => {
   if (action === "test") {
     const { data: secret, error: secretError } = await admin.rpc("ai_provider_config_read_secret", { p_provider: provider });
     if (secretError || !secret) return respond({ error: "Save an API key before testing this provider." }, 400);
-    const endpoint = config.auth === "query" ? config.testUrl + "?key=" + encodeURIComponent(secret) : config.testUrl;
+    const endpoint = config.testUrl;
     const headers: Record<string,string> = { Accept: "application/json" };
     if (config.auth === "bearer") headers.Authorization = "Bearer " + secret;
+    if (config.auth === "query") headers["x-goog-api-key"] = secret;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     let status = "Connection failed";
