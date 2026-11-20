@@ -86,7 +86,20 @@ export default function HomeworkCenter({client,profile,view='assignments'}:Props
   const {error}=await client.from('submissions').upsert({assignment_id:activeAssignment.id,student_profile_id:profile.id,answer_text:answer.trim()||null,file_paths:[...(old?.file_paths??[]),...paths],submitted_at:new Date().toISOString(),score:null,feedback:null,reviewed_by:null,reviewed_at:null},{onConflict:'assignment_id,student_profile_id'});
   setNotice(error?.message||'Homework submitted successfully.');if(!error){setActiveAssignment(null);setAnswer('');setFiles([]);await load();}setBusy(false);
  };
- const generateAiDraft=async()=>{\n  if(!reviewing)return;setBusy(true);setAiDraft(null);\n  const {data,error}=await client.functions.invoke('ai-learning',{body:{action:'homework_review',submission_id:reviewing.id}});\n  if(error||data?.error)setNotice(data?.error||error?.message||'AI review could not be generated.');\n  else{setAiDraft(data.draft);setScore(data.draft?.score_suggestion===null?'':String(data.draft.score_suggestion));setFeedback([data.draft?.feedback_suggestion||'',...(data.draft?.strengths?.length?['Strengths: '+data.draft.strengths.join('; ')]:[]),...(data.draft?.improvements?.length?['Improvements: '+data.draft.improvements.join('; ')]:[])].filter(Boolean).join('\\n\\n'));setNotice('AI review draft generated. Check it carefully before saving a final grade.');}\n  setBusy(false);\n };\n const review=async(e:React.FormEvent)=>{
+ const generateAiDraft=async()=>{
+  if(!reviewing)return;
+  setBusy(true);setAiDraft(null);
+  const {data,error}=await client.functions.invoke('ai-learning',{body:{action:'homework_review',submission_id:reviewing.id}});
+  if(error||data?.error)setNotice(data?.error||error?.message||'AI review could not be generated.');
+  else{
+   setAiDraft(data.draft);
+   setScore(data.draft?.score_suggestion===null?'':String(data.draft.score_suggestion));
+   setFeedback([data.draft?.feedback_suggestion||'',...(data.draft?.strengths?.length?['Strengths: '+data.draft.strengths.join('; ')]:[]),...(data.draft?.improvements?.length?['Improvements: '+data.draft.improvements.join('; ')]:[])].filter(Boolean).join('\n\n'));
+   setNotice('AI review draft generated. Check it carefully before saving a final grade.');
+  }
+  setBusy(false);
+ };
+ const review=async(e:React.FormEvent)=>{
   e.preventDefault();if(!reviewing)return;const n=Number(score);if(!Number.isFinite(n)||n<0){setNotice('Enter a valid non-negative score.');return;}
   setBusy(true);const {error}=await client.from('submissions').update({score:n,feedback,reviewed_by:profile.id,reviewed_at:new Date().toISOString()}).eq('id',reviewing.id);
   setNotice(error?.message||'Submission reviewed and feedback saved.');if(!error){setReviewing(null);setScore('');setFeedback('');setAiDraft(null);await load();}setBusy(false);
