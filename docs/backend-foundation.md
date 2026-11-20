@@ -7,7 +7,7 @@ Project ref: `lewxfskcxceuifrtczqz`
 
 - `20261120104437_english_platform_core_schema`
 - `20261120104443_tighten_student_write_permissions`
-- `202611201045xx_refine_rls_policies_and_indexes` (Supabase-generated migration version; verify the exact version in Supabase migration history)
+- `20261120104522_refine_rls_policies_and_indexes`
 
 The database currently contains 16 public tables. Row Level Security is enabled on every public table created by these migrations.
 
