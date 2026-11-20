@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
-import {BookOpen,CalendarClock,CheckCircle2,ChevronLeft,ChevronRight,Clock3,FileCheck2,Play,Plus,RefreshCw,Send,ShieldCheck,Users} from 'lucide-react';
+import {BookOpen,ChevronLeft,ChevronRight,Clock3,FileCheck2,Play,Plus,RefreshCw,Send,ShieldCheck,Users} from 'lucide-react';
 import './exam-center.css';
 
 type Person={id:string;display_name:string;username:string|null};
@@ -42,7 +42,6 @@ export default function ExamCenter({client,profile}:Props){
  useEffect(()=>{const id=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(id);},[]);
  const pending=useMemo(()=>attempts.filter(a=>a.manual_review_required&&a.status==='submitted'),[attempts]);
  const remaining=activeAttempt?Math.max(0,new Date(activeAttempt.started_at).getTime()+Number(activeAttempt.duration_minutes)*60000-now):0;
- const currentQuestionIndex=Number(activeAttempt?.current_index??0);
  const [questionIndex,setQuestionIndex]=useState(0);
  const currentExam=exams.find(e=>e.id===activeAttempt?.exam_id);
  const loadQuestions=async(examId:string)=>{
@@ -53,7 +52,7 @@ export default function ExamCenter({client,profile}:Props){
   setBusy(true);setNotice('');setResult(null);
   const {data,error}=await client.rpc('exam_start_attempt',{p_exam_id:exam.id});
   if(error){setNotice(error.message);setBusy(false);return;}
-  const qs=await loadQuestions(exam.id);if(!qs){setBusy(false);return;}
+  const qs=await loadQuestions(exam.id);if(!qs){setBusy(false);return;}if(!qs.length){setNotice('This exam has no questions yet. Add questions in Question bank before assigning it.');setBusy(false);return;}
   setQuestions(qs);setAnswers(data.answers??{});setActiveAttempt({id:data.attempt_id,exam_id:exam.id,started_at:data.started_at,duration_minutes:data.duration_minutes});
   setQuestionIndex(0);setBusy(false);
  };
@@ -94,7 +93,7 @@ export default function ExamCenter({client,profile}:Props){
   if(error){setNotice(error.message);return;}setReviewResult(data);
  };
  const submitReview=async(e:React.FormEvent)=>{
-  e.preventDefault();if(!reviewAttempt)return;
+  e.preventDefault();if(!reviewAttempt)return;setBusy(true);
   const {error}=await client.rpc('exam_review_attempt',{p_attempt_id:reviewAttempt.id,p_manual_score:Number(manualScore),p_feedback:feedback});
   setNotice(error?.message||'Manual review saved and final result calculated.');if(!error){setReviewAttempt(null);setReviewResult(null);await load();}setBusy(false);
  };
