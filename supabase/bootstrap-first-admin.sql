@@ -5,7 +5,7 @@
 
 update public.profiles
 set username = 'admin',
-    display_name = 'Platform Administrator',
+    display_name = 'Administrator',
     role = 'admin',
     is_active = true
 where id = (
@@ -13,6 +13,10 @@ where id = (
   from auth.users
   where email = 'admin@accounts.northstar.invalid'
 );
+
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin"}'::jsonb
+where email = 'admin@accounts.northstar.invalid';
 
 -- Confirm exactly one row was updated. Do not run this for ordinary accounts.
 select username, display_name, role, is_active
