@@ -1,0 +1,12 @@
+create index if not exists ai_provider_configs_vault_secret_idx on private.ai_provider_configs(vault_secret_id);
+create index if not exists ai_homework_review_drafts_generated_by_idx on public.ai_homework_review_drafts(generated_by);
+create index if not exists conversations_created_by_idx on public.conversations(created_by);
+create index if not exists exam_attempts_reviewed_by_idx on public.exam_attempts(reviewed_by);
+create index if not exists messages_sender_profile_idx on public.messages(sender_profile_id);
+create index if not exists notifications_created_by_idx on public.notifications(created_by);
+create index if not exists site_design_drafts_reviewed_by_idx on public.site_design_drafts(reviewed_by);
+create index if not exists site_design_versions_created_by_idx on public.site_design_versions(created_by);
+create index if not exists student_study_plans_created_by_idx on public.student_study_plans(created_by);
+create index if not exists announcements_created_by_idx on public.announcements(created_by);
+create index if not exists calendar_events_created_by_idx on public.calendar_events(created_by);
+create index if not exists learning_resources_created_by_idx on public.learning_resources(created_by);
