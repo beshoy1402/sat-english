@@ -2,15 +2,22 @@
 
 Independent English exam-preparation platform for SAT English, EST English and ACT English. This repository is intentionally separate from the SAT Math repository.
 
-## Current milestone
+## Current development milestone
 
-- Premium navy-blue responsive landing page.
-- Animated 3D-inspired hero illustration and scroll-reveal sections.
-- English and Arabic language switch with RTL layout.
-- Program overview, teaching approach, FAQ and contact call-to-action.
-- Student login entry modal placeholder.
-- Reduced-motion accessibility support.
-- React + TypeScript + Vite foundation.
+This branch is the active implementation branch for the SAT English platform. It contains working backend schemas, role-based workflows and frontend modules for the core teaching experience.
+
+- Role-based Admin, Teacher, Assistant, Student, Parent, Developer and Designer areas.
+- Staff attendance register, gradebook, grade adjustments and immutable grade-change history.
+- Question bank and timed exam workflow, server-side attempt validation, automatic grading and written-answer review.
+- Homework assignment, file submission, teacher review and parent monitoring.
+- Course access, online meeting links, in-person session scheduling, lesson resources and lesson progress.
+- Parent-child account linking, parent academic overview and report export.
+- In-app notifications and realtime internal messaging.
+- Designer draft/version/review workflow and developer task/bug tracking.
+- AI provider management, failover request service, student AI tutor, study-plan generation and teacher-reviewed homework feedback drafts.
+- Responsive navy-blue public landing page with English/Arabic layout and reduced-motion support.
+
+The current branch is still under development. Each workflow must pass build, permission and end-to-end testing before the production release.
 
 ## Local development
 
@@ -29,9 +36,19 @@ The platform is planned to expand into separate permission-controlled experience
 
 Never expose API keys or secrets in client-side code. Keep development, staging and production configuration and data separate. Staging must not use real student records or live payment credentials.
 
-## Status
+## Current release status
 
-This is the initial frontend foundation only. Authentication, student and parent portals, staff dashboards, exam engine, AI workflows, payments, messaging, monitoring and production deployment remain future milestones.
+- Core database migrations and the account, AI and learning Edge Functions have been applied to the linked Supabase project.
+- Frontend work is on `feature/shared-staff-dashboards`; the production website has not yet been updated to this complete feature branch.
+- AI features require a Developer to save at least one provider API key before students can use them. No provider key is committed to this repository.
+- AI homework output is a draft only. A teacher or authorized assistant must verify and save the final grade and feedback.
+- In-app messaging is realtime within the website; WhatsApp, SMS and external email delivery are not connected.
+- Online lessons use external meeting URLs (for example, Zoom or Google Meet); this is not a native video-conferencing service.
+- AI token/latency/failure usage is recorded, but exact provider costs are not calculated until pricing data is configured.
+- PDF/Word question-bank extraction, payments, WhatsApp API, native live video, advanced proctoring, disaster recovery restore, full hosting/database cost controls and actual GitHub pull-request approval integration remain incomplete.
+- A new Vercel build/deployment could not be run after the latest frontend changes because the deployment API daily limit was reached. The latest frontend branch therefore still needs a fresh CI/build verification before production release.
+
+Do not treat the existing production URL as proof that the latest feature branch is deployed.
 
 
 ## Local backend development (no additional hosted database cost)
@@ -80,12 +97,16 @@ The branch `feature/shared-staff-dashboards` uses a local Supabase stack for bac
 - Stop the local services when finished with `npm run db:stop`.
 
 
-### Developer AI provider settings (local development)
+### AI provider management and learning services
 
-The Developer Dashboard includes an **AI Providers** screen for Qwen, Google Gemini, Groq, DeepSeek, and OpenRouter. It supports securely saving keys, setting a preferred model, enabling/disabling providers, assigning failover priority, and testing provider connectivity.
+The Developer Dashboard supports Qwen, Google Gemini, Groq, DeepSeek, OpenRouter, OpenAI, Anthropic Claude, Meta Llama through Together AI, and a custom public HTTPS OpenAI-compatible endpoint.
 
-- Provider keys are stored in Supabase Vault; the browser receives only whether a key is configured, never the key itself.
-- The Edge Function checks that the signed-in profile has the `developer` role before allowing access.
-- The provider settings migration and Edge Function are local-development assets only. Do not deploy them to the hosted Supabase project during this phase.
-- To use the screen locally, complete the local Supabase setup above, run `npm run db:reset` to apply local migrations, and run `npm run functions:serve` with the local service-role key.
-- The current screen manages provider credentials and connection tests. AI chat, Gemini homework correction, tutoring, and automatic provider failover still need to be connected to the shared AI request service before those features use these saved providers.
+- API keys are stored in Supabase Vault. The browser receives configuration metadata, never the secret key.
+- The provider-settings Edge Function requires an active Developer profile.
+- Providers can be enabled/disabled, assigned a model and priority, tested, and used in automatic failover order.
+- The `ai-learning` Edge Function powers student tutoring, personal study-plan generation and AI homework-review drafts.
+- AI homework feedback and scores remain drafts until a teacher or assistant verifies and saves them.
+- AI usage logs include provider, model, success/failure, latency and token counts. Exact costs are not estimated without configured pricing data.
+- At least one provider must be enabled and have a valid API key. No real API keys are stored in Git.
+- Custom endpoints must be public HTTPS OpenAI-compatible endpoints. A private computer's localhost endpoint is not reachable from the hosted Edge Function unless exposed through a secure public tunnel.
+- For local development, complete the local Supabase setup above and run `npm run functions:serve` with local credentials.
