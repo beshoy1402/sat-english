@@ -24,9 +24,8 @@ export default function StudyPlanCenter({client,profile}:Props){
   }
   const {data,error}=await client.from('student_study_plans').select('*').eq('student_profile_id',id).order('created_at',{ascending:false});
   if(error){setNotice(error.message);return;}
-  setPlans(data??[]);if(!selected&&data?.length)setSelected(data[0]);
-  if(selected){const latest=data?.find((p:any)=>p.id===selected.id);if(latest)setSelected(latest);}
- },[client,parent,profile.id,childId,selected]);
+  setPlans(data??[]);setSelected(old=>old?(data??[]).find((p:any)=>p.id===old.id)??(data??[])[0]??null:(data??[])[0]??null);
+ },[client,parent,profile.id,childId]);
  useEffect(()=>{void load();},[load]);
  const generate=async(e:React.FormEvent)=>{
   e.preventDefault();setBusy(true);setNotice('');
@@ -43,7 +42,7 @@ export default function StudyPlanCenter({client,profile}:Props){
  const toggleTask=(dayIndex:number,taskIndex:number,checked:boolean)=>{
   if(!selected)return;const next=JSON.parse(JSON.stringify(selected));next.plan_json.weekly_schedule[dayIndex].activities[taskIndex].completed=checked;void updatePlan(next);
  };
- const activePlan=selected&&plans.find(p=>p.id===selected.id)?selected:plans[0];
+ const activePlan=plans.find(p=>p.id===selected?.id)??plans[0];
  const total=activePlan?.plan_json?.weekly_schedule?.reduce((n:number,d:any)=>n+(d.activities?.length??0),0)??0;
  const completed=activePlan?.plan_json?.weekly_schedule?.reduce((n:number,d:any)=>n+(d.activities??[]).filter((t:any)=>t.completed).length,0)??0;
  if(parent&&!children.length)return <section className="study-plan"><div className="study-empty"><Users/><b>No linked student</b><p>Ask the school team to link your parent account to a student profile.</p></div></section>;
