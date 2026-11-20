@@ -78,3 +78,14 @@ The branch `feature/shared-staff-dashboards` uses a local Supabase stack for bac
 - Use fake accounts and fictional student records only. Do not copy real student data into local development.
 - Do not run `supabase db push`, hosted migrations, or production deploys during this development phase.
 - Stop the local services when finished with `npm run db:stop`.
+
+
+### Developer AI provider settings (local development)
+
+The Developer Dashboard includes an **AI Providers** screen for Qwen, Google Gemini, Groq, DeepSeek, and OpenRouter. It supports securely saving keys, setting a preferred model, enabling/disabling providers, assigning failover priority, and testing provider connectivity.
+
+- Provider keys are stored in Supabase Vault; the browser receives only whether a key is configured, never the key itself.
+- The Edge Function checks that the signed-in profile has the `developer` role before allowing access.
+- The provider settings migration and Edge Function are local-development assets only. Do not deploy them to the hosted Supabase project during this phase.
+- To use the screen locally, complete the local Supabase setup above, run `npm run db:reset` to apply local migrations, and run `npm run functions:serve` with the local service-role key.
+- The current screen manages provider credentials and connection tests. AI chat, Gemini homework correction, tutoring, and automatic provider failover still need to be connected to the shared AI request service before those features use these saved providers.
