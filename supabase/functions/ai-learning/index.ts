@@ -77,19 +77,20 @@ Deno.serve(async (req: Request) => {
   const { data: actor, error: actorError } = await admin.from("profiles").select("id,role,is_active").eq("id", authData.user.id).single();
   if (actorError || !actor?.is_active) return respond({ error: "Your account is inactive or unavailable." }, 403);
 
-  let body: { action?: string; messages?: ChatMessage[]; submission_id?: string; exam_program?: string; target_date?: string; current_score?: number; target_score?: number; weekly_hours?: number; weak_topics?: string[] };
+  let body: { action?: string; messages?: ChatMessage[]; submission_id?: string; exam_program?: string; target_date?: string; current_score?: number; target_score?: number; weekly_hours?: number; weak_topics?: string[]; worksheet_topic?: string; worksheet_difficulty?: string; worksheet_question_count?: number; include_answer_key?: boolean };
   try { body = await req.json(); } catch { return respond({ error: "Invalid JSON request." }, 400); }
   const action = body.action;
-  if (action !== "tutor" && action !== "homework_review" && action !== "study_plan") return respond({ error: "Unsupported AI action." }, 400);
+  if (action !== "tutor" && action !== "homework_review" && action !== "study_plan" && action !== "worksheet") return respond({ error: "Unsupported AI action." }, 400);
 
   if ((action === "tutor" || action === "study_plan") && actor.role !== "student") return respond({ error: "This learning feature is available to student accounts." }, 403);
+  if (action === "worksheet" && !["admin", "teacher", "assistant"].includes(actor.role)) return respond({ error: "Only teaching staff can generate worksheets." }, 403);
   if (action === "homework_review" && !["admin", "teacher", "assistant"].includes(actor.role)) return respond({ error: "Only teaching staff can request an AI homework draft." }, 403);
 
   const { count: recentCount, error: rateError } = await admin.from("ai_usage_logs")
     .select("id", { count: "exact", head: true })
     .eq("user_profile_id", actor.id)
     .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
-  if (!rateError && (recentCount ?? 0) >= (action === "homework_review" ? 20 : action === "study_plan" ? 8 : 50)) return respond({ error: "You've reached the hourly AI request limit. Please try again later." }, 429);
+  if (!rateError && (recentCount ?? 0) >= (action === "homework_review" ? 20 : action === "study_plan" ? 8 : action === "worksheet" ? 15 : 50)) return respond({ error: "You've reached the hourly AI request limit. Please try again later." }, 429);
 
   let messages: ChatMessage[] = [];
   let submission: any = null;
@@ -117,7 +118,7 @@ Deno.serve(async (req: Request) => {
       "Review the response for clarity, grammar, vocabulary, organization, task completion and accuracy. Be constructive and age-appropriate.",
       "Return only valid JSON with keys score_suggestion (0-100), feedback_suggestion (string), strengths (string array), improvements (string array). The score is only a suggested percentage, not a final grade.",
     ].join("\n\n") }];
-  } else {
+  } else if (action === "study_plan") {
     const program = String(body.exam_program ?? "");
     if (!["SAT English", "EST English", "ACT English"].includes(program)) return respond({ error: "Choose SAT English, EST English or ACT English." }, 400);
     const hours = Number(body.weekly_hours ?? 5);
@@ -134,13 +135,34 @@ Deno.serve(async (req: Request) => {
       "Create a practical weekly schedule with review, skill practice, timed questions and checkpoints.",
       "Return only valid JSON with keys overview, weekly_schedule (array of {day, focus, activities:[{title,description,duration_minutes}]}), milestones (array of {title,due_in_weeks,description}), and tips (string array).",
     ].join("\n\n") }];
+  } else {
+    const topic = String(body.worksheet_topic ?? "").trim().slice(0, 180);
+    const program = String(body.exam_program ?? "SAT English");
+    const difficulty = String(body.worksheet_difficulty ?? "medium");
+    const count = Math.max(5, Math.min(30, Number(body.worksheet_question_count ?? 10) || 10));
+    if (!topic) return respond({ error: "Enter a worksheet topic or skill." }, 400);
+    if (!["SAT English", "EST English", "ACT English"].includes(program)) return respond({ error: "Choose SAT English, EST English or ACT English." }, 400);
+    if (!["easy", "medium", "hard"].includes(difficulty)) return respond({ error: "Choose an available difficulty." }, 400);
+    messages = [{ role: "user", content: [
+      "Create a classroom-ready English practice worksheet.",
+      "Exam program: " + program,
+      "Topic or skill: " + topic,
+      "Difficulty: " + difficulty,
+      "Number of questions: " + count,
+      "Include answer key: " + (body.include_answer_key === false ? "No" : "Yes"),
+      "Include a clear title, student instructions, numbered questions, and a separate answer key with concise explanations when requested.",
+      "Use original questions. Match the skills and general format of the selected exam, but do not claim these are official exam questions.",
+      "Format the worksheet cleanly in Markdown so a teacher can edit and print it."
+    ].join("\n\n") }];
   }
 
   const system = action === "tutor"
     ? "You are a patient, precise English exam tutor for SAT, EST and ACT English. Help the student understand reading comprehension, grammar, rhetorical skills, vocabulary and writing. Explain step by step, ask guiding questions when useful, correct misconceptions kindly, and provide short practice questions. Do not claim to know official exam answers unless the student provides the question. Keep answers focused on English learning."
     : action === "study_plan"
       ? "You are an expert English exam-preparation coach. Create achievable, structured plans with spaced review, skill practice and timed checkpoints. Return strict JSON only."
-      : "You are an assistant teacher preparing a draft review of English homework. Evaluate only the response and assignment instructions supplied. Never invent rubric criteria. Give constructive feedback. Return strict JSON only.";
+      : action === "worksheet"
+        ? "You are an experienced English exam worksheet author. Create original, accurate, age-appropriate questions, verify that the answer key matches each question, and never claim generated questions are official exam items. Return clean Markdown, not JSON."
+        : "You are an assistant teacher preparing a draft review of English homework. Evaluate only the response and assignment instructions supplied. Never invent rubric criteria. Give constructive feedback. Return strict JSON only.";
 
   const { data: configs, error: configError } = await admin.rpc("ai_provider_config_list");
   if (configError) return respond({ error: "AI provider configuration is unavailable. Check Developer → AI providers." }, 503);
@@ -167,7 +189,7 @@ Deno.serve(async (req: Request) => {
         requestBody = {
           systemInstruction: { parts: [{ text: system }] },
           contents: messages.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-          generationConfig: { temperature: action === "tutor" ? 0.35 : 0.15, maxOutputTokens: 1400, ...(action !== "tutor" ? { responseMimeType: "application/json" } : {}) },
+          generationConfig: { temperature: action === "tutor" ? 0.35 : 0.15, maxOutputTokens: 1400, ...(action === "homework_review" || action === "study_plan" ? { responseMimeType: "application/json" } : {}) },
         };
       } else if (provider.provider === "anthropic") {
         endpoint = provider.base_url.replace(/\/$/,"") + "/messages";
@@ -177,7 +199,7 @@ Deno.serve(async (req: Request) => {
       } else {
         endpoint = provider.base_url.replace(/\/$/,"") + "/chat/completions";
         headers.Authorization = "Bearer " + secret;
-        requestBody = { model, messages: [{ role: "system", content: system }, ...messages], temperature: action === "tutor" ? 0.35 : 0.15, max_tokens: 1400, ...(action !== "tutor" ? { response_format: { type: "json_object" } } : {}) };
+        requestBody = { model, messages: [{ role: "system", content: system }, ...messages], temperature: action === "tutor" ? 0.35 : 0.15, max_tokens: 1400, ...(action === "homework_review" || action === "study_plan" ? { response_format: { type: "json_object" } } : {}) };
       }
 
       const response = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(requestBody), signal: controller.signal });
