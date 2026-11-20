@@ -45,7 +45,7 @@ Never expose API keys or secrets in client-side code. Keep development, staging 
 - In-app messaging is realtime within the website; WhatsApp, SMS and external email delivery are not connected.
 - Online lessons use external meeting URLs (for example, Zoom or Google Meet); this is not a native video-conferencing service.
 - AI token/latency/failure usage is recorded, but exact provider costs are not calculated until pricing data is configured.
-- PDF/Word question-bank extraction, payments, WhatsApp API, native live video, advanced proctoring, disaster recovery restore, full hosting/database cost controls and actual GitHub pull-request approval integration remain incomplete.
+- PDF/Word question-bank extraction, payments, WhatsApp API, native live video, advanced proctoring, disaster recovery restore and full hosting/database cost controls remain incomplete. GitHub pull-request listing, diff inspection and review submission are implemented, but the Developer must still connect a fine-grained GitHub token before the integration can be used.
 - A new Vercel build/deployment could not be run after the latest frontend changes because the deployment API daily limit was reached. The latest frontend branch therefore still needs a fresh CI/build verification before production release.
 
 Do not treat the existing production URL as proof that the latest feature branch is deployed.
@@ -108,5 +108,6 @@ The Developer Dashboard supports Qwen, Google Gemini, Groq, DeepSeek, OpenRouter
 - AI homework feedback and scores remain drafts until a teacher or assistant verifies and saves them.
 - AI usage logs include provider, model, success/failure, latency and token counts. Exact costs are not estimated without configured pricing data.
 - At least one provider must be enabled and have a valid API key. No real API keys are stored in Git.
+- GitHub PR review uses a separate fine-grained GitHub token stored in Supabase Vault. Grant repository Metadata read, Contents read and Pull requests read/write. The token is not committed to Git.
 - Custom endpoints must be public HTTPS OpenAI-compatible endpoints. A private computer's localhost endpoint is not reachable from the hosted Edge Function unless exposed through a secure public tunnel.
 - For local development, complete the local Supabase setup above and run `npm run functions:serve` with local credentials.
