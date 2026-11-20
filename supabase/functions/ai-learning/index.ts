@@ -264,7 +264,7 @@ Deno.serve(async (req: Request) => {
             answer: String(q.answer ?? "").slice(0, 10),
             explanation: String(q.explanation ?? "").slice(0, 1800),
             difficulty: String(q.difficulty ?? "mixed").slice(0, 20),
-          })).filter((q: any) => q.prompt);
+          })).filter((q: any) => q.prompt) : [];
           if (!questions.length) throw new Error("No questions were generated.");
           worksheet = { title: String(value.title ?? "English Practice Worksheet").slice(0, 180), instructions: String(value.instructions ?? "Choose the best answer for each question.").slice(0, 1000), passage: value.passage ? String(value.passage).slice(0, 7000) : null, questions };
         } catch { throw new Error("AI response could not be parsed as a worksheet. Please try again."); }
