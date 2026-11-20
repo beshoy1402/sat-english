@@ -47,6 +47,5 @@ Deno.serve(async (req: Request) => {
     actor_profile_id: actor.id, action: "account.password_reset", entity_type: "profile", entity_id: userId,
     after_data: { username: target.username, role: target.role, reset_by_role: actor.role },
   });
-  if (auditError) return respond({ error: "Password was changed, but the audit event could not be recorded. Contact the system administrator." }, 500);
-  return respond({ success: true, user: { id: target.id, username: target.username, role: target.role } });
+  return respond({ success: true, audit_warning: auditError ? "Password was changed, but the audit event could not be recorded." : null, user: { id: target.id, username: target.username, role: target.role } });
 });
