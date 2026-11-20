@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useState} from 'react';
 import {AnimatePresence,motion} from 'framer-motion';
-import {Activity,GitPullRequest,History,ArrowRight,BookOpen,CalendarDays,CheckCircle2,ClipboardList,Code2,Eye,GraduationCap,LayoutDashboard,LogOut,Menu,Palette,Plus,Search,Settings,ShieldCheck,Target,Users,X,Bell,MessageCircle,FileText,UserPlus,Copy,BrainCircuit} from 'lucide-react';
+import {Activity,GitPullRequest,History,ArrowRight,BookOpen,CalendarDays,CheckCircle2,ClipboardList,Code2,Download,Eye,GraduationCap,LayoutDashboard,LogOut,Menu,Palette,Plus,Search,Settings,ShieldCheck,Target,Users,X,Bell,MessageCircle,FileText,UserPlus,Copy,BrainCircuit} from 'lucide-react';
 import {supabase,isSupabaseConfigured,type AppRole,type Profile} from './lib/supabase';
 import LandingPage from './LandingPage';
 import AIProviderSettings from './AIProviderSettings';
