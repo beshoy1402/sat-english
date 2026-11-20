@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
-import {BookOpen,CalendarDays,Edit3,History,Plus,RefreshCw,Search,Trash2,X} from 'lucide-react';
+import {BookOpen,Edit3,History,Plus,RefreshCw,Search,Trash2,X} from 'lucide-react';
 import './gradebook.css';
 
 type Student={id:string;display_name:string;username:string|null};
@@ -54,7 +54,7 @@ export default function Gradebook({client,profile}:Props){
  return <section className="gradebook">
   <div className="gradebook-heading"><div><span>ACADEMIC PERFORMANCE</span><h2>Gradebook</h2><p>Record daily participation, attendance, homework, quizzes and exam scores.</p></div><button onClick={()=>void load()}><RefreshCw size={15}/> Refresh</button></div>
   {notice&&<div className="gradebook-notice">{notice}<button onClick={()=>setNotice('')}><X size={14}/></button></div>}
-  <div className="gradebook-student-bar"><label>Student<select value={selectedStudent} onChange={e=>{setSelectedStudent(e.target.value);reset();}}><option value="">Choose student</option>{students.map(s=><option key={s.id} value={s.id}>{s.display_name} {s.username?'(@'+s.username+')':''}</option>)}</select></label><div className="gradebook-stats"><div><b>{summary.count}</b><span>Entries</span></div><div><b>{summary.adjustments>0?'+':''}{summary.adjustments}</b><span>Adjustments</span></div><div><b>{summary.possible?Math.round(summary.earned/summary.possible*100)+'%':'—'}</b><span>Score average</span></div></div></div>
+  <div className="gradebook-student-bar"><label>Student<select value={selectedStudent} onChange={e=>{setSelectedStudent(e.target.value);setForm({...emptyForm,student_profile_id:e.target.value});setEditing(null);}}><option value="">Choose student</option>{students.map(s=><option key={s.id} value={s.id}>{s.display_name} {s.username?'(@'+s.username+')':''}</option>)}</select></label><div className="gradebook-stats"><div><b>{summary.count}</b><span>Entries</span></div><div><b>{summary.adjustments>0?'+':''}{summary.adjustments}</b><span>Adjustments</span></div><div><b>{summary.possible?Math.round(summary.earned/summary.possible*100)+'%':'—'}</b><span>Score average</span></div></div></div>
   <div className="gradebook-layout">
    <form className="gradebook-form" onSubmit={save}><h3>{editing?<Edit3 size={16}/>:<Plus size={16}/>} {editing?'Edit grade entry':'Add grade entry'}</h3>
     <label>Student<select required value={form.student_profile_id} onChange={e=>setForm({...form,student_profile_id:e.target.value})}><option value="">Select student</option>{students.map(s=><option key={s.id} value={s.id}>{s.display_name}</option>)}</select></label>
