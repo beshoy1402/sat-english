@@ -17,6 +17,7 @@ const catalog: { id: ProviderId; name: string; detail: string; placeholder: stri
 
 export default function AIProviderSettings({ client }: { client: any }) {
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
+  const [usage, setUsage] = useState<any>({ summary: { requests: 0, failures: 0, promptTokens: 0, completionTokens: 0, estimatedCostUsd: 0, pricedEntries: 0 }, rows: [] });
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [models, setModels] = useState<Record<string, string>>({});
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>({});
@@ -37,7 +38,8 @@ export default function AIProviderSettings({ client }: { client: any }) {
   const load = useCallback(async () => {
     setBusy('loading');
     try {
-      const data = await invoke({ action: 'list' });
+      const [data, usageData] = await Promise.all([invoke({ action: 'list' }), invoke({ action: 'usage' })]);
+      setUsage(usageData);
       const next: Record<string, ProviderConfig> = {};
       for (const row of data.providers ?? []) next[row.provider] = row;
       setConfigs(next);
@@ -91,6 +93,23 @@ export default function AIProviderSettings({ client }: { client: any }) {
         {row?.last_test_status && <small className="ai-last-test">{row.last_test_status}{row.last_tested_at ? ' · ' + new Date(row.last_tested_at).toLocaleString() : ''}</small>}
       </article>;
     })}</div>
+    <section className="ai-usage-panel">
+      <div className="ai-usage-heading"><div><small>AI OPERATIONS</small><h4>Usage and cost monitoring</h4><p>Latest 200 recorded AI requests across configured providers.</p></div><button type="button" onClick={() => void load()}><RefreshCw size={14}/> Refresh usage</button></div>
+      <div className="ai-usage-stats">
+        <div><span>Requests</span><b>{usage.summary?.requests ?? 0}</b></div>
+        <div><span>Failed requests</span><b>{usage.summary?.failures ?? 0}</b></div>
+        <div><span>Tokens processed</span><b>{(Number(usage.summary?.promptTokens ?? 0) + Number(usage.summary?.completionTokens ?? 0)).toLocaleString()}</b></div>
+        <div><span>Estimated AI cost</span><b>{usage.summary?.pricedEntries ? '<button className="icon-button" onClick={() => void load()} disabled={busy !== ''}><RefreshCw size={15}/> Refresh provider status</button><p>Lower priority numbers are tried first. Automatic failover becomes active when the AI request service is connected to this provider registry.</p></div>
+  </section>;
+}
+ + Number(usage.summary.estimatedCostUsd).toFixed(4) : 'Not priced'}</b></div>
+      </div>
+      <div className="ai-usage-table"><div className="ai-usage-row ai-usage-header"><span>Time</span><span>Feature</span><span>Provider / model</span><span>Status</span><span>Latency</span></div>
+        {(usage.rows ?? []).slice(0,20).map((row: any) => <div className="ai-usage-row" key={row.id}><span>{new Date(row.created_at).toLocaleString()}</span><span>{row.feature}</span><span>{row.provider} · {row.model}</span><span className={row.success ? 'ok' : 'failed'}>{row.success ? 'Success' : 'Failed'}</span><span>{row.latency_ms ? row.latency_ms + ' ms' : '—'}</span></div>)}
+        {!(usage.rows ?? []).length && <p>No AI requests have been recorded yet.</p>}
+      </div>
+      <small className="ai-usage-footnote">Token usage and latency are recorded. Exact cost remains unavailable until provider pricing is configured; no cost is guessed.</small>
+    </section>
     <div className="ai-footer-actions"><button className="icon-button" onClick={() => void load()} disabled={busy !== ''}><RefreshCw size={15}/> Refresh provider status</button><p>Lower priority numbers are tried first. Automatic failover becomes active when the AI request service is connected to this provider registry.</p></div>
   </section>;
 }
