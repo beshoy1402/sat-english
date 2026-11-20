@@ -69,7 +69,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
   const test = async (id: ProviderId) => {
     setBusy('test-' + id);
     try {
-      const result = await invoke({ action: 'test', provider: id });
+      const result = await invoke({ action: 'test', provider: id, baseUrl: baseUrls[id] ?? configs[id]?.base_url ?? '' });
       setMessage({ text: catalog.find(p => p.id === id)!.name + ': ' + result.status, error: result.status !== 'Connected' && !String(result.status).startsWith('Connected ·') });
       await load();
     } catch (error) { setMessage({ text: error instanceof Error ? error.message : 'Connection test failed.', error: true }); }
