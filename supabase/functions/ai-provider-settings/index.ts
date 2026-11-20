@@ -28,7 +28,7 @@ Deno.serve(async (req: Request) => {
   if (!url || !serviceKey || !authHeader) return respond({ error: "Server configuration or authorization missing" }, 500);
 
   const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
-  const token = authHeader.replace(/^Bearer\\s+/i, "");
+  const token = authHeader.replace(/^Bearer\s+/i, "");
   const { data: userData, error: userError } = await admin.auth.getUser(token);
   if (userError || !userData.user) return respond({ error: "Invalid session" }, 401);
 
