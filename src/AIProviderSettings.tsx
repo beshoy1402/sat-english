@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, Eye, EyeOff, KeyRound, RefreshCw, Save, ShieldCheck, Sparkles } from 'lucide-react';
 
-type ProviderId = 'qwen' | 'gemini' | 'groq' | 'deepseek' | 'openrouter';
+type ProviderId = 'qwen' | 'gemini' | 'groq' | 'deepseek' | 'openrouter' | 'openai' | 'anthropic' | 'meta_llama' | 'custom';
 type ProviderConfig = { provider: ProviderId; base_url: string; model: string; is_enabled: boolean; priority: number; key_configured: boolean; last_tested_at: string | null; last_test_status: string | null };
 const catalog: { id: ProviderId; name: string; detail: string; placeholder: string }[] = [
   { id: 'qwen', name: 'Qwen', detail: 'Alibaba Cloud · DashScope', placeholder: 'Qwen model ID (optional)' },
@@ -9,12 +9,17 @@ const catalog: { id: ProviderId; name: string; detail: string; placeholder: stri
   { id: 'groq', name: 'Groq', detail: 'Fast inference API', placeholder: 'Groq model ID (optional)' },
   { id: 'deepseek', name: 'DeepSeek', detail: 'DeepSeek API', placeholder: 'DeepSeek model ID (optional)' },
   { id: 'openrouter', name: 'OpenRouter', detail: 'Multi-provider model routing', placeholder: 'Provider/model ID (optional)' },
+  { id: 'openai', name: 'OpenAI', detail: 'OpenAI API', placeholder: 'OpenAI model ID (optional)' },
+  { id: 'anthropic', name: 'Anthropic Claude', detail: 'Anthropic Messages API', placeholder: 'Claude model ID (optional)' },
+  { id: 'meta_llama', name: 'Meta Llama', detail: 'Together AI hosted Llama models', placeholder: 'meta-llama model ID' },
+  { id: 'custom', name: 'Custom compatible API', detail: 'Public HTTPS OpenAI-compatible endpoint', placeholder: 'Model ID' },
 ];
 
 export default function AIProviderSettings({ client }: { client: any }) {
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [models, setModels] = useState<Record<string, string>>({});
+  const [baseUrls, setBaseUrls] = useState<Record<string, string>>({});
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [priority, setPriority] = useState<Record<string, number>>({});
   const [visible, setVisible] = useState<Record<string, boolean>>({});
@@ -37,6 +42,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
       for (const row of data.providers ?? []) next[row.provider] = row;
       setConfigs(next);
       setModels(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.model ?? ''])));
+      setBaseUrls(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.base_url ?? ''])));
       setEnabled(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.is_enabled])));
       setPriority(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.priority])));
       setMessage(null);
@@ -50,7 +56,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
   const save = async (id: ProviderId) => {
     setBusy(id);
     try {
-      await invoke({ action: 'save', provider: id, apiKey: keys[id] ?? '', model: models[id] ?? '', enabled: Boolean(enabled[id]), priority: Number(priority[id] ?? 100) });
+      await invoke({ action: 'save', provider: id, apiKey: keys[id] ?? '', baseUrl: baseUrls[id] ?? configs[id]?.base_url ?? '', model: models[id] ?? '', enabled: Boolean(enabled[id]), priority: Number(priority[id] ?? 100) });
       setKeys(current => ({ ...current, [id]: '' }));
       setMessage({ text: catalog.find(p => p.id === id)!.name + ' settings saved securely.' });
       await load();
@@ -78,7 +84,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
       return <article className="ai-provider-card" key={provider.id}>
         <div className="ai-provider-top"><div><span className="ai-provider-name">{provider.name}</span><small>{provider.detail}</small></div><span className={row?.key_configured ? 'ai-status connected' : 'ai-status'}>{row?.key_configured ? 'Key saved' : 'Not connected'}</span></div>
         <label>API key<div className="ai-key-field"><KeyRound size={16}/><input type={visible[provider.id] ? 'text' : 'password'} autoComplete="new-password" spellCheck={false} placeholder={row?.key_configured ? 'Saved securely · enter a new key to rotate' : 'Paste API key'} value={keys[provider.id] ?? ''} onChange={e => setKeys(current => ({ ...current, [provider.id]: e.target.value }))}/><button type="button" onClick={() => setVisible(current => ({ ...current, [provider.id]: !current[provider.id] }))} aria-label={visible[provider.id] ? 'Hide API key' : 'Show API key'}>{visible[provider.id] ? <EyeOff size={16}/> : <Eye size={16}/>}</button></div></label>
-        <label>Preferred model ID<input value={models[provider.id] ?? ''} onChange={e => setModels(current => ({ ...current, [provider.id]: e.target.value }))} placeholder={provider.placeholder}/></label>
+        {provider.id === 'custom' && <label>HTTPS API base URL<input type="url" required value={baseUrls[provider.id] ?? ''} onChange={e => setBaseUrls(current => ({ ...current, [provider.id]: e.target.value }))} placeholder="https://your-provider.example/v1"/></label>}\n        <label>Preferred model ID<input value={models[provider.id] ?? ''} onChange={e => setModels(current => ({ ...current, [provider.id]: e.target.value }))} placeholder={provider.placeholder}/></label>
         <div className="ai-provider-options"><label className="ai-toggle"><input type="checkbox" checked={Boolean(enabled[provider.id])} onChange={e => setEnabled(current => ({ ...current, [provider.id]: e.target.checked }))}/> Enable provider for routing</label><label>Priority<input type="number" min="1" max="999" value={priority[provider.id] ?? 100} onChange={e => setPriority(current => ({ ...current, [provider.id]: Number(e.target.value) }))}/></label></div>
         <div className="ai-provider-actions"><button className="small-primary" disabled={isBusy || (!keys[provider.id] && !row?.key_configured)} onClick={() => void save(provider.id)}><Save size={15}/>{isBusy && busy === provider.id ? 'Saving…' : 'Save settings'}</button><button className="icon-button" disabled={isBusy || !row?.key_configured} onClick={() => void test(provider.id)}><Activity size={15}/> Test connection</button></div>
         {row?.last_test_status && <small className="ai-last-test">{row.last_test_status}{row.last_tested_at ? ' · ' + new Date(row.last_tested_at).toLocaleString() : ''}</small>}
