@@ -32,3 +32,43 @@ Never expose API keys or secrets in client-side code. Keep development, staging 
 ## Status
 
 This is the initial frontend foundation only. Authentication, student and parent portals, staff dashboards, exam engine, AI workflows, payments, messaging, monitoring and production deployment remain future milestones.
+
+
+## Local backend development (no additional hosted database cost)
+
+The branch `feature/shared-staff-dashboards` uses a local Supabase stack for backend development. Docker Desktop and the Supabase CLI are required. This runs Postgres, Auth, and the Supabase APIs on your own computer; it does not create or bill a second hosted Supabase project.
+
+### One-time setup
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started).
+2. Start Docker Desktop.
+3. In this repository, install dependencies and authenticate the Supabase CLI:
+   ```bash
+   npm install
+   supabase login
+   supabase link --project-ref lewxfskcxceuifrtczqz
+   ```
+4. Pull the existing database schema into local migration files:
+   ```bash
+   npm run db:pull
+   ```
+   This reads the existing schema to generate local migration files. It does not apply schema changes to the hosted database. The CLI may ask for the hosted database password; use the database password from the Supabase project settings. Never commit that password.
+5. Start the local Supabase services and apply the pulled migrations to the local database:
+   ```bash
+   npm run db:start
+   npm run db:reset
+   npm run db:status
+   ```
+6. Copy the local `API_URL` and `ANON_KEY` values from `supabase status -o env` into a new `.env.local` file, using `.env.local.example` as the template. Do not use the hosted production URL or key.
+7. Run the app:
+   ```bash
+   npm run dev
+   ```
+
+### Safety rules
+
+- Hosted Vercel preview for this branch is set to `VITE_APP_MODE=preview-safe`, which disables Supabase initialization. It must not connect to the production database.
+- Local dashboard development uses only `http://127.0.0.1:54321` and the local anon key.
+- Use fake accounts and fictional student records only. Do not copy real student data into local development.
+- Do not run `supabase db push`, hosted migrations, or production deploys during this development phase.
+- Stop the local services when finished with `npm run db:stop`.
