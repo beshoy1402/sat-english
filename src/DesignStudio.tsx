@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
-import {ArrowDown,ArrowUp,CheckCircle2,Clock3,Eye,FileImage,History,Monitor,Palette,Plus,RefreshCw,Send,Smartphone,Tablet,Upload,X} from 'lucide-react';
+import {ArrowDown,ArrowUp,CheckCircle2,Eye,History,Monitor,Palette,Plus,RefreshCw,Send,Smartphone,Tablet,Upload,X} from 'lucide-react';
 import './design-studio.css';
 
 type Row=Record<string,any>;
@@ -30,7 +30,7 @@ export default function DesignStudio({client,profile}:Props){
   if(d.content?.hero?.image_path){const {data}=await client.storage.from('site-design-assets').createSignedUrl(d.content.hero.image_path,3600);if(data?.signedUrl)setImagePreview(data.signedUrl);}
  };
  const update=(path:string,value:any)=>{
-  setContent((old:any)=>{const next=clone(old);const parts=path.split('.');let node=next;for(const part of parts.slice(0,-1))node=node[part]??(node[part]={});node[parts.at(-1)]=value;return next;});
+  setContent((old:any)=>{const next=clone(old);const parts=path.split('.');let node=next;for(const part of parts.slice(0,-1))node=node[part]??(node[part]={});const last=parts[parts.length-1];if(last)node[last]=value;return next;});
  };
  const createDraft=async()=>{
   setBusy(true);const {data,error}=await client.from('site_design_drafts').insert({name:'New homepage concept',content:defaults(),created_by:profile.id}).select('*').single();
