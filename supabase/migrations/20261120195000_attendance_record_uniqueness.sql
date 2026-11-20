@@ -1,0 +1,1 @@
+create unique index if not exists attendance_records_session_student_uidx on public.attendance_records(session_id, student_profile_id);
