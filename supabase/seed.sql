@@ -1,0 +1,4 @@
+-- Local development only.
+-- Do not put real student, parent, or staff data in this file.
+-- Create fake local accounts through the local Supabase Auth dashboard or
+-- the local Auth admin API after the schema has been pulled into migrations.
