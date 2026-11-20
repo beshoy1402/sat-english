@@ -19,7 +19,7 @@ const safeCustomUrl = (raw: string) => {
     const value = new URL(raw);
     const host = value.hostname.toLowerCase();
     if (value.protocol !== "https:" || value.username || value.password || value.search || value.hash) return false;
-    if (host === "localhost" || host.endsWith(".local") || host === "::1" || /^(127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|169\\.254\\.)/.test(host)) return false;
+    if (host === "localhost" || host.endsWith(".local") || host === "::1" || /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|169\.254\.)/.test(host)) return false;
     return true;
   } catch { return false; }
 };
@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
   const provider = body.provider as Provider;
   if (!provider || !(provider in providers)) return respond({ error: "Choose a supported AI provider." }, 400);
   const config = providers[provider];
-  const baseUrl = provider === "custom" ? (body.baseUrl ?? "").trim().replace(/\\/$/, "") : config.baseUrl;
+  const baseUrl = provider === "custom" ? (body.baseUrl ?? "").trim().replace(/\/$/, "") : config.baseUrl;
   if (provider === "custom" && !safeCustomUrl(baseUrl)) return respond({ error: "Custom endpoints must be public HTTPS URLs. Local and private network addresses are not allowed." }, 400);
 
   if (action === "save") {
