@@ -80,7 +80,7 @@ export default function App(){
  {active==='attendance'&&isStaff&&<AttendanceManager client={supabase} profile={profile}/>}
  {active==='attendance'&&(profile.role==='student'||profile.role==='parent')&&<AttendanceHistory client={supabase} profile={profile}/>}
  {active==='exams'&&(isStaff||profile.role==='student')&&<ExamCenter client={supabase} profile={profile}/>}
- {active==='questions'&&isStaff&&<QuestionBank client={supabase} profile={profile}/>}
+ {active==='questions'&&isStaff&&<QuestionBank client={supabase}/>}
  {active==='aiTutor'&&profile.role==='student'&&<AITutor client={supabase}/>}
  {active==='studyPlan'&&(profile.role==='student'||profile.role==='parent')&&<StudyPlanCenter client={supabase} profile={profile}/>}
  {active==='github'&&profile.role==='developer'&&<GitHubPullRequests client={supabase}/>}
