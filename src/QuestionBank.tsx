@@ -10,7 +10,7 @@ export default function QuestionBank({client,profile}:{client:any;profile:{id:st
  const load=useCallback(async()=>{
   setBusy(true);const [q,e]=await Promise.all([
    client.rpc('staff_list_question_bank_items',{p_exam_program:programFilter==='all'?null:programFilter}),
-   client.from('exams').select('id,title,exam_program,status').order('created_at',{ascending:false})
+   client.from('exams').select('id,title,exam_program,status').eq('status','draft').order('created_at',{ascending:false})
   ]);
   if(q.error||e.error){setNotice(q.error?.message||e.error?.message||'Unable to load question bank.');setBusy(false);return;}
   setItems(q.data??[]);setExams(e.data??[]);if(!examId&&e.data?.length)setExamId(e.data[0].id);setBusy(false);
