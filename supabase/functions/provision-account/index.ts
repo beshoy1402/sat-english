@@ -32,7 +32,8 @@ Deno.serve(async (req: Request) => {
   const displayName = (body.display_name ?? "").trim();
   const password = body.password ?? "";
   const role = body.role ?? "";
-  const allowedRoles = ["student", "parent", "teacher", "assistant"];
+  const allowedRoles = ["student", "parent", "teacher", "assistant", "developer", "designer"];
+  if (["developer", "designer"].includes(role) && actor.role !== "admin") return respond({ error: "Only an Admin can create Developer or Designer accounts." }, 403);
   if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(username) || !displayName || password.length < 8 || !allowedRoles.includes(role)) {
     return respond({ error: "Use a 3–30 character username, a display name, a password of at least 8 characters, and an allowed role." }, 400);
   }
