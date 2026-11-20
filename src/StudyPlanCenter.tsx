@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useState} from 'react';
-import {CalendarDays,CheckCircle2,Clock3,RefreshCw,Sparkles,Target,Users} from 'lucide-react';
+import {CalendarDays,Clock3,RefreshCw,Sparkles,Target,Users} from 'lucide-react';
 import './study-plan.css';
 type Row=Record<string,any>;
 type Profile={id:string;role:string};
