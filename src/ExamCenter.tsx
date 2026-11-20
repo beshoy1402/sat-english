@@ -17,7 +17,7 @@ const fmt=(ms:number)=>{const sec=Math.max(0,Math.floor(ms/1000));return String(
 
 export default function ExamCenter({client,profile}:Props){
  const staff=['admin','teacher','assistant'].includes(profile.role);
- const [exams,setExams]=useState<Exam[]>([]),[students,setStudents]=useState<Person[]>([]),[assignments,setAssignments]=useState<Record<string,string[]>>([]);
+ const [exams,setExams]=useState<Exam[]>([]),[students,setStudents]=useState<Person[]>([]),[assignments,setAssignments]=useState<Record<string,string[]>>({});
  const [attempts,setAttempts]=useState<Attempt[]>([]),[questions,setQuestions]=useState<Question[]>([]);
  const [activeAttempt,setActiveAttempt]=useState<Attempt|null>(null),[answers,setAnswers]=useState<Record<string,any>>({});
  const [result,setResult]=useState<Result|null>(null),[reviewAttempt,setReviewAttempt]=useState<Attempt|null>(null),[reviewResult,setReviewResult]=useState<Result|null>(null);
@@ -98,7 +98,6 @@ export default function ExamCenter({client,profile}:Props){
   setNotice(error?.message||'Manual review saved and final result calculated.');if(!error){setReviewAttempt(null);setReviewResult(null);await load();}setBusy(false);
  };
  const studentName=(id:string)=>students.find(s=>s.id===id)?.display_name||'Student';
- const assignedStudents=selectedExam?assignments[selectedExam]??[]:[];
  const q=questions[questionIndex];
  const choiceList=Array.isArray(q?.choices)?q.choices:[];
  if(!staff){
