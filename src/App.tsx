@@ -21,6 +21,7 @@ import MessagingCenter from './MessagingCenter';
 import GitHubPullRequests from './GitHubPullRequests';
 import DataExportCenter from './DataExportCenter';
 import GroupCenter from './GroupCenter';
+import QuestionBank from './QuestionBank';
 
 const roles:Record<AppRole,string>={admin:'Administrator',teacher:'Teacher',assistant:'Assistant',developer:'Developer',designer:'Designer',student:'Student',parent:'Parent'};
 const staffNav:[string,string,any][] = [
@@ -79,7 +80,7 @@ export default function App(){
  {active==='attendance'&&isStaff&&<AttendanceManager client={supabase} profile={profile}/>}
  {active==='attendance'&&(profile.role==='student'||profile.role==='parent')&&<AttendanceHistory client={supabase} profile={profile}/>}
  {active==='exams'&&(isStaff||profile.role==='student')&&<ExamCenter client={supabase} profile={profile}/>}
- {active==='questions'&&isStaff&&<ExamCenter client={supabase} profile={profile}/>}
+ {active==='questions'&&isStaff&&<QuestionBank client={supabase} profile={profile}/>}
  {active==='aiTutor'&&profile.role==='student'&&<AITutor client={supabase}/>}
  {active==='studyPlan'&&(profile.role==='student'||profile.role==='parent')&&<StudyPlanCenter client={supabase} profile={profile}/>}
  {active==='github'&&profile.role==='developer'&&<GitHubPullRequests client={supabase}/>}
