@@ -18,7 +18,7 @@ export default function DataExportCenter({client}:{client:any}){
   try{
    let data:Row[]=[];
    if(dataset==='students'){
-    const r=await client.from('profiles').select('id,display_name,username,email,role,is_active,created_at').eq('role','student').order('display_name');if(r.error)throw r.error;data=r.data??[];
+    const r=await client.from('profiles').select('id,display_name,username,role,is_active,created_at').eq('role','student').order('display_name');if(r.error)throw r.error;data=r.data??[];
    }else if(dataset==='grades'){
     const [g,p]=await Promise.all([client.from('grade_entries').select('*').order('grade_date',{ascending:false}).limit(10000),client.from('profiles').select('id,display_name,username').eq('role','student')]);if(g.error||p.error)throw g.error||p.error;data=(g.data??[]).map((r:Row)=>({...r,student_name:p.data?.find((x:Row)=>x.id===r.student_profile_id)?.display_name||''}));
    }else if(dataset==='attendance'){
