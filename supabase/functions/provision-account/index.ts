@@ -37,7 +37,17 @@ Deno.serve(async (req: Request) => {
     return respond({ error: "Use a 3–30 character username, a display name, a password of at least 8 characters, and an allowed role." }, 400);
   }
 
-  let linkedStudentId: string | null = null;\n  if (role === "parent") {\n    const candidate = body.linked_student_profile_id ?? "";\n    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate)) return respond({ error: "Choose the student this parent account should be linked to." }, 400);\n    const { data: student } = await service.from("profiles").select("id").eq("id", candidate).eq("role", "student").eq("is_active", true).maybeSingle();\n    if (!student) return respond({ error: "The selected student account is not active or does not exist." }, 400);\n    linkedStudentId = student.id;\n  } else if (body.linked_student_profile_id) {\n    return respond({ error: "Only parent accounts can be linked to a student during creation." }, 400);\n  }\n\n  const email = username + "@accounts.northstar.invalid";
+  let linkedStudentId: string | null = null;
+  if (role === "parent") {
+    const candidate = body.linked_student_profile_id ?? "";
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate)) return respond({ error: "Choose the student this parent account should be linked to." }, 400);
+    const { data: student } = await service.from("profiles").select("id").eq("id", candidate).eq("role", "student").eq("is_active", true).maybeSingle();
+    if (!student) return respond({ error: "The selected student account is not active or does not exist." }, 400);
+    linkedStudentId = student.id;
+  } else if (body.linked_student_profile_id) {
+    return respond({ error: "Only parent accounts can be linked to a student during creation." }, 400);
+  }
+\n  const email = username + "@accounts.northstar.invalid";
   const { data: created, error: createError } = await service.auth.admin.createUser({
     email, password, email_confirm: true, user_metadata: { display_name: displayName }, app_metadata: { role },
   });
@@ -47,7 +57,14 @@ Deno.serve(async (req: Request) => {
     await service.auth.admin.deleteUser(created.user.id);
     return respond({ error: "Profile setup failed; account creation was rolled back." }, 500);
   }
-  if (linkedStudentId) {\n    const { error: linkError } = await service.from("parent_student_links").insert({ parent_profile_id: created.user.id, student_profile_id: linkedStudentId, relationship: "parent" });\n    if (linkError) {\n      await service.auth.admin.deleteUser(created.user.id);\n      return respond({ error: "Parent account was rolled back because the student link could not be saved." }, 500);\n    }\n  }\n  const { error: auditError } = await service.from("audit_events").insert({
+  if (linkedStudentId) {
+    const { error: linkError } = await service.from("parent_student_links").insert({ parent_profile_id: created.user.id, student_profile_id: linkedStudentId, relationship: "parent" });
+    if (linkError) {
+      await service.auth.admin.deleteUser(created.user.id);
+      return respond({ error: "Parent account was rolled back because the student link could not be saved." }, 500);
+    }
+  }
+  const { error: auditError } = await service.from("audit_events").insert({
     actor_profile_id: actor.id, action: "account.created", entity_type: "profile", entity_id: created.user.id,
     after_data: { username, display_name: displayName, role, linked_student_profile_id: linkedStudentId },
   });
