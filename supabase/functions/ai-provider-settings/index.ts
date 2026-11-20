@@ -57,8 +57,23 @@ Deno.serve(async (req: Request) => {
 
   if (action === "list") {
     const { data, error } = await admin.rpc("ai_provider_config_list");
-    if (error) return respond({ error: "AI provider settings are not initialized. Apply the local AI-provider migration first." }, 503);
+    if (error) return respond({ error: "AI provider settings are not initialized. Apply the AI-provider migration first." }, 503);
     return respond({ providers: data ?? [] });
+  }
+
+  if (action === "usage") {
+    const { data, error } = await admin.from("ai_usage_logs").select("id,feature,provider,model,success,error_message,latency_ms,prompt_tokens,completion_tokens,estimated_cost_usd,created_at").order("created_at", { ascending: false }).limit(200);
+    if (error) return respond({ error: "Could not load AI usage history." }, 503);
+    const rows = data ?? [];
+    const summary = rows.reduce((acc: any, row: any) => {
+      acc.requests += 1;
+      if (!row.success) acc.failures += 1;
+      acc.promptTokens += Number(row.prompt_tokens ?? 0);
+      acc.completionTokens += Number(row.completion_tokens ?? 0);
+      if (row.estimated_cost_usd !== null) acc.estimatedCostUsd += Number(row.estimated_cost_usd);
+      return acc;
+    }, { requests: 0, failures: 0, promptTokens: 0, completionTokens: 0, estimatedCostUsd: 0 });
+    return respond({ summary, rows });
   }
 
   const provider = body.provider as Provider;
