@@ -93,7 +93,6 @@ Deno.serve(async (req: Request) => {
 
   let messages: ChatMessage[] = [];
   let submission: any = null;
-  let assignment: any = null;
   if (action === "tutor") {
     const incoming = Array.isArray(body.messages) ? body.messages : [];
     if (!incoming.length || incoming.length > 20) return respond({ error: "Send between 1 and 20 recent messages." }, 400);
@@ -109,7 +108,6 @@ Deno.serve(async (req: Request) => {
     submission = sub;
     const { data: assn, error: assnError } = await admin.from("assignments").select("id,title,instructions,exam_program").eq("id", sub.assignment_id).single();
     if (assnError || !assn) return respond({ error: "Homework assignment not found." }, 404);
-    assignment = assn;
     if (!String(sub.answer_text ?? "").trim()) return respond({ error: "This submission contains files only. A teacher must open the files and provide text for AI review." }, 400);
     messages = [{ role: "user", content: [
       "Assignment: " + assn.title,
