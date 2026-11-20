@@ -12,17 +12,15 @@ export default function AttendanceManager({client,profile}:Props){
  const [sessions,setSessions]=useState<Session[]>([]),[students,setStudents]=useState<Person[]>([]);
  const [selected,setSelected]=useState<string>(''),[marks,setMarks]=useState<Record<string,Mark>>({});
  const [search,setSearch]=useState(''),[title,setTitle]=useState(''),[startsAt,setStartsAt]=useState(new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16));
- const [loading,setLoading]=useState(false),[saving,setSaving]=useState(false),[notice,setNotice]=useState('');
+ const [saving,setSaving]=useState(false),[notice,setNotice]=useState('');
  const load=useCallback(async()=>{
-  setLoading(true);
   const [s,p]=await Promise.all([
    client.from('attendance_sessions').select('*').order('starts_at',{ascending:false}).limit(100),
    client.from('profiles').select('id,display_name,username').eq('role','student').eq('is_active',true).order('display_name')
   ]);
-  if(s.error||p.error){setNotice(s.error?.message||p.error?.message||'Unable to load attendance.');setLoading(false);return;}
+  if(s.error||p.error){setNotice(s.error?.message||p.error?.message||'Unable to load attendance.');return;}
   setSessions(s.data??[]);setStudents(p.data??[]);
   if(!selected&&s.data?.length)setSelected(s.data[0].id);
-  setLoading(false);
  },[client,selected]);
  useEffect(()=>{void load();},[load]);
  useEffect(()=>{
