@@ -60,7 +60,13 @@ The branch `feature/shared-staff-dashboards` uses a local Supabase stack for bac
    npm run db:status
    ```
 6. Copy the local `API_URL` and `ANON_KEY` values from `supabase status -o env` into a new `.env.local` file, using `.env.local.example` as the template. Do not use the hosted production URL or key.
-7. Run the app:
+7. In a second terminal, copy `supabase/.env.local.example` to `supabase/.env.local` and paste the local `API_URL` and `SERVICE_ROLE_KEY` from `supabase status -o env`. Start the local Edge Functions:
+   ```bash
+   npm run functions:serve
+   ```
+   Keep this terminal running while testing account creation and deletion.
+8. Run the app:
+
    ```bash
    npm run dev
    ```
