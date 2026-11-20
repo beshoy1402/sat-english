@@ -15,6 +15,7 @@ import CourseCenter from './CourseCenter';
 import NotificationCenter from './NotificationCenter';
 import ParentLinkManager from './ParentLinkManager';
 import AITutor from './AITutor';
+import AttendanceHistory from './AttendanceHistory';
 
 const roles:Record<AppRole,string>={admin:'Administrator',teacher:'Teacher',assistant:'Assistant',developer:'Developer',designer:'Designer',student:'Student',parent:'Parent'};
 const staffNav:[string,string,any][] = [
@@ -71,6 +72,7 @@ export default function App(){
  {active==='staff'&&isStaff&&<section className="panel full-panel"><div className="panel-heading"><div><small>ACCESS MANAGEMENT</small><h3>Team and student accounts</h3><p>Create role-based accounts. Passwords are shown once after creation.</p></div><button className="small-primary" onClick={()=>{setShowTemp(null);setModal('account')}}><Plus size={16}/> Create account</button></div><SearchLine value={search} onChange={setSearch}/><PeopleRows rows={filtered} canDelete={isStaff} onDelete={deleteAccount} currentUserId={profile.id}/></section>}
  {active==='students'&&<section className="panel full-panel"><div className="panel-heading"><div><small>PEOPLE</small><h3>Students and parents</h3><p>Student and parent accounts currently in the platform.</p></div><button className="small-primary" onClick={()=>{setShowTemp(null);setModal('account')}}><Plus size={16}/> Create account</button></div><SearchLine value={search} onChange={setSearch}/><PeopleRows rows={filtered}/><ParentLinkManager client={supabase}/></section>
  {active==='attendance'&&isStaff&&<AttendanceManager client={supabase} profile={profile}/>}
+ {active==='attendance'&&(profile.role==='student'||profile.role==='parent')&&<AttendanceHistory client={supabase} profile={profile}/>}
  {active==='exams'&&(isStaff||profile.role==='student')&&<ExamCenter client={supabase} profile={profile}/>}
  {active==='aiTutor'&&profile.role==='student'&&<AITutor client={supabase}/>}
  {active==='notifications'&&<NotificationCenter client={supabase} profile={profile}/>}
