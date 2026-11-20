@@ -6,3 +6,5 @@ dist
 !.env.local.example
 .vercel
 .DS_Store
+
+supabase/.env.local
