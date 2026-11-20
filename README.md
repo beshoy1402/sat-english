@@ -93,7 +93,7 @@ The branch `feature/shared-staff-dashboards` uses a local Supabase stack for bac
 - Hosted Vercel preview for this branch is set to `VITE_APP_MODE=preview-safe`, which disables Supabase initialization. It must not connect to the production database.
 - Local dashboard development uses only `http://127.0.0.1:54321` and the local anon key.
 - Use fake accounts and fictional student records only. Do not copy real student data into local development.
-- Do not run `supabase db push`, hosted migrations, or production deploys during this development phase.
+- Do not run `supabase db push` or `supabase db reset --linked` from your local machine. Those commands can modify or destroy the linked hosted database. Production schema changes must go through reviewed migrations; never reset the production database.
 - Stop the local services when finished with `npm run db:stop`.
 
 
