@@ -77,19 +77,19 @@ Deno.serve(async (req: Request) => {
   const { data: actor, error: actorError } = await admin.from("profiles").select("id,role,is_active").eq("id", authData.user.id).single();
   if (actorError || !actor?.is_active) return respond({ error: "Your account is inactive or unavailable." }, 403);
 
-  let body: { action?: string; messages?: ChatMessage[]; submission_id?: string };
+  let body: { action?: string; messages?: ChatMessage[]; submission_id?: string; exam_program?: string; target_date?: string; current_score?: number; target_score?: number; weekly_hours?: number; weak_topics?: string[] };
   try { body = await req.json(); } catch { return respond({ error: "Invalid JSON request." }, 400); }
   const action = body.action;
-  if (action !== "tutor" && action !== "homework_review") return respond({ error: "Unsupported AI action." }, 400);
+  if (action !== "tutor" && action !== "homework_review" && action !== "study_plan") return respond({ error: "Unsupported AI action." }, 400);
 
-  if (action === "tutor" && actor.role !== "student") return respond({ error: "The AI tutor is available to student accounts." }, 403);
+  if ((action === "tutor" || action === "study_plan") && actor.role !== "student") return respond({ error: "This learning feature is available to student accounts." }, 403);
   if (action === "homework_review" && !["admin", "teacher", "assistant"].includes(actor.role)) return respond({ error: "Only teaching staff can request an AI homework draft." }, 403);
 
   const { count: recentCount, error: rateError } = await admin.from("ai_usage_logs")
     .select("id", { count: "exact", head: true })
     .eq("user_profile_id", actor.id)
     .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
-  if (!rateError && (recentCount ?? 0) >= (action === "tutor" ? 50 : 20)) return respond({ error: "You've reached the hourly AI request limit. Please try again later." }, 429);
+  if (!rateError && (recentCount ?? 0) >= (action === "homework_review" ? 20 : action === "study_plan" ? 8 : 50)) return respond({ error: "You've reached the hourly AI request limit. Please try again later." }, 429);
 
   let messages: ChatMessage[] = [];
   let submission: any = null;
@@ -102,7 +102,7 @@ Deno.serve(async (req: Request) => {
       content: String(m.content ?? "").slice(0, 6000),
     })).filter(m => m.content.trim());
     if (!messages.length) return respond({ error: "Message content is required." }, 400);
-  } else {
+  } else if (action === "homework_review") {
     if (!body.submission_id) return respond({ error: "Submission ID is required." }, 400);
     const { data: sub, error: subError } = await admin.from("submissions").select("*").eq("id", body.submission_id).single();
     if (subError || !sub) return respond({ error: "Homework submission not found." }, 404);
@@ -119,11 +119,30 @@ Deno.serve(async (req: Request) => {
       "Review the response for clarity, grammar, vocabulary, organization, task completion and accuracy. Be constructive and age-appropriate.",
       "Return only valid JSON with keys score_suggestion (0-100), feedback_suggestion (string), strengths (string array), improvements (string array). The score is only a suggested percentage, not a final grade.",
     ].join("\n\n") }];
+  } else {
+    const program = String(body.exam_program ?? "");
+    if (!["SAT English", "EST English", "ACT English"].includes(program)) return respond({ error: "Choose SAT English, EST English or ACT English." }, 400);
+    const hours = Number(body.weekly_hours ?? 5);
+    if (!Number.isFinite(hours) || hours < 1 || hours > 80) return respond({ error: "Weekly study hours must be between 1 and 80." }, 400);
+    const weakTopics = Array.isArray(body.weak_topics) ? body.weak_topics.slice(0, 12).map(String) : [];
+    messages = [{ role: "user", content: [
+      "Create a realistic personal English exam preparation plan.",
+      "Exam: " + program,
+      "Target date: " + (body.target_date || "Not specified"),
+      "Current score: " + (body.current_score ?? "Not specified"),
+      "Target score: " + (body.target_score ?? "Not specified"),
+      "Available study hours each week: " + hours,
+      "Topics to improve: " + (weakTopics.join(", ") || "Create a balanced plan"),
+      "Create a practical weekly schedule with review, skill practice, timed questions and checkpoints.",
+      "Return only valid JSON with keys overview, weekly_schedule (array of {day, focus, activities:[{title,description,duration_minutes}]}), milestones (array of {title,due_in_weeks,description}), and tips (string array).",
+    ].join("\n\n") }];
   }
 
   const system = action === "tutor"
     ? "You are a patient, precise English exam tutor for SAT, EST and ACT English. Help the student understand reading comprehension, grammar, rhetorical skills, vocabulary and writing. Explain step by step, ask guiding questions when useful, correct misconceptions kindly, and provide short practice questions. Do not claim to know official exam answers unless the student provides the question. Keep answers focused on English learning."
-    : "You are an assistant teacher preparing a draft review of English homework. Evaluate only the response and assignment instructions supplied. Never invent rubric criteria. Give constructive feedback. Return strict JSON only.";
+    : action === "study_plan"
+      ? "You are an expert English exam-preparation coach. Create achievable, structured plans with spaced review, skill practice and timed checkpoints. Return strict JSON only."
+      : "You are an assistant teacher preparing a draft review of English homework. Evaluate only the response and assignment instructions supplied. Never invent rubric criteria. Give constructive feedback. Return strict JSON only.";
 
   const { data: configs, error: configError } = await admin.rpc("ai_provider_config_list");
   if (configError) return respond({ error: "AI provider configuration is unavailable. Check Developer → AI providers." }, 503);
@@ -150,7 +169,7 @@ Deno.serve(async (req: Request) => {
         requestBody = {
           systemInstruction: { parts: [{ text: system }] },
           contents: messages.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-          generationConfig: { temperature: action === "tutor" ? 0.35 : 0.15, maxOutputTokens: 1400, ...(action === "homework_review" ? { responseMimeType: "application/json" } : {}) },
+          generationConfig: { temperature: action === "tutor" ? 0.35 : 0.15, maxOutputTokens: 1400, ...(action !== "tutor" ? { responseMimeType: "application/json" } : {}) },
         };
       } else if (provider.provider === "anthropic") {
         endpoint = provider.base_url.replace(/\/$/,"") + "/messages";
@@ -160,7 +179,7 @@ Deno.serve(async (req: Request) => {
       } else {
         endpoint = provider.base_url.replace(/\/$/,"") + "/chat/completions";
         headers.Authorization = "Bearer " + secret;
-        requestBody = { model, messages: [{ role: "system", content: system }, ...messages], temperature: action === "tutor" ? 0.35 : 0.15, max_tokens: 1400, ...(action === "homework_review" ? { response_format: { type: "json_object" } } : {}) };
+        requestBody = { model, messages: [{ role: "system", content: system }, ...messages], temperature: action === "tutor" ? 0.35 : 0.15, max_tokens: 1400, ...(action !== "tutor" ? { response_format: { type: "json_object" } } : {}) };
       }
 
       const response = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(requestBody), signal: controller.signal });
@@ -186,6 +205,36 @@ Deno.serve(async (req: Request) => {
         }, { onConflict: "submission_id" }).select("*").single();
         if (saveError) throw new Error("Could not save the AI review draft.");
         return respond({ success: true, feature: action, provider: provider.provider, model, usage, draft: saved, requires_teacher_approval: true });
+      }
+      if (action === "study_plan") {
+        let plan: any;
+        try {
+          const cleaned = content.replace(/^\`\`\`(?:json)?\\s*/i, "").replace(/\\s*\`\`\`$/, "").trim();
+          const value = JSON.parse(cleaned);
+          plan = {
+            overview: String(value.overview ?? "").slice(0, 2000),
+            weekly_schedule: Array.isArray(value.weekly_schedule) ? value.weekly_schedule.slice(0, 7).map((day: any) => ({
+              day: String(day.day ?? "").slice(0, 30),
+              focus: String(day.focus ?? "").slice(0, 180),
+              activities: Array.isArray(day.activities) ? day.activities.slice(0, 6).map((item: any) => ({
+                title: String(item.title ?? "").slice(0, 140),
+                description: String(item.description ?? "").slice(0, 500),
+                duration_minutes: Math.max(5, Math.min(240, Number(item.duration_minutes ?? 30) || 30)),
+                completed: false,
+              })) : [],
+            })) : [],
+            milestones: Array.isArray(value.milestones) ? value.milestones.slice(0, 8) : [],
+            tips: Array.isArray(value.tips) ? value.tips.slice(0, 10).map(String) : [],
+          };
+        } catch { throw new Error("AI response could not be parsed as a study plan."); }
+        const { data: saved, error: saveError } = await admin.from("student_study_plans").insert({
+          student_profile_id: actor.id, exam_program: body.exam_program, target_date: body.target_date || null,
+          current_score: Number.isFinite(Number(body.current_score)) ? Number(body.current_score) : null,
+          target_score: Number.isFinite(Number(body.target_score)) ? Number(body.target_score) : null,
+          weekly_hours: Number(body.weekly_hours ?? 5), plan_json: plan, created_by: actor.id,
+        }).select("*").single();
+        if (saveError) throw new Error("Could not save your study plan.");
+        return respond({ success: true, feature: action, provider: provider.provider, model, usage, plan: saved });
       }
       return respond({ success: true, feature: action, provider: provider.provider, model, usage, content, failover_used: failures.length > 0 });
     } catch (error) {
