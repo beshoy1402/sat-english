@@ -1,0 +1,1 @@
+alter table public.lessons add column if not exists content_url text;

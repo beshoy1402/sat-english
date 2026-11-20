@@ -1,0 +1,1 @@
+drop index if exists public.attendance_records_session_student_uidx;
