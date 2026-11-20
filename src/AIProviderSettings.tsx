@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, CheckCircle2, Eye, EyeOff, KeyRound, RefreshCw, Save, ShieldCheck, Sparkles, Wifi, WifiOff } from 'lucide-react';
+import { Activity, Eye, EyeOff, KeyRound, RefreshCw, Save, ShieldCheck, Sparkles } from 'lucide-react';
 
 type ProviderId = 'qwen' | 'gemini' | 'groq' | 'deepseek' | 'openrouter';
 type ProviderConfig = { provider: ProviderId; base_url: string; model: string; is_enabled: boolean; priority: number; key_configured: boolean; last_tested_at: string | null; last_test_status: string | null };
