@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {motion} from 'framer-motion';
-import {ArrowUpRight,ArrowRight,BookOpen,GraduationCap,Play,Star,CheckCircle2,Menu,X,Globe2,Target,Users,Clock3,Sparkles} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,BookOpen,GraduationCap,Play,CheckCircle2,Menu,X,Globe2,Target,Sparkles} from 'lucide-react';
 
 type Props={onLogin:()=>void};
 const copy={
