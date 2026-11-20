@@ -12,7 +12,8 @@
     "db:stop": "supabase stop",
     "db:status": "supabase status",
     "db:reset": "supabase db reset",
-    "db:pull": "supabase db pull"
+    "db:pull": "supabase db pull",
+    "functions:serve": "supabase functions serve --env-file supabase/.env.local"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
