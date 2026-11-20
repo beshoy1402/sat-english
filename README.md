@@ -7,12 +7,14 @@ Independent English exam-preparation platform for SAT English, EST English and A
 This branch is the active implementation branch for the SAT English platform. It contains working backend schemas, role-based workflows and frontend modules for the core teaching experience.
 
 - Role-based Admin, Teacher, Assistant, Student, Parent, Developer and Designer areas.
-- Staff attendance register, gradebook, grade adjustments and immutable grade-change history.
+- Staff attendance register, gradebook, grade adjustments, immutable grade-change history and class/group membership management.
 - Question bank and timed exam workflow, server-side attempt validation, automatic grading and written-answer review.
 - Homework assignment, file submission, teacher review and parent monitoring.
 - Course access, online meeting links, in-person session scheduling, lesson resources and lesson progress.
 - Parent-child account linking, parent academic overview and report export.
-- In-app notifications and realtime internal messaging.
+- In-app notifications triggered by grades, attendance, homework, exams, course access and messages; realtime internal messaging.
+- Staff CSV data export for students, grades, attendance, homework, exams and course access; browser print-to-PDF reports.
+- Basic exam integrity signal logging for tab hiding, focus loss, copy/paste and context-menu events.
 - Designer draft/version/review workflow and developer task/bug tracking.
 - AI provider management, failover request service, student AI tutor, study-plan generation and teacher-reviewed homework feedback drafts.
 - Responsive navy-blue public landing page with English/Arabic layout and reduced-motion support.
@@ -45,7 +47,7 @@ Never expose API keys or secrets in client-side code. Keep development, staging 
 - In-app messaging is realtime within the website; WhatsApp, SMS and external email delivery are not connected.
 - Online lessons use external meeting URLs (for example, Zoom or Google Meet); this is not a native video-conferencing service.
 - AI token/latency/failure usage is recorded, but exact provider costs are not calculated until pricing data is configured.
-- PDF/Word question-bank extraction, payments, WhatsApp API, native live video, advanced proctoring, disaster recovery restore and full hosting/database cost controls remain incomplete. GitHub pull-request listing, diff inspection and review submission are implemented, but the Developer must still connect a fine-grained GitHub token before the integration can be used.
+- PDF/Word question-bank extraction, payments, WhatsApp API, native live video, advanced proctoring beyond browser signals, disaster recovery restore and full hosting/database cost controls remain incomplete. GitHub pull-request listing, diff inspection and review submission are implemented, but the Developer must still connect a fine-grained GitHub token before the integration can be used.
 - A new Vercel build/deployment could not be run after the latest frontend changes because the deployment API daily limit was reached. The latest frontend branch therefore still needs a fresh CI/build verification before production release.
 
 Do not treat the existing production URL as proof that the latest feature branch is deployed.
