@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import './developer-workspace.css';
-import {Activity,AlertCircle,ArrowUpRight,CalendarDays,Check,ChevronDown,ClipboardList,ExternalLink,FileText,MessageSquare,Paperclip,Plus,RefreshCw,Search,Send,ShieldCheck,Trash2,Upload,X} from 'lucide-react';
+import {AlertCircle,ArrowUpRight,ClipboardList,ExternalLink,FileText,MessageSquare,Paperclip,Plus,RefreshCw,Search,Send,ShieldCheck,Upload,X} from 'lucide-react';
 
 type Profile={id:string;display_name:string;username:string|null;role:string};
 type Row=Record<string,any>;
