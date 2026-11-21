@@ -147,7 +147,8 @@ async function uploadWithTus(
     }
   }
 
-  localStorage.removeItem(storageKey);
+  // Keep the completed upload URL until its database row is saved. If the page reloads
+  // between upload completion and metadata insertion, the next attempt can reuse it.
   onProgress(100);
 }
 
@@ -208,7 +209,14 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
     }
     setBusy(true);
     const safeName = file.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]/g, '-').slice(-100);
-    const path = profile.id + '/' + crypto.randomUUID() + '-' + safeName;
+    const resumeFingerprint = [profile.id, courseId, file.name, file.size, file.lastModified].join(':');
+    const pathStorageKey = `sat-recording-path:${resumeFingerprint}`;
+    let path = localStorage.getItem(pathStorageKey);
+    if (!path) {
+      path = profile.id + '/' + crypto.randomUUID() + '-' + safeName;
+      localStorage.setItem(pathStorageKey, path);
+    }
+    const tusStorageKey = `supabase-tus:${BUCKET}:${path}:${file.size}:${file.lastModified}`;
     setUploadProgress(0);
     try {
       await uploadWithTus(client, BUCKET, path, file, setUploadProgress);
@@ -231,9 +239,12 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
     });
     if (insertError) {
       await client.storage.from(BUCKET).remove([path]);
+      localStorage.removeItem(tusStorageKey);
+      localStorage.removeItem(pathStorageKey);
       setError(insertError.message);
-      await client.storage.from(BUCKET).remove([path]);
     } else {
+      localStorage.removeItem(tusStorageKey);
+      localStorage.removeItem(pathStorageKey);
       setNotice('Recording uploaded and saved to the session library.');
       setTitle('');
       setDescription('');
