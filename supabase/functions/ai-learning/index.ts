@@ -163,8 +163,33 @@ Deno.serve(async (req: Request) => {
 
   const { data: configs, error: configError } = await admin.rpc("ai_provider_config_list");
   if (configError) return respond({ error: "AI provider configuration is unavailable. Check Developer → AI providers." }, 503);
-  const enabled = ((configs ?? []) as ProviderRow[]).filter(p => p.is_enabled && p.key_configured).sort((a,b)=>a.priority-b.priority);
-  if (!enabled.length) return respond({ error: "No AI provider is enabled with a saved API key. A Developer must configure at least one provider first." }, 503);
+  // Zero-cost mode is an allowlist, not a preference. Never call an arbitrary enabled
+  // provider or a metered model just because it appears earlier in the provider list.
+  const isApprovedFreeProvider = (provider: ProviderRow) => {
+    try {
+      const parsed = new URL(provider.base_url);
+      const path = parsed.pathname.replace(/\\/$/, "");
+      if (provider.provider === "gemini") {
+        return parsed.origin === "https://generativelanguage.googleapis.com"
+          && path === "/v1beta"
+          && provider.model === "gemini-3.8-flash";
+      }
+      if (provider.provider === "openrouter") {
+        return parsed.origin === "https://openrouter.ai"
+          && path === "/api/v1"
+          && ["meta-llama/llama-3.3-70b-instruct", "meta-llama/llama-3.3-70b-instruct:free"].includes(provider.model);
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+  const enabled = ((configs ?? []) as ProviderRow[])
+    .filter(p => p.is_enabled && p.key_configured && isApprovedFreeProvider(p))
+    .sort((a,b)=>a.priority-b.priority);
+  if (!enabled.length) return respond({
+    error: "AI is paused by the zero-cost safety policy. Configure Gemini 3.8 Flash on a Google AI Studio Free Tier project with billing disabled, or the approved OpenRouter Llama 3.3 :free model."
+  }, 503);
 
   const failures: string[] = [];
   for (const provider of enabled) {
