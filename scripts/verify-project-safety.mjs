@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient, providerSettings, deleteAccount, app] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings, deleteAccount, app, homework, homeworkMigration] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
   read('../src/AIProviderSettings.tsx'),
   read('../supabase/functions/delete-account/index.ts'),
   read('../src/App.tsx'),
+  read('../src/HomeworkCenter.tsx'),
+  read('../supabase/migrations/20261121162000_homework_teacher_attachments.sql'),
 ]);
 
 // AI must use a strict zero-cost provider/model/endpoint allowlist.
@@ -52,5 +54,17 @@ assert.doesNotMatch(recordings, /if \(insertError\) \{\s*await client\.storage\.
 
 // Hosted preview deployments must not silently connect to production Supabase.
 assert.match(supabaseClient, /appMode !== 'preview-safe'/);
+
+
+// Teacher homework supports optional AI worksheet generation and secure attachments.
+assert.match(homework, /Generate an AI worksheet for this homework/);
+assert.match(homework, /action:'worksheet'/);
+assert.match(homework, /include_answer_key:false/);
+assert.match(homework, /attachment_paths:uploaded/);
+assert.match(homework, /Attach homework files/);
+assert.match(homeworkMigration, /add column if not exists attachment_paths text\[\]/);
+assert.match(homeworkMigration, /homework_assignment_attachment_upload/);
+assert.match(homeworkMigration, /homework_assignment_attachment_read/);
+assert.match(homeworkMigration, /l\.parent_profile_id = \(select auth\.uid\(\)\)/);
 
 console.log('Project safety checks passed.');
