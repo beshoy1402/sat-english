@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useState} from 'react';
 import {AnimatePresence,motion} from 'framer-motion';
-import {Activity,GitPullRequest,History,ArrowRight,BookOpen,CalendarDays,CheckCircle2,ClipboardList,Code2,Download,Eye,GraduationCap,LayoutDashboard,LogOut,Menu,Palette,Plus,Search,Settings,ShieldCheck,Target,Users,X,Bell,MessageCircle,FileText,UserPlus,Copy,BrainCircuit} from 'lucide-react';
+import {Activity,GitPullRequest,History,ArrowRight,BookOpen,CalendarDays,CheckCircle2,ClipboardList,Code2,Download,Eye,GraduationCap,LayoutDashboard,LogOut,Menu,Palette,Plus,Search,Settings,ShieldCheck,Target,Users,X,Bell,MessageCircle,FileText,UserPlus,Copy,BrainCircuit,Video} from 'lucide-react';
 import {supabase,isSupabaseConfigured,type AppRole,type Profile} from './lib/supabase';
 import LandingPage from './LandingPage';
 import AIProviderSettings from './AIProviderSettings';
@@ -23,11 +23,12 @@ import DataExportCenter from './DataExportCenter';
 import GroupCenter from './GroupCenter';
 import QuestionBank from './QuestionBank';
 import TeachingAI from './TeachingAI';
+import RecordedSessions from './RecordedSessions';
 
 const roles:Record<AppRole,string>={admin:'Administrator',teacher:'Teacher',assistant:'Assistant',developer:'Developer',designer:'Designer',student:'Student',parent:'Parent'};
 const staffNav:[string,string,any][] = [
  ['overview','Overview',LayoutDashboard],['students','Students',Users],['staff','Team accounts',ShieldCheck],['teachingAI','AI Teaching Studio',BrainCircuit],
- ['groups','Class groups',Users],['courses','Courses',BookOpen],['lessons','Lessons',BookOpen],['assignments','Homework',ClipboardList],
+ ['groups','Class groups',Users],['courses','Courses',BookOpen],['lessons','Lessons',BookOpen],['recordings','Recorded sessions',Video],['assignments','Homework',ClipboardList],
  ['submissions','Homework review',ClipboardList],['exams','Exams',Target],['questions','Question bank',FileText],
  ['attendance','Attendance',CalendarDays],['gradebook','Gradebook',FileText],['courseAccess','Course access',ShieldCheck],['resources','Resources',FileText],
  ['calendar','Calendar',CalendarDays],['notifications','Notifications',Bell],['messages','Messages',MessageCircle],['announcements','Announcements',Bell],['analytics','Analytics',Activity],
@@ -37,7 +38,7 @@ const nav:Record<AppRole,[string,string,any][]> = {
  admin:staffNav,teacher:staffNav,assistant:staffNav,
  developer:[['overview','Overview',LayoutDashboard],['staff','Team accounts',ShieldCheck],['developer','Developer workspace',Code2],['github','GitHub pull requests',GitPullRequest],['aiProviders','AI providers',BrainCircuit],['designReview','Design review',Palette],['notifications','Notifications',Bell],['analytics','System health',Activity],['settings','Settings',Settings]],
  designer:[['overview','Overview',LayoutDashboard],['designer','Design studio',Palette],['notifications','Notifications',Bell],['announcements','Content preview',Eye],['settings','Settings',Settings]],
- student:[['overview','My learning',LayoutDashboard],['aiTutor','AI English tutor',BrainCircuit],['studyPlan','Study plan',Target],['messages','Messages',MessageCircle],['groups','My groups',Users],['courses','My courses',BookOpen],['lessons','Lessons',BookOpen],['assignments','Homework',ClipboardList],['exams','Practice & exams',Target],['resources','Study library',FileText],['grades','Grades',FileText],['gradeHistory','Grade change history',History],['calendar','My calendar',CalendarDays],['notifications','Notifications',Bell],['announcements','Announcements',Bell]],
+ student:[['overview','My learning',LayoutDashboard],['aiTutor','AI English tutor',BrainCircuit],['studyPlan','Study plan',Target],['messages','Messages',MessageCircle],['groups','My groups',Users],['courses','My courses',BookOpen],['lessons','Lessons',BookOpen],['recordings','Recorded sessions',Video],['assignments','Homework',ClipboardList],['exams','Practice & exams',Target],['resources','Study library',FileText],['grades','Grades',FileText],['gradeHistory','Grade change history',History],['calendar','My calendar',CalendarDays],['notifications','Notifications',Bell],['announcements','Announcements',Bell]],
  parent:[['overview','Family overview',LayoutDashboard],['courses','Learning progress',BookOpen],['assignments','Homework monitoring',ClipboardList],['studyPlan','Study plan',Target],['messages','Messages',MessageCircle],['groups','Class groups',Users],['grades','Grades',FileText],['gradeHistory','Grade change history',History],['attendance','Attendance',CalendarDays],['calendar','Calendar',CalendarDays],['notifications','Notifications',Bell],['announcements','Announcements',Bell]]
 };
 const table:Record<string,string>={gradebook:'grade_entries',grades:'grade_entries',gradeHistory:'grade_entry_history',courses:'courses',lessons:'lessons',assignments:'assignments',submissions:'submissions',exams:'exams',questions:'questions',attendance:'attendance_sessions',courseAccess:'course_access',resources:'learning_resources',calendar:'calendar_events',announcements:'announcements',audit:'audit_events'};
@@ -106,6 +107,7 @@ export default function App(){
  {active==='notifications'&&<NotificationCenter client={supabase} profile={profile}/>}
  {active==='courses'&&<CourseCenter client={supabase} profile={profile} view="courses"/>}
  {active==='lessons'&&<CourseCenter client={supabase} profile={profile} view="lessons"/>}
+ {active==='recordings'&&<RecordedSessions client={supabase} profile={profile}/>}
  {active==='courseAccess'&&isStaff&&<CourseCenter client={supabase} profile={profile} view="courseAccess"/>}
  {active==='assignments'&&<HomeworkCenter client={supabase} profile={profile} view="assignments"/>}
  {active==='submissions'&&isStaff&&<HomeworkCenter client={supabase} profile={profile} view="submissions"/>}
