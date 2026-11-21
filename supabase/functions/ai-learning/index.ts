@@ -297,7 +297,7 @@ Deno.serve(async (req: Request) => {
       if (action === "worksheet") {
         let worksheet: any;
         try {
-          const cleaned = content.replace(/^```(?:json)?\\s*/i, "").replace(/\\s*```$/, "").trim();
+          const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
           const value = JSON.parse(cleaned);
           const questions = Array.isArray(value.questions) ? value.questions.slice(0, 20).map((q: any) => ({
             prompt: String(q.prompt ?? "").slice(0, 1800),
