@@ -15,7 +15,7 @@ using (private.current_user_role()='admin' or exists(select 1 from public.conver
 with check (private.current_user_role()='admin' or exists(select 1 from public.conversation_participants cp where cp.conversation_id=conversations.id and cp.profile_id=(select auth.uid())));
 drop policy if exists conversation_participants_read_related on public.conversation_participants;
 create policy conversation_participants_read_related on public.conversation_participants for select to authenticated
-using (profile_id=(select auth.uid()) or exists(select 1 from public.conversation_participants mine where mine.conversation_id=conversation_participants.conversation_id and mine.profile_id=(select auth.uid())) or private.current_user_role()='admin');
+using (profile_id=(select auth.uid()) or private.current_user_role() in ('admin','teacher','assistant'));
 drop policy if exists conversation_participants_insert_related on public.conversation_participants;
 create policy conversation_participants_insert_related on public.conversation_participants for insert to authenticated
 with check (
