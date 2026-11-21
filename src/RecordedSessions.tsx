@@ -143,7 +143,7 @@ async function uploadWithTus(
       const response = await fetch(uploadUrl, {
         method: 'PATCH',
         headers: {
-          ...baseHeaders,
+          ...await getBaseHeaders(),
           'Upload-Offset': String(offset),
           'Content-Type': 'application/offset+octet-stream'
         },
@@ -170,7 +170,7 @@ async function uploadWithTus(
         throw new Error('Upload paused after repeated connection failures. Select the same file again to resume.');
       }
       await new Promise(resolve => window.setTimeout(resolve, [1000, 2000, 4000, 8000, 15000][retries - 1]));
-      const head = await fetch(uploadUrl, { method: 'HEAD', headers: baseHeaders });
+      const head = await fetch(uploadUrl, { method: 'HEAD', headers: await getBaseHeaders() });
       if (!head.ok) throw new Error('The resumable upload session expired. Start the upload again.');
       offset = Number(head.headers.get('Upload-Offset') || 0);
       onProgress(Math.min(100, Math.round((offset / file.size) * 100)));
