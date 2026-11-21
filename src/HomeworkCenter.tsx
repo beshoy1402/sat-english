@@ -105,8 +105,12 @@ export default function HomeworkCenter({client,profile,view='assignments'}:Props
   setNotice(error?.message||'Submission reviewed and feedback saved.');if(!error){setReviewing(null);setScore('');setFeedback('');setAiDraft(null);await load();}setBusy(false);
  };
  const openFile=async(path:string)=>{
+  const popup=window.open('about:blank','_blank');
+  if(!popup){setNotice('Allow pop-ups to open submitted files, then try again.');return;}
+  popup.opener=null;
   const {data,error}=await client.storage.from('homework-submissions').createSignedUrl(path,60);
-  if(error){setNotice(error.message);return;}window.open(data.signedUrl,'_blank','noopener,noreferrer');
+  if(error||!data?.signedUrl){popup.close();setNotice(error?.message||'Could not create a secure file link.');return;}
+  popup.location.href=data.signedUrl;
  };
  const studentName=(id:string)=>students.find(s=>s.id===id)?.display_name||children.find(s=>s.id===id)?.display_name||'Student';
  const isLate=(a:Row)=>a.due_at&&new Date(a.due_at).getTime()<Date.now();
