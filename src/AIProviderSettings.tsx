@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, Eye, EyeOff, KeyRound, RefreshCw, Save, ShieldCheck, Sparkles } from 'lucide-react';
 
-type ProviderId = 'gemini' | 'groq' | 'deepseek' | 'openrouter' | 'meta_llama' | 'custom';
+type ProviderId = 'gemini' | 'openrouter';
 type ProviderConfig = { provider: ProviderId; base_url: string; model: string; is_enabled: boolean; priority: number; key_configured: boolean; last_tested_at: string | null; last_test_status: string | null };
 const catalog: { id: ProviderId; name: string; detail: string; placeholder: string }[] = [
-  { id: 'gemini', name: 'Google Gemini', detail: 'Primary AI · Google AI Studio', placeholder: 'Gemini model ID (optional)' },
-  { id: 'openrouter', name: 'OpenRouter', detail: 'Backup routing · Multi-model API', placeholder: 'Provider/model ID (optional)' },
-  { id: 'groq', name: 'Groq', detail: 'Backup inference · Fast API', placeholder: 'Groq model ID (optional)' },
-  { id: 'deepseek', name: 'DeepSeek', detail: 'DeepSeek API', placeholder: 'DeepSeek model ID (optional)' },
-  { id: 'meta_llama', name: 'Meta Llama', detail: 'Together AI hosted Llama models', placeholder: 'meta-llama model ID' },
-  { id: 'custom', name: 'Custom compatible API', detail: 'Public HTTPS OpenAI-compatible endpoint', placeholder: 'Model ID' },
+  { id: 'gemini', name: 'Google Gemini', detail: 'Primary AI · Gemini 3.8 Flash · Free Tier only', placeholder: 'gemini-3.8-flash' },
+  { id: 'openrouter', name: 'OpenRouter', detail: 'Fallback AI · Llama 3.3 · Free endpoint only', placeholder: 'meta-llama/llama-3.3-70b-instruct:free' },
 ];
 
 export default function AIProviderSettings({ client }: { client: any }) {
@@ -76,6 +72,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
   return <section className="panel full-panel ai-provider-panel">
     <div className="panel-heading"><div><small>DEVELOPER · AI CONFIGURATION</small><h3>AI Provider Management</h3><p>Manage your AI routing stack, securely store provider keys, and monitor reliability and usage.</p></div><Sparkles/></div>
     <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Credentials stay server-side</b><span>API keys are saved in Supabase Vault and are never returned to the browser after saving.</span></div></div>
+    <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Zero-cost routing is enforced</b><span>Only Gemini 3.8 Flash and OpenRouter Llama 3.3 :free are allowed. Gemini must use a Google AI Studio Free Tier project with billing disabled. Other providers and paid model IDs are blocked; free quotas can still run out.</span></div></div>
     {message && <div className={message.error ? 'error-banner' : 'notice-banner'}>{message.text}</div>}
     <div className="ai-provider-list">{catalog.map(provider => {
       const row = configs[provider.id];
