@@ -26,6 +26,131 @@ const MAX_FILE_BYTES = 500 * 1024 * 1024;
 const formatSize = (bytes: number) => bytes >= 1024 ** 3 ? (bytes / 1024 ** 3).toFixed(2) + ' GB' : (bytes / 1024 ** 2).toFixed(1) + ' MB';
 const formatDate = (value: string | null) => value ? new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Date not specified';
 
+
+async function uploadWithTus(
+  client: any,
+  bucket: string,
+  objectPath: string,
+  file: File,
+  onProgress: (percentage: number) => void
+) {
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (sessionError || !accessToken) {
+    throw new Error(sessionError?.message || 'Your session expired. Sign in again before uploading.');
+  }
+
+  const projectUrl = new URL(client.supabaseUrl);
+  const storageHost = projectUrl.hostname.endsWith('.supabase.co')
+    ? projectUrl.hostname.replace(/\.supabase\.co$/, '.storage.supabase.co')
+    : projectUrl.host;
+  const endpoint = `${projectUrl.protocol}//${storageHost}/storage/v1/upload/resumable`;
+  const fingerprint = `${bucket}:${objectPath}:${file.size}:${file.lastModified}`;
+  const storageKey = `supabase-tus:${fingerprint}`;
+  const baseHeaders: Record<string, string> = {
+    authorization: `Bearer ${accessToken}`,
+    apikey: client.supabaseKey,
+    'Tus-Resumable': '1.0.0'
+  };
+  const encodeMetadata = (value: string) => btoa(unescape(encodeURIComponent(value)));
+  const metadata = [
+    ['bucketName', bucket],
+    ['objectName', objectPath],
+    ['contentType', file.type || 'application/octet-stream'],
+    ['cacheControl', '3600'],
+    ['metadata', JSON.stringify({ originalFilename: file.name })]
+  ].map(([key, value]) => `${key} ${encodeMetadata(value)}`).join(',');
+
+  const createUpload = async () => {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        ...baseHeaders,
+        'Upload-Length': String(file.size),
+        'Upload-Metadata': metadata
+      }
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(detail || `Could not start resumable upload (${response.status}).`);
+    }
+    const location = response.headers.get('Location');
+    if (!location) throw new Error('Storage did not return a resumable upload URL.');
+    const uploadUrl = new URL(location, endpoint).toString();
+    localStorage.setItem(storageKey, uploadUrl);
+    return uploadUrl;
+  };
+
+  let uploadUrl = localStorage.getItem(storageKey);
+  let offset = 0;
+  if (uploadUrl) {
+    try {
+      const head = await fetch(uploadUrl, {
+        method: 'HEAD',
+        headers: baseHeaders
+      });
+      if (!head.ok) throw new Error('Saved upload session is no longer available.');
+      offset = Number(head.headers.get('Upload-Offset') || 0);
+      const remoteLength = Number(head.headers.get('Upload-Length') || file.size);
+      if (remoteLength !== file.size || offset > file.size) {
+        throw new Error('The saved upload does not match the selected file.');
+      }
+    } catch {
+      localStorage.removeItem(storageKey);
+      uploadUrl = null;
+      offset = 0;
+    }
+  }
+  if (!uploadUrl) uploadUrl = await createUpload();
+
+  onProgress(Math.min(100, Math.round((offset / file.size) * 100)));
+  const chunkSize = 6 * 1024 * 1024;
+  let retries = 0;
+
+  while (offset < file.size) {
+    const nextOffset = Math.min(offset + chunkSize, file.size);
+    try {
+      const response = await fetch(uploadUrl, {
+        method: 'PATCH',
+        headers: {
+          ...baseHeaders,
+          'Upload-Offset': String(offset),
+          'Content-Type': 'application/offset+octet-stream'
+        },
+        body: file.slice(offset, nextOffset)
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        if (response.status >= 400 && response.status < 500 && response.status !== 409) {
+          throw new Error(detail || `Upload stopped (${response.status}).`);
+        }
+        throw new Error(detail || `Temporary upload error (${response.status}).`);
+      }
+      const confirmedOffset = Number(response.headers.get('Upload-Offset'));
+      if (!Number.isFinite(confirmedOffset) || confirmedOffset <= offset) {
+        throw new Error('Storage returned an invalid upload offset.');
+      }
+      offset = confirmedOffset;
+      retries = 0;
+      onProgress(Math.min(100, Math.round((offset / file.size) * 100)));
+    } catch (error) {
+      if (error instanceof Error && /Upload stopped|invalid upload offset/.test(error.message)) throw error;
+      retries += 1;
+      if (retries > 5) {
+        throw new Error('Upload paused after repeated connection failures. Select the same file again to resume.');
+      }
+      await new Promise(resolve => window.setTimeout(resolve, [1000, 2000, 4000, 8000, 15000][retries - 1]));
+      const head = await fetch(uploadUrl, { method: 'HEAD', headers: baseHeaders });
+      if (!head.ok) throw new Error('The resumable upload session expired. Start the upload again.');
+      offset = Number(head.headers.get('Upload-Offset') || 0);
+      onProgress(Math.min(100, Math.round((offset / file.size) * 100)));
+    }
+  }
+
+  localStorage.removeItem(storageKey);
+  onProgress(100);
+}
+
 export default function RecordedSessions({ client, profile }: { client: any; profile: Profile }) {
   const isStaff = ['admin', 'teacher', 'assistant', 'developer'].includes(profile.role);
   const canManage = ['admin', 'teacher', 'assistant'].includes(profile.role);
@@ -34,6 +159,7 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -83,13 +209,11 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
     setBusy(true);
     const safeName = file.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]/g, '-').slice(-100);
     const path = profile.id + '/' + crypto.randomUUID() + '-' + safeName;
-    const { error: uploadError } = await client.storage.from(BUCKET).upload(path, file, {
-      cacheControl: '3600',
-      contentType: file.type,
-      upsert: false
-    });
-    if (uploadError) {
-      setError(uploadError.message);
+    setUploadProgress(0);
+    try {
+      await uploadWithTus(client, BUCKET, path, file, setUploadProgress);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'The video upload failed.');
       setBusy(false);
       return;
     }
@@ -108,6 +232,7 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
     if (insertError) {
       await client.storage.from(BUCKET).remove([path]);
       setError(insertError.message);
+      await client.storage.from(BUCKET).remove([path]);
     } else {
       setNotice('Recording uploaded and saved to the session library.');
       setTitle('');
@@ -115,6 +240,7 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
       setRecordedAt('');
       setFile(null);
       setPublished(false);
+      setUploadProgress(0);
       setShowForm(false);
       await load();
     }
@@ -180,6 +306,7 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
         <label className="recordings-check"><input type="checkbox" checked={published} onChange={e => setPublished(e.target.checked)}/> Publish immediately for students with course access</label>
         <button className="recordings-primary" disabled={busy || !file}>{busy ? <><LoaderCircle className="recordings-spin" size={15}/> Uploading…</> : <><UploadCloud size={15}/> Upload session</>}</button>
       </div>
+      {busy && <div className="recordings-upload-progress" role="status" aria-live="polite"><div><span>Upload progress</span><b>{uploadProgress}%</b></div><progress max={100} value={uploadProgress}/><small>You can retry with the same file if your connection drops; completed chunks are resumed.</small></div>}
       {selectedCourse && <small className="recordings-hint">This recording will be linked to {selectedCourse.title}.</small>}
     </form>}
 
