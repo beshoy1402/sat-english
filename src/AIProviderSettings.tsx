@@ -39,7 +39,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
       for (const row of data.providers ?? []) next[row.provider] = row;
       setConfigs(next);
       const defaults: Record<string, string> = { nvidia: 'nvidia/nemotron-3.5-super-vl-120b-a12b', gemini: 'gemini-3.8-flash', groq: 'openai/gpt-oss-120b', openrouter: 'openrouter/free' };
-      setModels(Object.fromEntries(catalog.map(provider => [provider.id, provider.id === 'groq' && next[provider.id]?.model === 'llama-3.3-70b-versatile' ? defaults[provider.id] : provider.id === 'openrouter' ? defaults[provider.id] : next[provider.id]?.model || defaults[provider.id]])));
+      setModels(Object.fromEntries(catalog.map(provider => [provider.id, provider.id === 'nvidia' && next[provider.id]?.model !== defaults[provider.id] ? defaults[provider.id] : provider.id === 'groq' && next[provider.id]?.model === 'llama-3.3-70b-versatile' ? defaults[provider.id] : provider.id === 'openrouter' ? defaults[provider.id] : next[provider.id]?.model || defaults[provider.id]])));
       setBaseUrls(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.base_url ?? ''])));
       setEnabled(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.is_enabled])));
       const defaultPriorities: Record<string, number> = { nvidia: 1, gemini: 2, groq: 3, openrouter: 4 };
