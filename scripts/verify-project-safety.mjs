@@ -20,16 +20,20 @@ assert.ok(ai.includes('provider.model === "nvidia/nemotron-3.5-lightning-30b-a3b
 assert.match(ai, /parsed\.origin === "https:\/\/generativelanguage\.googleapis\.com"/);
 assert.match(ai, /provider\.model === "gemini-3\.8-flash"/);
 assert.match(ai, /parsed\.origin === "https:\/\/openrouter\.ai"/);
-assert.match(ai, /meta-llama\/llama-3\.3-70b-instruct:free/);
+assert.match(ai, /provider\.model === "openai\/gpt-oss-120b"/);
+assert.match(ai, /provider\.model === "openrouter\/free"/);
+assert.match(ai, /\.eq\("success", true\)/);
+assert.match(ai, /chat_template_kwargs: \{ enable_thinking: false \}/);
 assert.match(ai, /p\.is_enabled && p\.key_configured && isApprovedFreeProvider\(p\)/);
 assert.match(ai, /AI is paused by the zero-cost safety policy/);
 assert.match(ai, /if \(rateError\) return respond\(\{ error: "AI usage limits could not be checked safely/);
 assert.ok(ai.includes('const cleaned = content.replace(/^```(?:json)?\\s*/i'), 'Worksheet JSON fence parsing must accept normal whitespace.');
-assert.ok(providerSettings.includes("type ProviderId = 'nvidia' | 'gemini' | 'openrouter'"));
+assert.ok(providerSettings.includes("type ProviderId = 'nvidia' | 'gemini' | 'groq' | 'openrouter'"));
 assert.match(providerSettings, /id: 'nvidia', name: 'NVIDIA NIM'/);
 assert.ok(nvidiaMigration.includes("https://integrate.api.nvidia.com/v1"));
 assert.match(providerSettings, /Zero-cost routing is enforced/);
-assert.doesNotMatch(providerSettings, /id: 'groq'/);
+assert.match(providerSettings, /id: 'groq', name: 'GroqCloud'/);
+assert.match(providerSettings, /openrouter\/free/);
 
 // Main account and record actions must always release their busy state after errors.
 for (const handler of ['signIn','createAccount','resetAccount','deleteAccount','saveItem','removeRecord']) {
