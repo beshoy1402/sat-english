@@ -171,7 +171,7 @@ async function uploadWithTus(
         throw new Error(detail || `Temporary upload error (${response.status}).`);
       }
       const confirmedOffset = Number(response.headers.get('Upload-Offset'));
-      if (!Number.isSafeInteger(confirmedOffset) || confirmedOffset <= offset || confirmedOffset > nextOffset || confirmedOffset > file.size) {
+      if (!Number.isSafeInteger(confirmedOffset) || confirmedOffset !== nextOffset || confirmedOffset > file.size) {
         throw new Error('Storage returned an invalid upload offset.');
       }
       offset = confirmedOffset;
@@ -187,8 +187,9 @@ async function uploadWithTus(
       const head = await fetch(uploadUrl, { method: 'HEAD', headers: await getBaseHeaders() });
       if (!head.ok) throw new Error('The resumable upload session expired. Start the upload again.');
       offset = Number(head.headers.get('Upload-Offset'));
-      if (!Number.isSafeInteger(offset) || offset < 0 || offset > file.size) {
-        throw new Error('Storage returned an invalid resumable upload offset.');
+      const remoteLength = Number(head.headers.get('Upload-Length'));
+      if (!Number.isSafeInteger(offset) || offset < 0 || offset > file.size || remoteLength !== file.size) {
+        throw new Error('Storage returned an invalid resumable upload offset or file length.');
       }
       onProgress(Math.min(100, Math.round((offset / file.size) * 100)));
     }
