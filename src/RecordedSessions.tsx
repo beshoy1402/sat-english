@@ -34,11 +34,27 @@ async function uploadWithTus(
   file: File,
   onProgress: (percentage: number) => void
 ) {
-  const { data: sessionData, error: sessionError } = await client.auth.getSession();
-  const accessToken = sessionData?.session?.access_token;
-  if (sessionError || !accessToken) {
-    throw new Error(sessionError?.message || 'Your session expired. Sign in again before uploading.');
-  }
+  const getBaseHeaders = async (): Promise<Record<string, string>> => {
+    let { data, error } = await client.auth.getSession();
+    if (error) throw new Error(error.message);
+    let session = data?.session;
+    if (!session) throw new Error('Your session expired. Sign in again before uploading.');
+
+    // Refresh before a long upload if the current access token is close to expiry.
+    if (session.expires_at && session.expires_at * 1000 <= Date.now() + 90_000) {
+      const refreshed = await client.auth.refreshSession();
+      if (refreshed.error || !refreshed.data?.session) {
+        throw new Error(refreshed.error?.message || 'Your session expired. Sign in again before uploading.');
+      }
+      session = refreshed.data.session;
+    }
+
+    return {
+      authorization: `Bearer ${session.access_token}`,
+      apikey: client.supabaseKey,
+      'Tus-Resumable': '1.0.0'
+    };
+  };
 
   const projectUrl = new URL(client.supabaseUrl);
   const storageHost = projectUrl.hostname.endsWith('.supabase.co')
@@ -57,11 +73,6 @@ async function uploadWithTus(
       return false;
     }
   };
-  const baseHeaders: Record<string, string> = {
-    authorization: `Bearer ${accessToken}`,
-    apikey: client.supabaseKey,
-    'Tus-Resumable': '1.0.0'
-  };
   const encodeMetadata = (value: string) => btoa(unescape(encodeURIComponent(value)));
   const metadata = [
     ['bucketName', bucket],
@@ -75,7 +86,7 @@ async function uploadWithTus(
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
-        ...baseHeaders,
+        ...await getBaseHeaders(),
         'Upload-Length': String(file.size),
         'Upload-Metadata': metadata
       }
@@ -106,7 +117,7 @@ async function uploadWithTus(
     try {
       const head = await fetch(uploadUrl, {
         method: 'HEAD',
-        headers: baseHeaders
+        headers: await getBaseHeaders()
       });
       if (!head.ok) throw new Error('Saved upload session is no longer available.');
       offset = Number(head.headers.get('Upload-Offset') || 0);
@@ -193,17 +204,26 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
 
   const load = useCallback(async () => {
     if (!client) return;
+    if (!client) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
-    const [courseResult, recordingResult] = await Promise.all([
-      client.from('courses').select('id,title').order('created_at', { ascending: false }),
-      client.from('session_recordings').select('*, courses(title)').order('created_at', { ascending: false })
-    ]);
-    if (courseResult.error) setError(courseResult.error.message);
-    else setCourses(courseResult.data ?? []);
-    if (recordingResult.error) setError(recordingResult.error.message);
-    else setRecordings(recordingResult.data ?? []);
-    setLoading(false);
+    try {
+      const [courseResult, recordingResult] = await Promise.all([
+        client.from('courses').select('id,title').order('created_at', { ascending: false }),
+        client.from('session_recordings').select('*, courses(title)').order('created_at', { ascending: false })
+      ]);
+      if (courseResult.error) setError(courseResult.error.message);
+      else setCourses(courseResult.data ?? []);
+      if (recordingResult.error) setError(recordingResult.error.message);
+      else setRecordings(recordingResult.data ?? []);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Could not load the session library.');
+    } finally {
+      setLoading(false);
+    }
   }, [client]);
 
   useEffect(() => { void load(); }, [load]);
@@ -222,6 +242,10 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
       setError('Use an MP4, MOV or WebM video file.');
       return;
     }
+    if (file.size === 0) {
+      setError('The selected video file is empty. Choose a valid recording.');
+      return;
+    }
     if (file.size > MAX_FILE_BYTES) {
       setError('This file exceeds the 500 MB limit for this upload. Compress it or split the recording.');
       return;
@@ -230,10 +254,17 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
     const safeName = file.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]/g, '-').slice(-100);
     const resumeFingerprint = [profile.id, courseId, file.name, file.size, file.lastModified].join(':');
     const pathStorageKey = `sat-recording-path:${resumeFingerprint}`;
-    let path = localStorage.getItem(pathStorageKey);
-    if (!path) {
-      path = profile.id + '/' + crypto.randomUUID() + '-' + safeName;
-      localStorage.setItem(pathStorageKey, path);
+    let path: string | null = null;
+    try {
+      path = localStorage.getItem(pathStorageKey);
+      if (!path) {
+        path = profile.id + '/' + crypto.randomUUID() + '-' + safeName;
+        localStorage.setItem(pathStorageKey, path);
+      }
+    } catch {
+      setError('Your browser could not save the upload recovery information. Check available site storage and try again.');
+      setBusy(false);
+      return;
     }
     const tusStorageKey = `supabase-tus:${BUCKET}:${path}:${file.size}:${file.lastModified}`;
     setUploadProgress(0);
