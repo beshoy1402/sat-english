@@ -196,7 +196,7 @@ Deno.serve(async (req: Request) => {
       } else {
         endpoint = provider.base_url.replace(/\/$/,"") + "/chat/completions";
         headers.Authorization = "Bearer " + secret;
-        requestBody = { model, messages: [{ role: "system", content: system }, ...messages], temperature: action === "tutor" ? 0.35 : 0.15, max_tokens: 1400, ...(action !== "tutor" ? { response_format: { type: "json_object" } } : {}) };
+        requestBody = { model, messages: [{ role: "system", content: system }, ...messages], temperature: action === "tutor" ? 0.35 : 0.15, max_tokens: action === "worksheet" ? 4096 : 1400, ...(action !== "tutor" ? { response_format: { type: "json_object" } } : {}) };
       }
 
       const response = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(requestBody), signal: controller.signal });
