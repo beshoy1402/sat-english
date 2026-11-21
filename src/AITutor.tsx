@@ -8,10 +8,29 @@ export default function AITutor({client}:{client:any}){
  const send=async(e:React.FormEvent)=>{
   e.preventDefault();const text=draft.trim();if(!text||busy)return;
   const next=[...messages,{role:'user' as const,content:text}];setMessages(next);setDraft('');setBusy(true);setNotice('');
-  const {data,error}=await client.functions.invoke('ai-learning',{body:{action:'tutor',messages:next.slice(-20).map(m=>({role:m.role,content:m.content}))}});
-  if(error||data?.error){setNotice(data?.error||error?.message||'The AI tutor could not respond.');setMessages(old=>[...old,{role:'assistant',content:'I could not reach the AI provider. Please try again in a moment.'}]);}
-  else setMessages(old=>[...old,{role:'assistant',content:data.content,provider:data.provider+' · '+data.model}]);
-  setBusy(false);
+  try{
+   const {data,error}=await client.functions.invoke('ai-learning',{body:{action:'tutor',messages:next.slice(-20).map(m=>({role:m.role,content:m.content}))}});
+   let serverError=data?.error as string|undefined;
+   if(error&&!serverError&&error.context instanceof Response){
+    const payload=await error.context.clone().json().catch(()=>null);
+    if(typeof payload?.error==='string')serverError=payload.error;
+   }
+   if(error||serverError){
+    const detail=serverError||error?.message||'The AI tutor could not respond.';
+    setNotice(detail);setDraft(text);
+    setMessages(old=>[...old,{role:'assistant',content:'I could not complete that request. The error details are shown above; your question is still in the input so you can retry.'}]);
+   }else if(typeof data?.content==='string'&&data.content.trim()){
+    setMessages(old=>[...old,{role:'assistant',content:data.content,provider:[data.provider,data.model].filter(Boolean).join(' · ')}]);
+   }else{
+    setNotice('The AI service returned an empty response. Your question is still available to retry.');
+    setDraft(text);
+   }
+  }catch(error){
+   setNotice(error instanceof Error?error.message:'The AI tutor request failed unexpectedly.');
+   setDraft(text);
+  }finally{
+   setBusy(false);
+  }
  };
  return <section className="ai-tutor"><header><div className="ai-tutor-icon"><Bot/></div><div><span>PERSONAL LEARNING ASSISTANT</span><h2>AI English Tutor</h2><p>Ask questions, practise exam skills and get clear explanations.</p></div><button onClick={()=>{setMessages([{role:'assistant',content:'Hello! What English skill would you like to practise today?'}]);setNotice('');}} title="Clear conversation"><Trash2 size={15}/></button></header>
   {notice&&<div className="ai-tutor-notice">{notice}</div>}
