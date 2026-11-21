@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient, providerSettings, deleteAccount, app, homework, homeworkMigration] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings, deleteAccount, app, homework, homeworkMigration, nvidiaMigration] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
@@ -11,9 +11,12 @@ const [ai, recordings, supabaseClient, providerSettings, deleteAccount, app, hom
   read('../src/App.tsx'),
   read('../src/HomeworkCenter.tsx'),
   read('../supabase/migrations/20261121162000_homework_teacher_attachments.sql'),
+  read('../supabase/migrations/20261122001500_add_nvidia_nim_provider.sql'),
 ]);
 
 // AI must use a strict zero-cost provider/model/endpoint allowlist.
+assert.match(ai, /integrate\\.api\\.nvidia\\.com/);
+assert.match(ai, /nvidia\\/nemotron-3\\.5-lightning-30b-a3b/);
 assert.match(ai, /parsed\.origin === "https:\/\/generativelanguage\.googleapis\.com"/);
 assert.match(ai, /provider\.model === "gemini-3\.8-flash"/);
 assert.match(ai, /parsed\.origin === "https:\/\/openrouter\.ai"/);
@@ -22,7 +25,9 @@ assert.match(ai, /p\.is_enabled && p\.key_configured && isApprovedFreeProvider\(
 assert.match(ai, /AI is paused by the zero-cost safety policy/);
 assert.match(ai, /if \(rateError\) return respond\(\{ error: "AI usage limits could not be checked safely/);
 assert.ok(ai.includes('const cleaned = content.replace(/^```(?:json)?\\s*/i'), 'Worksheet JSON fence parsing must accept normal whitespace.');
-assert.match(providerSettings, /type ProviderId = 'gemini' \| 'openrouter'/);
+assert.match(providerSettings, /type ProviderId = 'nvidia' \\| 'gemini' \\| 'openrouter'/);
+assert.match(providerSettings, /id: 'nvidia', name: 'NVIDIA NIM'/);
+assert.match(nvidiaMigration, /nvidia.*integrate\.api\.nvidia\.com/s);
 assert.match(providerSettings, /Zero-cost routing is enforced/);
 assert.doesNotMatch(providerSettings, /id: 'groq'/);
 
