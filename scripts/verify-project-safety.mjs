@@ -16,7 +16,7 @@ assert.match(ai, /parsed\.origin === "https:\/\/openrouter\.ai"/);
 assert.match(ai, /meta-llama\/llama-3\.3-70b-instruct:free/);
 assert.match(ai, /p\.is_enabled && p\.key_configured && isApprovedFreeProvider\(p\)/);
 assert.match(ai, /AI is paused by the zero-cost safety policy/);
-assert.ok(ai.includes('replace(/^\`\`\`(?:json)?\\s*/i'), 'Worksheet JSON fence parsing must accept normal whitespace.');
+assert.ok(ai.includes('const cleaned = content.replace(/^```(?:json)?\\s*/i'), 'Worksheet JSON fence parsing must accept normal whitespace.');
 assert.match(providerSettings, /type ProviderId = 'gemini' \| 'openrouter'/);
 assert.match(providerSettings, /Zero-cost routing is enforced/);
 assert.doesNotMatch(providerSettings, /id: 'groq'/);
