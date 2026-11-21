@@ -13,7 +13,7 @@ const respond = (body: Record<string, unknown>, status = 200) =>
 
 const defaultModels: Record<string, string> = {
   qwen: "qwen-plus",
-  nvidia: "nvidia/nemotron-3.5-lightning-30b-a3b",
+  nvidia: "nvidia/nemotron-3.5-super-vl-120b-a12b",
   gemini: "gemini-2.5-flash",
   groq: "openai/gpt-oss-120b",
   deepseek: "deepseek-chat",
@@ -176,7 +176,7 @@ Deno.serve(async (req: Request) => {
       if (provider.provider === "nvidia") {
         return parsed.origin === "https://integrate.api.nvidia.com"
           && path === "/v1"
-          && provider.model === "nvidia/nemotron-3.5-lightning-30b-a3b";
+          && provider.model === "nvidia/nemotron-3.5-super-vl-120b-a12b";
       }
       if (provider.provider === "gemini") {
         return parsed.origin === "https://generativelanguage.googleapis.com"
