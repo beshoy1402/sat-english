@@ -29,7 +29,7 @@ assert.match(recordings, /confirmedOffset !== nextOffset/);
 assert.match(recordings, /Could not verify the saved upload session/);
 
 // A completed video must remain recoverable when metadata persistence fails.
-assert.match(recordings, /\\.eq\\('storage_path', path\\)\\s*\\.\\s*maybeSingle\\(\\)/);
+assert.match(recordings, /\.eq\('storage_path', path\)\s*\.\s*maybeSingle\(\)/);
 assert.match(recordings, /Your uploaded video has been kept so you can retry/);
 assert.doesNotMatch(recordings, /if \(insertError\) \{\s*await client\.storage\.from\(BUCKET\)\.remove/);
 
