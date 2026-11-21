@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient, providerSettings] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings, deleteAccount, app] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
   read('../src/AIProviderSettings.tsx'),
+  read('../supabase/functions/delete-account/index.ts'),
+  read('../src/App.tsx'),
 ]);
 
 // AI must use a strict zero-cost provider/model/endpoint allowlist.
@@ -21,6 +23,11 @@ assert.ok(ai.includes('const cleaned = content.replace(/^```(?:json)?\\s*/i'), '
 assert.match(providerSettings, /type ProviderId = 'gemini' \| 'openrouter'/);
 assert.match(providerSettings, /Zero-cost routing is enforced/);
 assert.doesNotMatch(providerSettings, /id: 'groq'/);
+
+// Account deletion permissions must be enforced by the server and reflected in the UI.
+assert.match(deleteAccount, /actor\.role !== "admin" && \["teacher", "assistant"\]\.includes\(target\.role\)/);
+assert.match(app, /canDeleteStaff=\{profile\.role===\'admin\'\}/);
+assert.match(app, /!\[\'teacher\',\'assistant\'\]\.includes\(r\.role\)\|\|canDeleteStaff/);
 
 // Resumable uploads must never send credentials to arbitrary browser-stored URLs.
 assert.match(recordings, /parsed\.origin === endpointOrigin/);
