@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, Eye, EyeOff, KeyRound, RefreshCw, Save, ShieldCheck, Sparkles } from 'lucide-react';
 
-type ProviderId = 'gemini' | 'openrouter';
+type ProviderId = 'nvidia' | 'gemini' | 'openrouter';
 type ProviderConfig = { provider: ProviderId; base_url: string; model: string; is_enabled: boolean; priority: number; key_configured: boolean; last_tested_at: string | null; last_test_status: string | null };
 const catalog: { id: ProviderId; name: string; detail: string; placeholder: string }[] = [
-  { id: 'gemini', name: 'Google Gemini', detail: 'Primary AI · Gemini 3.8 Flash · Free Tier only', placeholder: 'gemini-3.8-flash' },
+  { id: 'nvidia', name: 'NVIDIA NIM', detail: 'Primary AI · Nemotron 3.5 Lightning · Free Endpoint', placeholder: 'nvidia/nemotron-3.5-lightning-30b-a3b' },
+  { id: 'gemini', name: 'Google Gemini', detail: 'Fallback AI · Gemini Free Tier only', placeholder: 'gemini-3.8-flash' },
   { id: 'openrouter', name: 'OpenRouter', detail: 'Fallback AI · Llama 3.3 · Free endpoint only', placeholder: 'meta-llama/llama-3.3-70b-instruct:free' },
 ];
 
@@ -72,7 +73,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
   return <section className="panel full-panel ai-provider-panel">
     <div className="panel-heading"><div><small>DEVELOPER · AI CONFIGURATION</small><h3>AI Provider Management</h3><p>Manage your AI routing stack, securely store provider keys, and monitor reliability and usage.</p></div><Sparkles/></div>
     <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Credentials stay server-side</b><span>API keys are saved in Supabase Vault and are never returned to the browser after saving.</span></div></div>
-    <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Zero-cost routing is enforced</b><span>Only Gemini 3.8 Flash and OpenRouter Llama 3.3 :free are allowed. Gemini must use a Google AI Studio Free Tier project with billing disabled. Other providers and paid model IDs are blocked; free quotas can still run out.</span></div></div>
+    <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Zero-cost routing is enforced</b><span>Only NVIDIA Nemotron 3.5 Lightning, Gemini Free Tier and OpenRouter Llama 3.3 :free are allowed. NVIDIA's free endpoint and other providers can have rate limits or quotas; free access is not unlimited. Other providers and paid model IDs are blocked.</span></div></div>
     {message && <div className={message.error ? 'error-banner' : 'notice-banner'}>{message.text}</div>}
     <div className="ai-provider-list">{catalog.map(provider => {
       const row = configs[provider.id];
