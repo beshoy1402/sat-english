@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
+  read('../src/AIProviderSettings.tsx'),
 ]);
 
 // AI must use a strict zero-cost provider/model/endpoint allowlist.
@@ -15,6 +16,10 @@ assert.match(ai, /parsed\.origin === "https:\/\/openrouter\.ai"/);
 assert.match(ai, /meta-llama\/llama-3\.3-70b-instruct:free/);
 assert.match(ai, /p\.is_enabled && p\.key_configured && isApprovedFreeProvider\(p\)/);
 assert.match(ai, /AI is paused by the zero-cost safety policy/);
+assert.ok(ai.includes('replace(/^\`\`\`(?:json)?\\s*/i'), 'Worksheet JSON fence parsing must accept normal whitespace.');
+assert.match(providerSettings, /type ProviderId = 'gemini' \| 'openrouter'/);
+assert.match(providerSettings, /Zero-cost routing is enforced/);
+assert.doesNotMatch(providerSettings, /id: 'groq'/);
 
 // Resumable uploads must never send credentials to arbitrary browser-stored URLs.
 assert.match(recordings, /parsed\.origin === endpointOrigin/);
