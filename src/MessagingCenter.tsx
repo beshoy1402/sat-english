@@ -53,8 +53,12 @@ export default function MessagingCenter({client,profile}:Props){
   setBusy(false);
  };
  const openAttachment=async(path:string)=>{
+  const popup=window.open('about:blank','_blank');
+  if(!popup){setNotice('Allow pop-ups to open message attachments, then try again.');return;}
+  popup.opener=null;
   const {data,error}=await client.storage.from('message-attachments').createSignedUrl(path,60);
-  if(error){setNotice(error.message);return;}window.open(data.signedUrl,'_blank','noopener,noreferrer');
+  if(error||!data?.signedUrl){popup.close();setNotice(error?.message||'Could not create a secure attachment link.');return;}
+  popup.location.href=data.signedUrl;
  };
  const setStatus=async(status:string)=>{
   if(!selected)return;const {error}=await client.from('conversations').update({status,updated_at:new Date().toISOString()}).eq('id',selected.id);
