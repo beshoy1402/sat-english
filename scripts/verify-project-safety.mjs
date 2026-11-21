@@ -16,7 +16,7 @@ const [ai, recordings, supabaseClient, providerSettings, deleteAccount, app, hom
 
 // AI must use a strict zero-cost provider/model/endpoint allowlist.
 assert.ok(ai.includes('parsed.origin === "https://integrate.api.nvidia.com"'));
-assert.ok(ai.includes('provider.model === "nvidia/nemotron-3.5-lightning-30b-a3b"'));
+assert.ok(ai.includes('provider.model === "nvidia/nemotron-3.5-super-vl-120b-a12b"'));
 assert.match(ai, /parsed\.origin === "https:\/\/generativelanguage\.googleapis\.com"/);
 assert.match(ai, /provider\.model === "gemini-3\.8-flash"/);
 assert.match(ai, /parsed\.origin === "https:\/\/openrouter\.ai"/);
