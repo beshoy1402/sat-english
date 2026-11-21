@@ -25,7 +25,7 @@ assert.doesNotMatch(providerSettings, /id: 'groq'/);
 // Resumable uploads must never send credentials to arbitrary browser-stored URLs.
 assert.match(recordings, /parsed\.origin === endpointOrigin/);
 assert.match(recordings, /parsed\.pathname\.startsWith\('\/storage\/v1\/upload\/resumable\/'\)/);
-assert.match(recordings, /confirmedOffset > nextOffset/);
+assert.match(recordings, /confirmedOffset !== nextOffset/);
 assert.match(recordings, /Could not verify the saved upload session/);
 
 // A completed video must remain recoverable when metadata persistence fails.
