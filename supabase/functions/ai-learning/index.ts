@@ -171,8 +171,20 @@ Deno.serve(async (req: Request) => {
     const started = Date.now();
     const { data: secret, error: secretError } = await admin.rpc("ai_provider_config_read_secret", { p_provider: provider.provider });
     if (secretError || !secret) { failures.push(provider.provider + ": missing credential"); continue; }
-    const model = provider.model || defaultModels[provider.provider] || "";
+    let model = provider.model || defaultModels[provider.provider] || "";
     if (!model) { failures.push(provider.provider + ": model ID is required"); continue; }
+
+    // Keep the configured OpenRouter Llama fallback on its explicitly free endpoint.
+    // The unsuffixed model is metered; the :free variant is rate-limited but has zero token price.
+    if (provider.provider === "openrouter" && model === "meta-llama/llama-3.3-70b-instruct") {
+      model = "meta-llama/llama-3.3-70b-instruct:free";
+    }
+    // This Groq model was retired in August 2026. Skip it rather than waste the
+    // fallback window; a Developer can configure a currently supported model.
+    if (provider.provider === "groq" && model === "llama-3.3-70b-versatile") {
+      failures.push("groq: configured model was retired on 2026-08-16; choose a supported model in Developer → AI providers");
+      continue;
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
