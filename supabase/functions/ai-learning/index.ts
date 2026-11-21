@@ -77,19 +77,19 @@ Deno.serve(async (req: Request) => {
   const { data: actor, error: actorError } = await admin.from("profiles").select("id,role,is_active").eq("id", authData.user.id).single();
   if (actorError || !actor?.is_active) return respond({ error: "Your account is inactive or unavailable." }, 403);
 
-  let body: { action?: string; messages?: ChatMessage[]; submission_id?: string; exam_program?: string; target_date?: string; current_score?: number; target_score?: number; weekly_hours?: number; weak_topics?: string[] };
+  let body: { action?: string; messages?: ChatMessage[]; submission_id?: string; exam_program?: string; target_date?: string; current_score?: number; target_score?: number; weekly_hours?: number; weak_topics?: string[]; topic?: string; difficulty?: string; question_count?: number; include_answer_key?: boolean; include_passage?: boolean };
   try { body = await req.json(); } catch { return respond({ error: "Invalid JSON request." }, 400); }
   const action = body.action;
-  if (action !== "tutor" && action !== "homework_review" && action !== "study_plan") return respond({ error: "Unsupported AI action." }, 400);
+  if (action !== "tutor" && action !== "homework_review" && action !== "study_plan" && action !== "worksheet") return respond({ error: "Unsupported AI action." }, 400);
 
   if ((action === "tutor" || action === "study_plan") && actor.role !== "student") return respond({ error: "This learning feature is available to student accounts." }, 403);
-  if (action === "homework_review" && !["admin", "teacher", "assistant"].includes(actor.role)) return respond({ error: "Only teaching staff can request an AI homework draft." }, 403);
+  if ((action === "homework_review" || action === "worksheet") && !["admin", "teacher", "assistant"].includes(actor.role)) return respond({ error: "Only teaching staff can use these AI teaching tools." }, 403);
 
   const { count: recentCount, error: rateError } = await admin.from("ai_usage_logs")
     .select("id", { count: "exact", head: true })
     .eq("user_profile_id", actor.id)
     .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
-  if (!rateError && (recentCount ?? 0) >= (action === "homework_review" ? 20 : action === "study_plan" ? 8 : 50)) return respond({ error: "You've reached the hourly AI request limit. Please try again later." }, 429);
+  if (!rateError && (recentCount ?? 0) >= (action === "homework_review" ? 20 : action === "worksheet" ? 12 : action === "study_plan" ? 8 : 50)) return respond({ error: "You've reached the hourly AI request limit. Please try again later." }, 429);
 
   let messages: ChatMessage[] = [];
   let submission: any = null;
@@ -117,6 +117,23 @@ Deno.serve(async (req: Request) => {
       "Review the response for clarity, grammar, vocabulary, organization, task completion and accuracy. Be constructive and age-appropriate.",
       "Return only valid JSON with keys score_suggestion (0-100), feedback_suggestion (string), strengths (string array), improvements (string array). The score is only a suggested percentage, not a final grade.",
     ].join("\n\n") }];
+  } else if (action === "worksheet") {
+    const program = String(body.exam_program ?? "");
+    const topic = String(body.topic ?? "").trim().slice(0, 160);
+    const difficulty = ["easy", "medium", "hard", "mixed"].includes(String(body.difficulty)) ? String(body.difficulty) : "mixed";
+    const count = Math.max(5, Math.min(20, Number(body.question_count ?? 10) || 10));
+    if (!["SAT English", "EST English", "ACT English"].includes(program) || topic.length < 2) return respond({ error: "Choose a valid exam program and enter a topic." }, 400);
+    messages = [{ role: "user", content: [
+      "Create an original, classroom-ready English exam practice worksheet.",
+      "Exam program: " + program,
+      "Skill/topic: " + topic,
+      "Difficulty: " + difficulty,
+      "Question count: exactly " + count,
+      "Include a short original reading passage: " + (body.include_passage ? "yes, if it fits the topic" : "no, unless essential"),
+      "Include answer key: " + (body.include_answer_key === false ? "no" : "yes"),
+      "Write original questions; do not reproduce copyrighted test questions. Use plausible distractors and one defensible correct answer. Align the style and skill with the selected exam program without claiming official status.",
+      "Return strict JSON only with keys title, instructions, passage (string or null), questions (array of objects with prompt, choices array of 4 strings, answer as A/B/C/D, explanation, difficulty). Make the number of questions exactly " + count + ". " + (body.include_answer_key === false ? "Do not include answers or explanations; use empty strings for answer and explanation." : "Include the correct answer and a concise explanation for each question."),
+    ].join("\\n\\n") }];
   } else {
     const program = String(body.exam_program ?? "");
     if (!["SAT English", "EST English", "ACT English"].includes(program)) return respond({ error: "Choose SAT English, EST English or ACT English." }, 400);
@@ -140,7 +157,9 @@ Deno.serve(async (req: Request) => {
     ? "You are a patient, precise English exam tutor for SAT, EST and ACT English. Help the student understand reading comprehension, grammar, rhetorical skills, vocabulary and writing. Explain step by step, ask guiding questions when useful, correct misconceptions kindly, and provide short practice questions. Do not claim to know official exam answers unless the student provides the question. Keep answers focused on English learning."
     : action === "study_plan"
       ? "You are an expert English exam-preparation coach. Create achievable, structured plans with spaced review, skill practice and timed checkpoints. Return strict JSON only."
-      : "You are an assistant teacher preparing a draft review of English homework. Evaluate only the response and assignment instructions supplied. Never invent rubric criteria. Give constructive feedback. Return strict JSON only.";
+      : action === "worksheet"
+        ? "You are an expert SAT, EST and ACT English teacher. Produce accurate, original, age-appropriate practice material. Check every question and answer for ambiguity. Return strict JSON only."
+        : "You are an assistant teacher preparing a draft review of English homework. Evaluate only the response and assignment instructions supplied. Never invent rubric criteria. Give constructive feedback. Return strict JSON only.";
 
   const { data: configs, error: configError } = await admin.rpc("ai_provider_config_list");
   if (configError) return respond({ error: "AI provider configuration is unavailable. Check Developer → AI providers." }, 503);
@@ -167,13 +186,13 @@ Deno.serve(async (req: Request) => {
         requestBody = {
           systemInstruction: { parts: [{ text: system }] },
           contents: messages.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-          generationConfig: { temperature: action === "tutor" ? 0.35 : 0.15, maxOutputTokens: 1400, ...(action !== "tutor" ? { responseMimeType: "application/json" } : {}) },
+          generationConfig: { temperature: action === "tutor" ? 0.35 : 0.15, maxOutputTokens: action === "worksheet" ? 4096 : 1400, ...(action !== "tutor" ? { responseMimeType: "application/json" } : {}) },
         };
       } else if (provider.provider === "anthropic") {
         endpoint = provider.base_url.replace(/\/$/,"") + "/messages";
         headers["x-api-key"] = secret;
         headers["anthropic-version"] = "2023-06-01";
-        requestBody = { model, max_tokens: 1400, system, messages: messages.map(m => ({ role: m.role, content: m.content })), temperature: action === "tutor" ? 0.35 : 0.15 };
+        requestBody = { model, max_tokens: action === "worksheet" ? 4096 : 1400, system, messages: messages.map(m => ({ role: m.role, content: m.content })), temperature: action === "tutor" ? 0.35 : 0.15 };
       } else {
         endpoint = provider.base_url.replace(/\/$/,"") + "/chat/completions";
         headers.Authorization = "Bearer " + secret;
@@ -233,6 +252,23 @@ Deno.serve(async (req: Request) => {
         }).select("*").single();
         if (saveError) throw new Error("Could not save your study plan.");
         return respond({ success: true, feature: action, provider: provider.provider, model, usage, plan: saved });
+      }
+      if (action === "worksheet") {
+        let worksheet: any;
+        try {
+          const cleaned = content.replace(/^```(?:json)?\\s*/i, "").replace(/\\s*```$/, "").trim();
+          const value = JSON.parse(cleaned);
+          const questions = Array.isArray(value.questions) ? value.questions.slice(0, 20).map((q: any) => ({
+            prompt: String(q.prompt ?? "").slice(0, 1800),
+            choices: Array.isArray(q.choices) ? q.choices.slice(0, 4).map((v: any) => String(v).slice(0, 500)) : [],
+            answer: String(q.answer ?? "").slice(0, 10),
+            explanation: String(q.explanation ?? "").slice(0, 1800),
+            difficulty: String(q.difficulty ?? "mixed").slice(0, 20),
+          })).filter((q: any) => q.prompt) : [];
+          if (!questions.length) throw new Error("No questions were generated.");
+          worksheet = { title: String(value.title ?? "English Practice Worksheet").slice(0, 180), instructions: String(value.instructions ?? "Choose the best answer for each question.").slice(0, 1000), passage: value.passage ? String(value.passage).slice(0, 7000) : null, questions };
+        } catch { throw new Error("AI response could not be parsed as a worksheet. Please try again."); }
+        return respond({ success: true, feature: action, provider: provider.provider, model, usage, worksheet, failover_used: failures.length > 0, requires_teacher_review: true });
       }
       return respond({ success: true, feature: action, provider: provider.provider, model, usage, content, failover_used: failures.length > 0 });
     } catch (error) {

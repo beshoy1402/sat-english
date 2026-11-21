@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, Eye, EyeOff, KeyRound, RefreshCw, Save, ShieldCheck, Sparkles } from 'lucide-react';
 
-type ProviderId = 'qwen' | 'gemini' | 'groq' | 'deepseek' | 'openrouter' | 'openai' | 'anthropic' | 'meta_llama' | 'custom';
+type ProviderId = 'gemini' | 'groq' | 'deepseek' | 'openrouter' | 'meta_llama' | 'custom';
 type ProviderConfig = { provider: ProviderId; base_url: string; model: string; is_enabled: boolean; priority: number; key_configured: boolean; last_tested_at: string | null; last_test_status: string | null };
 const catalog: { id: ProviderId; name: string; detail: string; placeholder: string }[] = [
-  { id: 'qwen', name: 'Qwen', detail: 'Alibaba Cloud · DashScope', placeholder: 'Qwen model ID (optional)' },
-  { id: 'gemini', name: 'Google Gemini', detail: 'Google AI Studio', placeholder: 'Gemini model ID (optional)' },
-  { id: 'groq', name: 'Groq', detail: 'Fast inference API', placeholder: 'Groq model ID (optional)' },
+  { id: 'gemini', name: 'Google Gemini', detail: 'Primary AI · Google AI Studio', placeholder: 'Gemini model ID (optional)' },
+  { id: 'openrouter', name: 'OpenRouter', detail: 'Backup routing · Multi-model API', placeholder: 'Provider/model ID (optional)' },
+  { id: 'groq', name: 'Groq', detail: 'Backup inference · Fast API', placeholder: 'Groq model ID (optional)' },
   { id: 'deepseek', name: 'DeepSeek', detail: 'DeepSeek API', placeholder: 'DeepSeek model ID (optional)' },
-  { id: 'openrouter', name: 'OpenRouter', detail: 'Multi-provider model routing', placeholder: 'Provider/model ID (optional)' },
-  { id: 'openai', name: 'OpenAI', detail: 'OpenAI API', placeholder: 'OpenAI model ID (optional)' },
-  { id: 'anthropic', name: 'Anthropic Claude', detail: 'Anthropic Messages API', placeholder: 'Claude model ID (optional)' },
   { id: 'meta_llama', name: 'Meta Llama', detail: 'Together AI hosted Llama models', placeholder: 'meta-llama model ID' },
   { id: 'custom', name: 'Custom compatible API', detail: 'Public HTTPS OpenAI-compatible endpoint', placeholder: 'Model ID' },
 ];
@@ -77,7 +74,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
   };
 
   return <section className="panel full-panel ai-provider-panel">
-    <div className="panel-heading"><div><small>DEVELOPER · AI CONFIGURATION</small><h3>AI Provider Management</h3><p>Connect provider API keys, test connections, and set provider priority for future AI routing.</p></div><Sparkles/></div>
+    <div className="panel-heading"><div><small>DEVELOPER · AI CONFIGURATION</small><h3>AI Provider Management</h3><p>Manage your AI routing stack, securely store provider keys, and monitor reliability and usage.</p></div><Sparkles/></div>
     <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Credentials stay server-side</b><span>API keys are saved in Supabase Vault and are never returned to the browser after saving.</span></div></div>
     {message && <div className={message.error ? 'error-banner' : 'notice-banner'}>{message.text}</div>}
     <div className="ai-provider-list">{catalog.map(provider => {
@@ -95,7 +92,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
     })}</div>
     <section className="ai-usage-panel">
       <div className="ai-usage-heading">
-        <div><small>AI OPERATIONS</small><h4>Usage and cost monitoring</h4><p>Latest 200 recorded AI requests across configured providers.</p></div>
+        <div><small>AI OPERATIONS</small><h4>Usage and cost monitoring</h4><p>Live operational view of the latest 200 requests across enabled providers.</p></div>
         <button type="button" onClick={() => void load()}><RefreshCw size={14}/> Refresh usage</button>
       </div>
       <div className="ai-usage-stats">

@@ -22,19 +22,32 @@ Deno.serve(async (req: Request) => {
   const { data: userData, error: authError } = await service.auth.getUser(token);
   if (authError || !userData.user) return respond({ error: "Invalid session" }, 401);
   const { data: actor, error: actorError } = await service.from("profiles").select("id,role,is_active").eq("id", userData.user.id).single();
-  if (actorError || !actor?.is_active || !["admin", "teacher", "assistant"].includes(actor.role)) {
+  if (actorError || !actor?.is_active || !["admin", "developer", "teacher", "assistant"].includes(actor.role)) {
     return respond({ error: "Only active Admin, Teacher, or Assistant accounts can provision accounts." }, 403);
   }
 
-  let body: { username?: string; display_name?: string; password?: string; role?: string; linked_student_profile_id?: string };
+  let body: { action?: string; user_id?: string; username?: string; display_name?: string; password?: string; role?: string; linked_student_profile_id?: string };
   try { body = await req.json(); } catch { return respond({ error: "Invalid JSON" }, 400); }
+  if (body.action === "reset_password") {
+    if (!["admin", "developer"].includes(actor.role)) return respond({ error: "Only Admin or Developer accounts can reset passwords." }, 403);
+    const targetId = body.user_id ?? "";
+    const nextPassword = body.password ?? "";
+    if (!/^[0-9a-f-]{36}$/i.test(targetId) || nextPassword.length < 12 || nextPassword.length > 128) return respond({ error: "Choose an account and use a password of at least 12 characters." }, 400);
+    const { data: target } = await service.from("profiles").select("id,username,role,is_active").eq("id", targetId).single();
+    if (!target?.is_active || target.id === actor.id) return respond({ error: "Choose another active account." }, 404);
+    if (actor.role === "developer" && ["admin", "developer"].includes(target.role)) return respond({ error: "Developers cannot reset Admin or Developer passwords." }, 403);
+    const { error: resetError } = await service.auth.admin.updateUserById(targetId, { password: nextPassword });
+    if (resetError) return respond({ error: resetError.message }, 400);
+    await service.from("audit_events").insert({ actor_profile_id: actor.id, action: "account.password_reset", entity_type: "profile", entity_id: targetId, after_data: { username: target.username, role: target.role } });
+    return respond({ success: true, username: target.username });
+  }
   const username = (body.username ?? "").trim().toLowerCase();
   const displayName = (body.display_name ?? "").trim();
   const password = body.password ?? "";
   const role = body.role ?? "";
-  const allowedRoles = ["student", "parent", "teacher", "assistant"];
-  if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(username) || !displayName || password.length < 8 || !allowedRoles.includes(role)) {
-    return respond({ error: "Use a 3–30 character username, a display name, a password of at least 8 characters, and an allowed role." }, 400);
+  const allowedRoles = actor.role === "admin" ? ["student", "parent", "teacher", "assistant", "developer", "designer"] : actor.role === "developer" ? ["student", "parent", "teacher", "assistant", "designer"] : ["student", "parent"];
+  if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(username) || !displayName || password.length < 12 || !allowedRoles.includes(role)) {
+    return respond({ error: "Use a 3–30 character username, a display name, a password of at least 12 characters, and a role permitted for your account." }, 400);
   }
 
   let linkedStudentId: string | null = null;
