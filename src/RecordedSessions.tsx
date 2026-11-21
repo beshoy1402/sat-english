@@ -141,7 +141,7 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
   };
 
   const remove = async (recording: Recording) => {
-    if (!client || !canManage || !window.confirm('Delete this recording and its stored video permanently?')) return;
+    if (!client || !canDelete || !window.confirm('Delete this recording and its stored video permanently?')) return;
     setBusy(true);
     const { error: storageError } = await client.storage.from(BUCKET).remove([recording.storage_path]);
     if (storageError) { setError(storageError.message); setBusy(false); return; }
