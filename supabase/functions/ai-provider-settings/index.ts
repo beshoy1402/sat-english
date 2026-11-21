@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
 const providers = {
+  nvidia: { baseUrl: "https://integrate.api.nvidia.com/v1", auth: "bearer" },
   qwen: { baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", testUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models", auth: "bearer" },
   gemini: { baseUrl: "https://generativelanguage.googleapis.com/v1beta", testUrl: "https://generativelanguage.googleapis.com/v1beta/models", auth: "query" },
   groq: { baseUrl: "https://api.groq.com/openai/v1", testUrl: "https://api.groq.com/openai/v1/models", auth: "bearer" },
