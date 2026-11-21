@@ -642,3 +642,95 @@ button{cursor:pointer}
 .app button:disabled {
   cursor: not-allowed;
 }
+
+
+/* Student workspace polish — consistent page rhythm, button placement and responsive cards. */
+.portal-content{width:100%;max-width:1500px;margin:0 auto;padding:clamp(14px,2.2vw,28px)!important;box-sizing:border-box}
+.portal-content>section{min-width:0}
+.portal-content button,.portal-content a{transition:background .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease}
+.portal-content button:focus-visible,.portal-content a:focus-visible,.portal-content input:focus-visible,.portal-content select:focus-visible,.portal-content textarea:focus-visible{outline:2px solid #73b5ff;outline-offset:2px}
+.portal-content button:not(:disabled):active{transform:translateY(1px)}
+.portal-content button:disabled{cursor:not-allowed;opacity:.52}
+.course-heading,.group-heading,.study-heading,.homework-heading,.exam-center-heading,.messaging-heading{align-items:center!important;gap:16px!important;padding:2px 0 8px}
+.course-heading>div:first-child,.group-heading>div:first-child,.study-heading>div:first-child,.homework-heading>div:first-child,.exam-center-heading>div:first-child,.messaging-heading>div:first-child{min-width:0;flex:1}
+.course-heading h2,.group-heading h2,.study-heading h2,.homework-heading h2,.exam-center-heading h2,.messaging-heading h2{font-size:clamp(21px,2.2vw,28px)!important;letter-spacing:-.035em!important;margin:5px 0 6px!important}
+.course-heading p,.group-heading p,.study-heading p,.homework-heading p,.exam-center-heading p,.messaging-heading p{max-width:680px;line-height:1.65!important}
+.course-heading>button,.group-heading>button,.study-heading>button,.homework-heading>button,.exam-center-heading>button,.messaging-heading>div:last-child>button{flex:0 0 auto;min-height:38px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 13px!important;border:1px solid #2b4563!important;border-radius:10px!important;background:#10243a!important;color:#dceaff!important;font-size:12px!important;font-weight:700!important;white-space:nowrap}
+.course-heading>button:hover,.group-heading>button:hover,.study-heading>button:hover,.homework-heading>button:hover,.exam-center-heading>button:hover,.messaging-heading>div:last-child>button:hover{background:#193654!important;border-color:#527aa5!important}
+.course-staff-grid,.group-layout,.homework-staff-grid,.exam-staff-grid{align-items:start;gap:16px!important}
+.course-form,.group-form,.homework-create,.exam-form,.exam-assign-form,.study-generator,.exam-panel{border:1px solid #203a56!important;border-radius:15px!important;background:linear-gradient(155deg,#10243a 0%,#0b1b2d 100%)!important;box-shadow:0 12px 32px #02091422}
+.course-form,.group-form,.homework-create,.exam-form,.exam-assign-form,.study-generator{padding:clamp(14px,2vw,20px)!important}
+.course-form h3,.group-form h3,.homework-create h3,.exam-form h3,.exam-panel h3,.study-generator h3{display:flex;align-items:center;gap:9px;font-size:14px!important;letter-spacing:-.01em;margin:0 0 15px!important}
+.course-form label,.group-form label,.homework-create label,.exam-form label,.exam-assign-form label,.study-generator label,.homework-modal label,.exam-review-card label{display:grid;gap:7px;margin-bottom:12px;color:#b7c8dc;font-size:11px;font-weight:650}
+.course-form input,.course-form select,.course-form textarea,.group-form input,.group-form select,.group-form textarea,.study-generator input,.study-generator select,.homework-center input,.homework-center select,.homework-center textarea,.exam-center input,.exam-center select,.exam-center textarea,.messaging-modal input,.messaging-modal select,.messaging-modal textarea{width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:1px solid #29445f!important;border-radius:9px!important;background:#08182a!important;color:#e8f1ff!important;padding:10px 11px!important;font:inherit;font-size:12px!important}
+.course-form input:focus,.course-form select:focus,.course-form textarea:focus,.group-form input:focus,.group-form select:focus,.group-form textarea:focus,.study-generator input:focus,.study-generator select:focus,.homework-center input:focus,.homework-center select:focus,.homework-center textarea:focus,.exam-center input:focus,.exam-center select:focus,.exam-center textarea:focus{border-color:#5a9be0!important;box-shadow:0 0 0 3px #4d9bdf20}
+.course-primary,.group-primary,.study-primary,.homework-primary,.exam-primary,.messaging-new,.messaging-send{min-height:40px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;padding:10px 15px!important;border:1px solid #3989dc!important;border-radius:10px!important;background:linear-gradient(135deg,#287bc5,#1763a9)!important;color:#fff!important;font-size:12px!important;font-weight:750!important;box-shadow:0 7px 18px #1265a52a}
+.course-primary:hover,.group-primary:hover,.study-primary:hover,.homework-primary:hover,.exam-primary:hover,.messaging-new:hover,.messaging-send:hover{background:linear-gradient(135deg,#368fdd,#1b70ba)!important;box-shadow:0 9px 22px #1265a544}
+.course-card-grid,.group-card-grid,.homework-review-list,.exam-student-grid{gap:14px!important}
+.course-card,.group-card-grid>article,.homework-review-list>article,.homework-student-list>article,.exam-student-card{min-width:0;border:1px solid #203a56!important;border-radius:14px!important;background:linear-gradient(150deg,#10243a,#0c1c2e)!important;box-shadow:0 9px 25px #02091424!important;padding:16px!important}
+.course-card:hover,.group-card-grid>article:hover,.exam-student-card:hover{border-color:#365c83!important;transform:translateY(-2px)}
+.course-lesson-actions{display:flex!important;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:7px!important}
+.course-lesson-actions button,.course-text-button,.homework-secondary,.exam-secondary,.exam-admin-card button,.exam-pending button{min-height:34px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 10px!important;border:1px solid #2b4969!important;border-radius:8px!important;background:#132b45!important;color:#dceaff!important;font-size:10px!important;font-weight:700!important}
+.course-lesson-actions button:hover,.course-text-button:hover,.homework-secondary:hover,.exam-secondary:hover,.exam-admin-card button:hover,.exam-pending button:hover{background:#1d3b5d!important;border-color:#527da8!important}
+.course-lesson-actions button.completed{background:#103a35!important;border-color:#267b68!important;color:#a8f0d7!important}
+.course-list,.group-list,.group-members,.exam-admin-main{min-width:0}
+.course-list>article,.group-list>button,.group-member-list>article,.exam-admin-card,.exam-pending>article{border:1px solid #203a56!important;border-radius:11px!important;background:#0d2034!important;padding:12px!important;margin-bottom:9px}
+.group-list>button{width:100%;text-align:left}
+.group-list>button:hover,.group-list>button.active{background:#173451!important;border-color:#4b80b1!important}
+.group-card-grid>article{display:flex;align-items:flex-start;gap:13px}
+.group-card-grid>article>span,.course-lesson-icon,.exam-card-icon{flex:0 0 auto;display:grid;place-items:center;border:1px solid #315b82;border-radius:11px;background:#153653;color:#8bc6ff}
+.group-card-grid>article>span{width:38px;height:38px}
+.study-form-grid{gap:12px!important}
+.study-plan-content,.study-plan-top,.study-week-grid>article,.study-milestones,.study-history{border:1px solid #203a56!important;border-radius:14px!important;background:#0d2034!important}
+.study-plan-content{padding:clamp(13px,2vw,19px)!important}
+.study-plan-top{padding:16px!important;background:linear-gradient(135deg,#122b45,#102138)!important}
+.study-week-grid{gap:12px!important}
+.study-week-grid>article{padding:13px!important}
+.study-week-grid>article>label{display:flex;align-items:flex-start;gap:10px;padding:10px;border-radius:9px;background:#10243a;margin-top:8px}
+.study-week-grid>article>label input{margin-top:3px;accent-color:#3695e8}
+.study-plan-meta{display:flex;flex-wrap:wrap;gap:8px!important}
+.study-plan-meta>span{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid #29445f;border-radius:9px;background:#10243a;color:#bfd2e8;font-size:10px}
+.homework-card-grid{gap:14px!important}
+.homework-card-grid>article{min-width:0;border:1px solid #203a56!important;border-radius:14px!important;background:linear-gradient(150deg,#10243a,#0c1c2e)!important;padding:16px!important;box-shadow:0 9px 25px #02091424}
+.homework-card-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.homework-card-grid>article h3{margin:13px 0 7px!important;font-size:15px!important}
+.homework-card-grid>article>small{display:flex;align-items:center;gap:6px;margin:12px 0;color:#9db2c9}
+.homework-primary{width:100%;margin-top:10px}
+.exam-panel{padding:15px!important}
+.exam-admin-card{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.exam-admin-card>div:last-child{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.exam-student-card{display:flex;flex-direction:column;align-items:flex-start;gap:9px}
+.exam-student-card h3{margin:4px 0 0!important;font-size:16px!important}
+.exam-student-card>p{margin:0!important;line-height:1.6!important}
+.exam-student-card .exam-primary,.exam-student-card .exam-secondary{width:100%;margin-top:auto}
+.exam-card-meta{display:flex;flex-wrap:wrap;gap:8px}
+.exam-taking{max-width:1050px;margin:0 auto}
+.exam-taking-head{align-items:center!important;gap:14px!important}
+.exam-question{border:1px solid #29445f!important;border-radius:15px!important;background:#10243a!important;padding:clamp(16px,3vw,28px)!important}
+.exam-question-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.exam-question-footer button{min-height:40px}
+.messaging-heading>div:last-child{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+.messaging-layout{grid-template-columns:minmax(230px,.34fr) minmax(0,1fr)!important;gap:12px!important}
+.messaging-conversations,.messaging-thread{min-width:0;border:1px solid #203a56!important;border-radius:14px!important;background:#0c1d30!important;overflow:hidden}
+.messaging-conversations{padding:12px!important}
+.messaging-conversations>b{display:block;padding:3px 4px 12px;color:#dceaff;font-size:12px}
+.messaging-conversations>button{width:100%;display:grid;gap:5px;text-align:left;padding:11px!important;border:1px solid transparent!important;border-radius:9px!important;background:transparent!important;color:#dceaff!important}
+.messaging-conversations>button:hover,.messaging-conversations>button.active{background:#142f4a!important;border-color:#2b4d70!important}
+.messaging-thread>header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px!important;border-bottom:1px solid #203a56}
+.messaging-messages{min-height:340px;max-height:58vh;padding:14px!important}
+.messaging-compose{position:sticky;bottom:0;display:flex;align-items:flex-end;gap:9px;padding:11px!important;border-top:1px solid #203a56;background:#0b1a2b!important}
+.messaging-compose textarea{flex:1;min-width:0;border:1px solid #29445f!important;border-radius:10px!important;background:#08182a!important;color:#e8f1ff!important;padding:10px!important}
+.messaging-compose>button{width:40px;height:40px;flex:0 0 auto;border:0!important;border-radius:10px!important;background:#287bc5!important;color:#fff!important}
+.messaging-modal>form{width:min(520px,calc(100vw - 28px))!important;max-height:90vh;overflow:auto;border:1px solid #29445f!important;border-radius:16px!important;background:#10243a!important;padding:22px!important}
+.ai-tutor{min-height:min(760px,calc(100vh - 160px))!important;grid-template-rows:auto auto auto minmax(250px,1fr) auto auto!important;padding:clamp(13px,2vw,20px)!important;border:1px solid #203a56!important;border-radius:16px!important;background:radial-gradient(ellipse at 90% 0%,#173552 0%,#0c1b2e 44%)!important}
+.ai-tutor>header{display:flex;align-items:center;gap:13px}
+.ai-tutor>header>div:nth-child(2){flex:1;min-width:0}
+.ai-tutor>header h2{font-size:clamp(20px,2vw,26px)!important;letter-spacing:-.03em}
+.ai-chat-messages{min-height:250px;max-height:58vh;padding:clamp(10px,2vw,18px)!important;border:1px solid #203a56;border-radius:12px;background:#08182a}
+.ai-chat-message{max-width:min(88%,760px)!important}
+.ai-chat-message.user{margin-left:auto}
+.ai-chat-compose{display:flex;align-items:flex-end;gap:9px;padding:10px;border:1px solid #29445f;border-radius:12px;background:#08182a}
+.ai-chat-compose textarea{flex:1;min-width:0;resize:vertical;border:0!important;outline:0!important;background:transparent!important;color:#e8f1ff!important}
+.ai-chat-compose button{width:40px;height:40px;flex:0 0 auto;border:0!important;border-radius:10px!important;background:#287bc5!important;color:#fff!important}
+@media(max-width:900px){.course-staff-grid,.group-layout,.homework-staff-grid,.exam-staff-grid{grid-template-columns:1fr!important}.messaging-layout{grid-template-columns:1fr!important}.messaging-conversations{max-height:230px;overflow:auto}.messaging-messages{max-height:48vh}}
+@media(max-width:640px){.portal-content{padding:12px!important}.course-heading,.group-heading,.study-heading,.homework-heading,.exam-center-heading,.messaging-heading{align-items:stretch!important;flex-direction:column!important}.course-heading>button,.group-heading>button,.study-heading>button,.homework-heading>button,.exam-center-heading>button{width:100%}.messaging-heading>div:last-child{width:100%;display:grid;grid-template-columns:1fr 1.3fr}.messaging-heading>div:last-child>button{width:100%;white-space:normal}.course-lesson-actions{justify-content:flex-start}.course-list>article{display:flex;flex-wrap:wrap}.course-lesson-main{min-width:0;flex:1}.course-lesson-actions{width:100%;padding-left:48px}.course-lesson-actions button{flex:1 1 auto}.study-plan-meta>span{flex:1 1 130px}.exam-admin-card{align-items:flex-start}.exam-admin-card>div:last-child{width:100%;justify-content:flex-start}.exam-taking-head{align-items:flex-start!important;flex-direction:column!important}.exam-clock{align-self:flex-start}.messaging-compose{align-items:stretch}.messaging-compose label{align-self:center}.ai-tutor{min-height:calc(100vh - 135px)!important}.ai-chat-message{max-width:96%!important}}
