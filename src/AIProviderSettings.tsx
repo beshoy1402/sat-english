@@ -36,7 +36,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
       const next: Record<string, ProviderConfig> = {};
       for (const row of data.providers ?? []) next[row.provider] = row;
       setConfigs(next);
-      setModels(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.model ?? ''])));
+      setModels(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, id === 'openrouter' && row.model === 'meta-llama/llama-3.3-70b-instruct' ? 'meta-llama/llama-3.3-70b-instruct:free' : row.model ?? ''])));
       setBaseUrls(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.base_url ?? ''])));
       setEnabled(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.is_enabled])));
       setPriority(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.priority])));
