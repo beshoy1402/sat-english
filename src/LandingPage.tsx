@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {motion} from 'framer-motion';
-import {ArrowUpRight,ArrowRight,BookOpen,GraduationCap,CheckCircle2,Menu,X,Globe2,Target,Sparkles,ChevronDown,ShieldCheck,BrainCircuit,ChartNoAxesCombined,FileText,Zap} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,BookOpen,GraduationCap,Menu,X,Globe2,Target,ChevronDown,ShieldCheck,BrainCircuit,ChartNoAxesCombined,FileText,Zap} from 'lucide-react';
 
 type Props={onLogin:()=>void};
 const programs=[
