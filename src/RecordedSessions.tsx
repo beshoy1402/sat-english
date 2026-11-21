@@ -334,33 +334,58 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
   };
 
   const play = async (recording: Recording) => {
-    if (!client) return;
+    if (!client || busy) return;
     setError('');
     setBusy(true);
-    const { data, error: urlError } = await client.storage.from(BUCKET).createSignedUrl(recording.storage_path, 60 * 60);
-    if (urlError || !data?.signedUrl) setError(urlError?.message || 'Could not create a secure playback link.');
-    else setActiveVideo({ id: recording.id, title: recording.title, url: data.signedUrl });
-    setBusy(false);
+    try {
+      const { data, error: urlError } = await client.storage.from(BUCKET).createSignedUrl(recording.storage_path, 60 * 60);
+      if (urlError || !data?.signedUrl) setError(urlError?.message || 'Could not create a secure playback link.');
+      else setActiveVideo({ id: recording.id, title: recording.title, url: data.signedUrl });
+    } catch (playError) {
+      setError(playError instanceof Error ? playError.message : 'Could not open this recording.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const togglePublish = async (recording: Recording) => {
-    if (!client || !canManage) return;
+    if (!client || !canManage || busy) return;
     setBusy(true);
-    const { error: updateError } = await client.from('session_recordings').update({ is_published: !recording.is_published, updated_at: new Date().toISOString() }).eq('id', recording.id);
-    if (updateError) setError(updateError.message);
-    else { setNotice(recording.is_published ? 'Recording moved back to drafts.' : 'Recording published to students with course access.'); await load(); }
-    setBusy(false);
+    setError('');
+    try {
+      const { error: updateError } = await client.from('session_recordings').update({ is_published: !recording.is_published, updated_at: new Date().toISOString() }).eq('id', recording.id);
+      if (updateError) setError(updateError.message);
+      else { setNotice(recording.is_published ? 'Recording moved back to drafts.' : 'Recording published to students with course access.'); await load(); }
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Could not update recording visibility.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const remove = async (recording: Recording) => {
-    if (!client || !canDelete || !window.confirm('Delete this recording and its stored video permanently?')) return;
+    if (!client || !canDelete || busy || !window.confirm('Delete this recording and its stored video permanently?')) return;
     setBusy(true);
-    const { error: storageError } = await client.storage.from(BUCKET).remove([recording.storage_path]);
-    if (storageError) { setError(storageError.message); setBusy(false); return; }
-    const { error: rowError } = await client.from('session_recordings').delete().eq('id', recording.id);
-    if (rowError) setError(rowError.message);
-    else { setNotice('Recording deleted.'); if (activeVideo?.id === recording.id) setActiveVideo(null); await load(); }
-    setBusy(false);
+    setError('');
+    try {
+      const { error: storageError } = await client.storage.from(BUCKET).remove([recording.storage_path]);
+      if (storageError) {
+        setError('The video file could not be deleted, so its library record was kept. ' + storageError.message);
+        return;
+      }
+      const { error: rowError } = await client.from('session_recordings').delete().eq('id', recording.id);
+      if (rowError) {
+        setError('The video file was deleted, but its library record could not be removed. Refresh and contact an administrator if it remains visible. ' + rowError.message);
+      } else {
+        setNotice('Recording deleted.');
+        if (activeVideo?.id === recording.id) setActiveVideo(null);
+        await load();
+      }
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Could not delete this recording.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return <section className="recordings-page">
