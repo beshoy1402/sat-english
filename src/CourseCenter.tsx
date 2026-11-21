@@ -90,9 +90,16 @@ export default function CourseCenter({client,profile,view}:Props){
   setNotice(error?.message||'Lesson progress updated.');if(!error)await load();
  };
  const openLesson=async(lesson:Row)=>{
-  if(lesson.content_path){const {data,error}=await client.storage.from('lesson-content').createSignedUrl(lesson.content_path,3600);if(error){setNotice(error.message);return;}window.open(data.signedUrl,'_blank','noopener,noreferrer');}
-  else if(lesson.live_url||lesson.content_url){window.open(lesson.live_url||lesson.content_url,'_blank','noopener,noreferrer');}
-  else setNotice('No lesson link or file has been added yet.');
+  const target=lesson.live_url||lesson.content_url;
+  if(!lesson.content_path&&!target){setNotice('No lesson link or file has been added yet.');return;}
+  const popup=window.open('about:blank','_blank');
+  if(!popup){setNotice('Allow pop-ups to open lesson content, then try again.');return;}
+  popup.opener=null;
+  if(lesson.content_path){
+   const {data,error}=await client.storage.from('lesson-content').createSignedUrl(lesson.content_path,3600);
+   if(error||!data?.signedUrl){popup.close();setNotice(error?.message||'Could not create a secure lesson link.');return;}
+   popup.location.href=data.signedUrl;
+  }else if(target){popup.location.href=target;}
  };
  const childName=children.find(c=>c.id===childId)?.display_name;
  if(!staff&&parent&&!children.length)return <section className="course-center"><div className="course-empty"><Users/><b>No linked student account</b><p>Ask the school team to link your parent account to your child's student profile.</p></div></section>;
