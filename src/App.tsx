@@ -85,7 +85,7 @@ export default function App(){
   </div>
   <div className="workspace-quick">
    <div className="workspace-quick-head"><span>QUICK ACCESS</span><span className="quick-count">0{Math.min(3,current.filter(([key])=>key!=='overview'&&key!==active).length)}</span></div>
-   {current.filter(([key])=>key!=='overview'&&key!==active).slice(0,3).map(([key,name,Icon],index)=><button key={key} onClick={()=>{setActive(key);setSearch('')}}><span className="quick-icon"><Icon size={16}/></span><span>{name}</span><ArrowRight size={14}/></button>)}
+   {current.filter(([key])=>key!=='overview'&&key!==active).slice(0,3).map(([key,name,Icon])=><button key={key} onClick={()=>{setActive(key);setSearch('')}}><span className="quick-icon"><Icon size={16}/></span><span>{name}</span><ArrowRight size={14}/></button>)}
   </div>
  </motion.section>
  {active==='overview'&&profile.role==='parent'&&<ParentDashboard client={supabase} profile={profile}/>}
