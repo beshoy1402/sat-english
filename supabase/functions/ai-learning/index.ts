@@ -168,7 +168,7 @@ Deno.serve(async (req: Request) => {
   const isApprovedFreeProvider = (provider: ProviderRow) => {
     try {
       const parsed = new URL(provider.base_url);
-      const path = parsed.pathname.replace(/\\/$/, "");
+      const path = parsed.pathname.endsWith("/") ? parsed.pathname.slice(0, -1) : parsed.pathname;
       if (provider.provider === "gemini") {
         return parsed.origin === "https://generativelanguage.googleapis.com"
           && path === "/v1beta"
