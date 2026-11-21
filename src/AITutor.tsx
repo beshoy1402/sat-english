@@ -1,41 +1,12 @@
 import {useState} from 'react';
-import {Bot,Send,Sparkles,Trash2} from 'lucide-react';
+import {Bot,Send,Sparkles,Trash2,MessageCircle,ArrowUpRight} from 'lucide-react';
 import './ai-tutor.css';
-type Message={role:'user'|'assistant';content:string;provider?:string};
-export default function AITutor({client}:{client:any}){
- const [messages,setMessages]=useState<Message[]>([{role:'assistant',content:'Hello! I can help you practise SAT, EST and ACT English. Ask me about grammar, reading comprehension, vocabulary or rhetorical skills.'}]);
+type Message={role:'user'|'assistant';content:string;provider?:string};type Profile={id:string};
+export default function AITutor({client,profile,onOpenMessages}:{client:any;profile:Profile;onOpenMessages:()=>void}){
+ const [messages,setMessages]=useState<Message[]>([{role:'assistant',content:'Hello! I am your SAT English learning tutor. Ask me about grammar, reading, vocabulary or rhetorical skills. I will explain each step and give you practice.'}]);
  const [draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
- const send=async(e:React.FormEvent)=>{
-  e.preventDefault();const text=draft.trim();if(!text||busy)return;
-  const next=[...messages,{role:'user' as const,content:text}];setMessages(next);setDraft('');setBusy(true);setNotice('');
-  try{
-   const {data,error}=await client.functions.invoke('ai-learning',{body:{action:'tutor',messages:next.slice(-20).map(m=>({role:m.role,content:m.content}))}});
-   let serverError=data?.error as string|undefined;
-   if(error&&!serverError&&error.context instanceof Response){
-    const payload=await error.context.clone().json().catch(()=>null);
-    if(typeof payload?.error==='string')serverError=payload.error;
-   }
-   if(error||serverError){
-    const detail=serverError||error?.message||'The AI tutor could not respond.';
-    setNotice(detail);setDraft(text);
-    setMessages(old=>[...old,{role:'assistant',content:'I could not complete that request. The error details are shown above; your question is still in the input so you can retry.'}]);
-   }else if(typeof data?.content==='string'&&data.content.trim()){
-    setMessages(old=>[...old,{role:'assistant',content:data.content,provider:[data.provider,data.model].filter(Boolean).join(' · ')}]);
-   }else{
-    setNotice('The AI service returned an empty response. Your question is still available to retry.');
-    setDraft(text);
-   }
-  }catch(error){
-   setNotice(error instanceof Error?error.message:'The AI tutor request failed unexpectedly.');
-   setDraft(text);
-  }finally{
-   setBusy(false);
-  }
- };
- return <section className="ai-tutor"><header><div className="ai-tutor-icon"><Bot/></div><div><span>PERSONAL LEARNING ASSISTANT</span><h2>AI English Tutor</h2><p>Ask questions, practise exam skills and get clear explanations.</p></div><button onClick={()=>{setMessages([{role:'assistant',content:'Hello! What English skill would you like to practise today?'}]);setNotice('');}} title="Clear conversation"><Trash2 size={15}/></button></header>
-  {notice&&<div className="ai-tutor-notice">{notice}</div>}
-  <div className="ai-chat-messages">{messages.map((m,i)=><article key={i} className={'ai-chat-message '+m.role}><span className="ai-chat-avatar">{m.role==='assistant'?<Sparkles size={14}/>: 'You'}</span><div><p>{m.content}</p>{m.provider&&<small>{m.provider}</small>}</div></article>)}{busy&&<article className="ai-chat-message assistant"><span className="ai-chat-avatar"><Sparkles size={14}/></span><div className="ai-typing"><i/><i/><i/> Thinking…</div></article>}</div>
-  <form className="ai-chat-compose" onSubmit={send}><textarea rows={2} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ask your English tutor anything…" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send(e as any);}}}/><button disabled={busy||!draft.trim()}><Send size={16}/></button></form>
-  <small className="ai-tutor-footnote">AI answers can contain mistakes. Check explanations against your course materials and ask your teacher when unsure.</small>
- </section>;
+ const send=async(e:React.FormEvent)=>{e.preventDefault();const text=draft.trim();if(!text||busy)return;const next=[...messages,{role:'user' as const,content:text}];setMessages(next);setDraft('');setBusy(true);setNotice('');try{const {data,error}=await client.functions.invoke('ai-learning',{body:{action:'tutor',messages:next.slice(-20).map(m=>({role:m.role,content:m.content}))}});let serverError=data?.error as string|undefined;if(error&&!serverError&&error.context instanceof Response){const payload=await error.context.clone().json().catch(()=>null);if(typeof payload?.error==='string')serverError=payload.error;}if(error||serverError){setNotice(serverError||error?.message||'The AI tutor could not respond.');setDraft(text);}else if(typeof data?.content==='string'&&data.content.trim())setMessages(old=>[...old,{role:'assistant',content:data.content,provider:[data.provider,data.model].filter(Boolean).join(' · ')}]);else{setNotice('The AI service returned an empty response. Your question is still available to retry.');setDraft(text);}}catch(err){setNotice(err instanceof Error?err.message:'The AI tutor request failed unexpectedly.');setDraft(text);}finally{setBusy(false);}};
+ const startHumanChat=async()=>{if(busy)return;setBusy(true);setNotice('');const context=messages.slice(-8).map(m=>(m.role==='user'?'Student: ':'AI Tutor: ')+m.content).join('\n\n').slice(0,8500);const {data,error}=await client.from('conversations').insert({subject:'AI Tutor support · '+new Date().toLocaleDateString(),conversation_type:'student_teacher',created_by:profile.id,status:'open'}).select('id').single();if(error||!data){setNotice(error?.message||'Could not start a support chat.');setBusy(false);return;}const {error:pe}=await client.from('conversation_participants').insert({conversation_id:data.id,profile_id:profile.id,participant_role:'requester'});if(pe){setNotice(pe.message);setBusy(false);return;}const {error:me}=await client.from('messages').insert({conversation_id:data.id,sender_profile_id:profile.id,body:'I would like help from a teaching assistant with my AI Tutor session.\n\n'+(context||'I need help with SAT English.')});if(me){setNotice(me.message);setBusy(false);return;}setBusy(false);onOpenMessages();};
+ const suggestions=['Explain subject-verb agreement','Give me a SAT-style transition question','How do I identify the main idea?'];
+ return <section className="ai-tutor"><header><div className="ai-tutor-icon"><Bot/></div><div><span>YOUR PERSONAL LEARNING ASSISTANT</span><h2>AI English Tutor</h2><p>Step-by-step explanations, exam-style practice and instant feedback.</p></div><button onClick={()=>{setMessages([{role:'assistant',content:'Hello! What English skill would you like to practise today?'}]);setNotice('');}} title="Clear conversation"><Trash2 size={15}/></button></header><div className="ai-tutor-toolbar"><span><i/> AI tutor online</span><button type="button" onClick={()=>void startHumanChat()} disabled={busy}><MessageCircle size={14}/> Chat with an assistant <ArrowUpRight size={13}/></button></div>{notice&&<div className="ai-tutor-notice">{notice}</div>}{messages.length===1&&<div className="ai-tutor-suggestions">{suggestions.map(s=><button type="button" key={s} onClick={()=>setDraft(s)}>{s}<ArrowUpRight size={13}/></button>)}</div>}<div className="ai-chat-messages">{messages.map((m,i)=><article key={i} className={'ai-chat-message '+m.role}><span className="ai-chat-avatar">{m.role==='assistant'?<Sparkles size={14}/>: 'You'}</span><div><p>{m.content}</p>{m.provider&&<small>{m.provider}</small>}</div></article>)}{busy&&<article className="ai-chat-message assistant"><span className="ai-chat-avatar"><Sparkles size={14}/></span><div className="ai-typing"><i/><i/><i/> Thinking…</div></article>}</div><form className="ai-chat-compose" onSubmit={send}><textarea rows={2} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ask your English tutor anything…" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send(e as any);}}}/><button disabled={busy||!draft.trim()}><Send size={16}/></button></form><small className="ai-tutor-footnote">AI answers can contain mistakes. For personal guidance, tap “Chat with an assistant” to reach the teaching team.</small></section>;
 }
