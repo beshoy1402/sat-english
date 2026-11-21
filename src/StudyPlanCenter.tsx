@@ -29,15 +29,26 @@ export default function StudyPlanCenter({client,profile}:Props){
  useEffect(()=>{void load();},[load]);
  const generate=async(e:React.FormEvent)=>{
   e.preventDefault();setBusy(true);setNotice('');
-  const {data,error}=await client.functions.invoke('ai-learning',{body:{action:'study_plan',exam_program:program,target_date:targetDate||null,current_score:currentScore===''?null:Number(currentScore),target_score:targetScore===''?null:Number(targetScore),weekly_hours:Number(hours),weak_topics:weakTopics.split(',').map(s=>s.trim()).filter(Boolean)}});
-  if(error||data?.error)setNotice(data?.error||error?.message||'The study plan could not be generated.');
-  else{setSelected(data.plan);setNotice('Your personal study plan has been generated and saved.');await load();}
-  setBusy(false);
+  try{
+   const {data,error}=await client.functions.invoke('ai-learning',{body:{action:'study_plan',exam_program:program,target_date:targetDate||null,current_score:currentScore===''?null:Number(currentScore),target_score:targetScore===''?null:Number(targetScore),weekly_hours:Number(hours),weak_topics:weakTopics.split(',').map(s=>s.trim()).filter(Boolean)}});
+   let serverError=data?.error as string|undefined;
+   if(error&&!serverError&&error.context instanceof Response){
+    const payload=await error.context.clone().json().catch(()=>null);
+    if(typeof payload?.error==='string')serverError=payload.error;
+   }
+   if(error||serverError)setNotice(serverError||error?.message||'The study plan could not be generated.');
+   else if(data?.plan){setSelected(data.plan);setNotice('Your personal study plan has been generated and saved.');await load();}
+   else setNotice('The AI service returned an incomplete study plan. Please try again.');
+  }catch(error){setNotice(error instanceof Error?error.message:'The study plan request failed unexpectedly.');}
+  finally{setBusy(false);}
  };
  const updatePlan=async(next:Row)=>{
-  if(parent||!selected)return;setBusy(true);
-  const {data,error}=await client.from('student_study_plans').update({plan_json:next.plan_json,status:next.status,updated_at:new Date().toISOString()}).eq('id',next.id).select('*').single();
-  setNotice(error?.message||'Study plan progress saved.');if(!error){setSelected(data);await load();}setBusy(false);
+  if(parent||!selected||busy)return;setBusy(true);
+  try{
+   const {data,error}=await client.from('student_study_plans').update({plan_json:next.plan_json,status:next.status,updated_at:new Date().toISOString()}).eq('id',next.id).select('*').single();
+   setNotice(error?.message||'Study plan progress saved.');if(!error){setSelected(data);await load();}
+  }catch(error){setNotice(error instanceof Error?error.message:'Could not save study plan progress.');}
+  finally{setBusy(false);}
  };
  const toggleTask=(dayIndex:number,taskIndex:number,checked:boolean)=>{
   if(!selected)return;const next=JSON.parse(JSON.stringify(selected));next.plan_json.weekly_schedule[dayIndex].activities[taskIndex].completed=checked;void updatePlan(next);
