@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {motion,AnimatePresence} from 'framer-motion';
-import {ArrowUpRight,ArrowRight,BookOpen,GraduationCap,Menu,X,Globe2,Target,ChevronDown,ShieldCheck,BrainCircuit,ChartNoAxesCombined,FileText,Zap,Activity,Layers,LockKeyhole,Check,Play, Sparkles,Clock3,Users,Search,Command,PanelRight,RefreshCw} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,BookOpen,GraduationCap,Menu,X,Globe2,Target,ChevronDown,ShieldCheck,BrainCircuit,ChartNoAxesCombined,FileText,Zap,Activity,Layers,LockKeyhole,Check,Sparkles,Clock3,Users,PanelRight} from 'lucide-react';
 
 type Props={onLogin:()=>void};
 const rise={hidden:{opacity:0,y:24},show:{opacity:1,y:0,transition:{duration:.65,ease:[.22,1,.36,1] as const}}};
