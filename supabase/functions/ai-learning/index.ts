@@ -89,7 +89,8 @@ Deno.serve(async (req: Request) => {
     .select("id", { count: "exact", head: true })
     .eq("user_profile_id", actor.id)
     .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
-  if (!rateError && (recentCount ?? 0) >= (action === "homework_review" ? 20 : action === "worksheet" ? 12 : action === "study_plan" ? 8 : 50)) return respond({ error: "You've reached the hourly AI request limit. Please try again later." }, 429);
+  if (rateError) return respond({ error: "AI usage limits could not be checked safely. Please try again later." }, 503);
+  if ((recentCount ?? 0) >= (action === "homework_review" ? 20 : action === "worksheet" ? 12 : action === "study_plan" ? 8 : 50)) return respond({ error: "You've reached the hourly AI request limit. Please try again later." }, 429);
 
   let messages: ChatMessage[] = [];
   let submission: any = null;
