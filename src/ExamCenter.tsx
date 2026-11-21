@@ -75,11 +75,17 @@ export default function ExamCenter({client,profile}:Props){
  };
  const startExam=async(exam:Exam)=>{
   setBusy(true);setNotice('');setResult(null);
-  const {data,error}=await client.rpc('exam_start_attempt',{p_exam_id:exam.id});
-  if(error){setNotice(error.message);setBusy(false);return;}
-  const qs=await loadQuestions(exam.id);if(!qs){setBusy(false);return;}if(!qs.length){setNotice('This exam has no questions yet. Add questions in Question bank before assigning it.');setBusy(false);return;}
-  setQuestions(qs);setAnswers(data.answers??{});setActiveAttempt({id:data.attempt_id,exam_id:exam.id,started_at:data.started_at,duration_minutes:data.duration_minutes});
-  setQuestionIndex(0);setBusy(false);
+  try{
+   // Check the published exam actually contains questions before creating a timed attempt.
+   const qs=await loadQuestions(exam.id);
+   if(!qs){setBusy(false);return;}
+   if(!qs.length){setNotice('This exam has no questions yet. Ask your teacher to add questions before starting.');setBusy(false);return;}
+   const {data,error}=await client.rpc('exam_start_attempt',{p_exam_id:exam.id});
+   if(error){setNotice(error.message);setBusy(false);return;}
+   setQuestions(qs);setAnswers(data.answers??{});setActiveAttempt({id:data.attempt_id,exam_id:exam.id,started_at:data.started_at,duration_minutes:data.duration_minutes});
+   setQuestionIndex(0);
+  }catch(error){setNotice(error instanceof Error?error.message:'Could not start this exam.');}
+  finally{setBusy(false);}
  };
  const saveAnswer=async(q:Question,value:any)=>{
   if(!activeAttempt)return;
