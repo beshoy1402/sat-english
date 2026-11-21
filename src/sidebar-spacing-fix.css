@@ -1,0 +1,8 @@
+/* Compact the brand-to-workspace transition in the authenticated sidebar. */
+.portal .sidebar .portal-brand {
+  padding: 14px 22px 12px !important;
+}
+.portal .sidebar .workspace-label {
+  margin: 8px 18px 8px !important;
+  padding: 6px 12px 8px !important;
+}
