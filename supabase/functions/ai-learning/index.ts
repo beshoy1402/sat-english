@@ -234,7 +234,7 @@ Deno.serve(async (req: Request) => {
         const { data: saved, error: saveError } = await admin.from("ai_homework_review_drafts").upsert({
           submission_id: submission.id, ...draft, provider: provider.provider, model, generated_by: actor.id,
         }, { onConflict: "submission_id" }).select("*").single();
-        if (saveError) throw new Error("Could not save the AI review draft.");
+        if (saveError) return respond({ error: "The AI review was generated, but the draft could not be saved. Please retry after the database issue is fixed." }, 500);
         await recordSuccess();
         return respond({ success: true, feature: action, provider: provider.provider, model, usage, draft: saved, requires_teacher_approval: true });
       }
@@ -265,7 +265,7 @@ Deno.serve(async (req: Request) => {
           target_score: body.target_score === null || body.target_score === undefined || body.target_score === '' ? null : (Number.isFinite(Number(body.target_score)) ? Number(body.target_score) : null),
           weekly_hours: Number(body.weekly_hours ?? 5), plan_json: plan, created_by: actor.id,
         }).select("*").single();
-        if (saveError) throw new Error("Could not save your study plan.");
+        if (saveError) return respond({ error: "The study plan was generated, but it could not be saved. Please retry after the database issue is fixed." }, 500);
         await recordSuccess();
         return respond({ success: true, feature: action, provider: provider.provider, model, usage, plan: saved });
       }
