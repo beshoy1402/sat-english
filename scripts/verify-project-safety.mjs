@@ -24,6 +24,14 @@ assert.match(providerSettings, /type ProviderId = 'gemini' \| 'openrouter'/);
 assert.match(providerSettings, /Zero-cost routing is enforced/);
 assert.doesNotMatch(providerSettings, /id: 'groq'/);
 
+// Main account and record actions must always release their busy state after errors.
+for (const handler of ['signIn','createAccount','resetAccount','deleteAccount','saveItem','removeRecord']) {
+  const start = app.indexOf(`const ${handler}=`);
+  const end = app.indexOf('finally { setBusy(false); }', start);
+  assert.ok(start >= 0 && end > start, `${handler} must release busy state in finally`);
+}
+assert.match(app, /Sign out failed\. Please try again\./);
+
 // Account deletion permissions must be enforced by the server and reflected in the UI.
 assert.match(deleteAccount, /actor\.role !== "admin" && \["teacher", "assistant"\]\.includes\(target\.role\)/);
 assert.match(app, /canDeleteStaff=\{profile\.role===\'admin\'\}/);
