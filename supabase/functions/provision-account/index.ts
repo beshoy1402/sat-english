@@ -29,13 +29,14 @@ Deno.serve(async (req: Request) => {
   let body: { action?: string; user_id?: string; username?: string; display_name?: string; password?: string; role?: string; linked_student_profile_id?: string };
   try { body = await req.json(); } catch { return respond({ error: "Invalid JSON" }, 400); }
   if (body.action === "reset_password") {
-    if (!["admin", "developer"].includes(actor.role)) return respond({ error: "Only Admin or Developer accounts can reset passwords." }, 403);
+    if (!["admin", "developer", "assistant"].includes(actor.role)) return respond({ error: "You are not allowed to reset passwords." }, 403);
     const targetId = body.user_id ?? "";
     const nextPassword = body.password ?? "";
     if (!/^[0-9a-f-]{36}$/i.test(targetId) || nextPassword.length < 12 || nextPassword.length > 128) return respond({ error: "Choose an account and use a password of at least 12 characters." }, 400);
     const { data: target } = await service.from("profiles").select("id,username,role,is_active").eq("id", targetId).single();
     if (!target?.is_active || target.id === actor.id) return respond({ error: "Choose another active account." }, 404);
     if (actor.role === "developer" && ["admin", "developer"].includes(target.role)) return respond({ error: "Developers cannot reset Admin or Developer passwords." }, 403);
+    if (actor.role === "assistant" && !["student", "parent"].includes(target.role)) return respond({ error: "Assistants can only reset student and parent accounts." }, 403);
     const { error: resetError } = await service.auth.admin.updateUserById(targetId, { password: nextPassword });
     if (resetError) return respond({ error: resetError.message }, 400);
     await service.from("audit_events").insert({ actor_profile_id: actor.id, action: "account.password_reset", entity_type: "profile", entity_id: targetId, after_data: { username: target.username, role: target.role } });
