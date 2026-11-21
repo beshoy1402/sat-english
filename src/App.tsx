@@ -1,29 +1,29 @@
-import {useCallback,useEffect,useState} from 'react';
+import {lazy,Suspense,useCallback,useEffect,useState} from 'react';
 import {AnimatePresence,motion} from 'framer-motion';
 import {Activity,GitPullRequest,History,ArrowRight,BookOpen,CalendarDays,CheckCircle2,ClipboardList,Code2,Download,Eye,GraduationCap,LayoutDashboard,LogOut,Menu,Palette,Plus,Search,Settings,ShieldCheck,Target,Users,X,Bell,MessageCircle,FileText,UserPlus,Copy,BrainCircuit,Video} from 'lucide-react';
 import {supabase,isSupabaseConfigured,type AppRole,type Profile} from './lib/supabase';
 import LandingPage from './LandingPage';
-import AIProviderSettings from './AIProviderSettings';
-import DeveloperWorkspace from './DeveloperWorkspace';
-import AttendanceManager from './AttendanceManager';
-import Gradebook from './Gradebook';
-import ExamCenter from './ExamCenter';
-import DesignStudio from './DesignStudio';
-import HomeworkCenter from './HomeworkCenter';
-import ParentDashboard from './ParentDashboard';
-import CourseCenter from './CourseCenter';
-import NotificationCenter from './NotificationCenter';
-import ParentLinkManager from './ParentLinkManager';
-import AITutor from './AITutor';
-import AttendanceHistory from './AttendanceHistory';
-import StudyPlanCenter from './StudyPlanCenter';
-import MessagingCenter from './MessagingCenter';
-import GitHubPullRequests from './GitHubPullRequests';
-import DataExportCenter from './DataExportCenter';
-import GroupCenter from './GroupCenter';
-import QuestionBank from './QuestionBank';
-import TeachingAI from './TeachingAI';
-import RecordedSessions from './RecordedSessions';
+const AIProviderSettings=lazy(()=>import('./AIProviderSettings'));
+const DeveloperWorkspace=lazy(()=>import('./DeveloperWorkspace'));
+const AttendanceManager=lazy(()=>import('./AttendanceManager'));
+const Gradebook=lazy(()=>import('./Gradebook'));
+const ExamCenter=lazy(()=>import('./ExamCenter'));
+const DesignStudio=lazy(()=>import('./DesignStudio'));
+const HomeworkCenter=lazy(()=>import('./HomeworkCenter'));
+const ParentDashboard=lazy(()=>import('./ParentDashboard'));
+const CourseCenter=lazy(()=>import('./CourseCenter'));
+const NotificationCenter=lazy(()=>import('./NotificationCenter'));
+const ParentLinkManager=lazy(()=>import('./ParentLinkManager'));
+const AITutor=lazy(()=>import('./AITutor'));
+const AttendanceHistory=lazy(()=>import('./AttendanceHistory'));
+const StudyPlanCenter=lazy(()=>import('./StudyPlanCenter'));
+const MessagingCenter=lazy(()=>import('./MessagingCenter'));
+const GitHubPullRequests=lazy(()=>import('./GitHubPullRequests'));
+const DataExportCenter=lazy(()=>import('./DataExportCenter'));
+const GroupCenter=lazy(()=>import('./GroupCenter'));
+const QuestionBank=lazy(()=>import('./QuestionBank'));
+const TeachingAI=lazy(()=>import('./TeachingAI'));
+const RecordedSessions=lazy(()=>import('./RecordedSessions'));
 
 const roles:Record<AppRole,string>={admin:'Administrator',teacher:'Teacher',assistant:'Assistant',developer:'Developer',designer:'Designer',student:'Student',parent:'Parent'};
 const staffNav:[string,string,any][] = [
@@ -76,7 +76,7 @@ export default function App(){
  const filtered=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(search.toLowerCase()));
  const isStaff=['admin','teacher','assistant'].includes(profile.role);
  const canManageAccounts=['admin','developer'].includes(profile.role);
- return <main className="portal"><aside className={drawer?'sidebar open':'sidebar'}><a className="brand portal-brand" href="#" onClick={e=>{e.preventDefault();setActive('overview')}}><span className="brand-mark">✳</span><span><b>SAT ENGLISH</b><small>LEARNING PLATFORM</small></span></a><div className="workspace-label">{roles[profile.role].toUpperCase()} WORKSPACE</div><nav className="side-nav">{current.map(([key,name,Icon])=><button key={key} className={active===key?'active':''} onClick={()=>{setActive(key);setDrawer(false);setSearch('')}}><Icon size={17}/><span>{name}</span></button>)}</nav><div className="sidebar-bottom"><div className="sidebar-help"><ShieldCheck/><div><b>{profile.display_name||profile.username}</b><small>{roles[profile.role]}</small></div></div><button className="signout" onClick={signOut}><LogOut size={16}/> Sign out</button></div></aside>{drawer&&<button className="mobile-scrim" onClick={()=>setDrawer(false)}/>}<section className="portal-main"><header className="portal-topbar"><button className="mobile-menu" onClick={()=>setDrawer(!drawer)}><Menu/></button><div><small>SAT ENGLISH</small><h1>{heading}</h1></div><div className="topbar-actions"><span className="top-role">{roles[profile.role]}</span><span className="user-avatar">{(profile.display_name||profile.username||'U')[0].toUpperCase()}</span></div></header><div className="portal-content">{notice&&<div className="notice-banner"><CheckCircle2 size={16}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
+ return <main className="portal"><aside className={drawer?'sidebar open':'sidebar'}><a className="brand portal-brand" href="#" onClick={e=>{e.preventDefault();setActive('overview')}}><span className="brand-mark">✳</span><span><b>SAT ENGLISH</b><small>LEARNING PLATFORM</small></span></a><div className="workspace-label">{roles[profile.role].toUpperCase()} WORKSPACE</div><nav className="side-nav">{current.map(([key,name,Icon])=><button key={key} className={active===key?'active':''} onClick={()=>{setActive(key);setDrawer(false);setSearch('')}}><Icon size={17}/><span>{name}</span></button>)}</nav><div className="sidebar-bottom"><div className="sidebar-help"><ShieldCheck/><div><b>{profile.display_name||profile.username}</b><small>{roles[profile.role]}</small></div></div><button className="signout" onClick={signOut}><LogOut size={16}/> Sign out</button></div></aside>{drawer&&<button className="mobile-scrim" onClick={()=>setDrawer(false)}/>}<section className="portal-main"><header className="portal-topbar"><button className="mobile-menu" onClick={()=>setDrawer(!drawer)}><Menu/></button><div><small>SAT ENGLISH</small><h1>{heading}</h1></div><div className="topbar-actions"><span className="top-role">{roles[profile.role]}</span><span className="user-avatar">{(profile.display_name||profile.username||'U')[0].toUpperCase()}</span></div></header><div className="portal-content"><Suspense fallback={<div className="loading-screen"><div className="loader-mark">✳</div><span>Loading workspace…</span></div>}>{notice&&<div className="notice-banner"><CheckCircle2 size={16}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
  <motion.section className="workspace-hero" initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{duration:.35}}>
   <div className="workspace-hero-copy">
    <div className="workspace-overline"><span className="live-dot"/>{roles[profile.role].toUpperCase()} WORKSPACE <i/> SECURE ENVIRONMENT</div>
@@ -119,7 +119,7 @@ export default function App(){
  {active==='designer'&&profile.role==='designer'&&<DesignStudio client={supabase} profile={profile}/>}
  {active==='designReview'&&profile.role==='developer'&&<DesignStudio client={supabase} profile={profile}/>}
  {active==='settings'&&<section className="panel full-panel"><div className="panel-heading"><div><small>ACCOUNT SETTINGS</small><h3>Profile and security</h3></div><Settings/></div><div className="account-summary"><div><span>Name</span><b>{profile.display_name}</b></div><div><span>Username</span><b>{profile.username}</b></div><div><span>Role</span><b>{roles[profile.role]}</b></div></div><button className="signout-large" onClick={signOut}><LogOut size={16}/> Sign out</button></section>}
- </div><footer className="portal-footer"><span>SAT English</span><span>Secure learning workspace · {roles[profile.role]}</span></footer></section>
+ </Suspense></div><footer className="portal-footer"><span>SAT English</span><span>Secure learning workspace · {roles[profile.role]}</span></footer></section>
  <AnimatePresence>{modal&&<motion.div className="modal-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={()=>setModal('')}><motion.div className="portal-modal" onClick={e=>e.stopPropagation()} initial={{y:15,opacity:0}} animate={{y:0,opacity:1}} exit={{y:10,opacity:0}}><button className="modal-close" onClick={()=>setModal('')}><X/></button>{modal==='account'?<><span className="modal-kicker">ACCOUNT MANAGEMENT</span><h2>Create an account</h2><p>Use a unique username. Leave the password empty to generate a strong temporary password.</p><form onSubmit={createAccount}><label>Full name<input required value={account.display_name} onChange={e=>setAccount({...account,display_name:e.target.value})}/></label><label>Username<input required minLength={3} maxLength={30} pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,29}" value={account.username} onChange={e=>setAccount({...account,username:e.target.value.toLowerCase()})} placeholder="e.g. student01"/></label><label>Role<select value={account.role} onChange={e=>setAccount({...account,role:e.target.value as AppRole,linked_student_profile_id:''})}>{(profile.role==='admin'?['student','parent','teacher','assistant','developer','designer']:profile.role==='developer'?['student','parent','teacher','assistant','designer']:['student','parent']).map(role=><option key={role} value={role}>{roles[role as AppRole]}</option>)}</select></label>{account.role==='parent'&&<label>Link parent to student<select required value={account.linked_student_profile_id} onChange={e=>setAccount({...account,linked_student_profile_id:e.target.value})}><option value="">Choose student</option>{studentOptions.map(student=><option key={student.id} value={student.id}>{student.display_name} (@{student.username})</option>)}</select></label>}<label>Temporary password (12+ characters)<input minLength={12} value={account.password} onChange={e=>setAccount({...account,password:e.target.value})} placeholder="Generate automatically if blank"/></label><button className="sign-in-button" disabled={busy}>{busy?'Creating…':'Create account'}<UserPlus size={17}/></button></form>{showTemp&&<div className="created-credentials"><b><CheckCircle2/> Save these credentials now</b><span>Username: <strong>{showTemp.username}</strong></span><span>Role: {roles[showTemp.role as AppRole]}</span><span>Password: <code>{showTemp.password}</code></span><button onClick={()=>void navigator.clipboard.writeText('Username: '+showTemp.username+'\nPassword: '+showTemp.password+'\nRole: '+showTemp.role)}><Copy size={15}/> Copy credentials</button></div>}</>:<><span className="modal-kicker">CONTENT MANAGEMENT</span><h2>{active==='submissions'?'Review homework':editingId?'Edit '+label[active]:'Add '+label[active]}</h2><form onSubmit={saveItem}>{!['submissions','questions','courseAccess'].includes(active)&&<label>Title<input required value={item.title} onChange={e=>setItem({...item,title:e.target.value})}/></label>}{active!=='submissions'&&<label>{active==='questions'?'Explanation':'Description'}<textarea value={item.description} onChange={e=>setItem({...item,description:e.target.value})}/></label>}{['courses','assignments','exams'].includes(active)&&<label>Exam program<select value={item.exam_program} onChange={e=>setItem({...item,exam_program:e.target.value})}><option>SAT English</option><option>EST English</option><option>ACT English</option></select></label>}{active==='courses'&&<label>Access status<select value={item.status} onChange={e=>setItem({...item,status:e.target.value})}><option value="locked">Locked</option><option value="draft">Draft</option><option value="published">Published</option></select></label>}
 {['lessons','assignments'].includes(active)&&<label>Course ID<input required={active==='lessons'} value={item.course_id} onChange={e=>setItem({...item,course_id:e.target.value})} placeholder="Paste course ID"/></label>}
 {active==='lessons'&&<><label>Content type<select value={item.content_type} onChange={e=>setItem({...item,content_type:e.target.value})}><option value="text">Text</option><option value="video">Video</option><option value="pdf">PDF</option><option value="live">Live class</option></select></label><label>Content URL or storage path<input value={item.content_path} onChange={e=>setItem({...item,content_path:e.target.value})}/></label><label>Publish<select value={item.status} onChange={e=>setItem({...item,status:e.target.value})}><option value="locked">Draft</option><option value="published">Publish</option></select></label></>}
