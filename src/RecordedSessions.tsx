@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, CheckCircle2, Clock3, Download, FileVideo, LoaderCircle, LockKeyhole, Play, Plus, RefreshCw, Trash2, UploadCloud, Video, X } from 'lucide-react';
+import { CheckCircle2, Clock3, FileVideo, LoaderCircle, LockKeyhole, Play, Plus, RefreshCw, Trash2, UploadCloud, Video, X } from 'lucide-react';
 import type { Profile } from './lib/supabase';
 import './RecordedSessions.css';
 
@@ -29,6 +29,7 @@ const formatDate = (value: string | null) => value ? new Date(value).toLocaleDat
 export default function RecordedSessions({ client, profile }: { client: any; profile: Profile }) {
   const isStaff = ['admin', 'teacher', 'assistant', 'developer'].includes(profile.role);
   const canManage = ['admin', 'teacher', 'assistant'].includes(profile.role);
+  const canDelete = ['admin', 'teacher'].includes(profile.role);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,7 +193,7 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
       <div className="recordings-grid">{recordings.map(recording => <article className="recording-card" key={recording.id}>
         <div className="recording-card-art"><span><FileVideo size={25}/></span><small>{recording.courses?.title || 'Course recording'}</small><i>{recording.is_published ? 'PUBLISHED' : 'DRAFT'}</i></div>
         <div className="recording-card-body"><h3>{recording.title}</h3><p>{recording.description || 'Recorded learning session'}</p><div className="recording-card-meta"><span><Clock3 size={13}/>{formatDate(recording.recorded_at || recording.created_at)}</span><span>{formatSize(recording.file_size_bytes)}</span></div>
-          <div className="recording-card-actions"><button className="recordings-primary" onClick={() => void play(recording)} disabled={busy}><Play size={14}/> Watch</button>{canManage && <><button className="recordings-quiet" onClick={() => void togglePublish(recording)} disabled={busy}>{recording.is_published ? 'Unpublish' : 'Publish'}</button><button className="recordings-icon-danger" onClick={() => void remove(recording)} disabled={busy} aria-label="Delete recording"><Trash2 size={15}/></button></>}</div>
+          <div className="recording-card-actions"><button className="recordings-primary" onClick={() => void play(recording)} disabled={busy}><Play size={14}/> Watch</button>{canManage && <button className="recordings-quiet" onClick={() => void togglePublish(recording)} disabled={busy}>{recording.is_published ? 'Unpublish' : 'Publish'}</button>}{canDelete && <button className="recordings-icon-danger" onClick={() => void remove(recording)} disabled={busy} aria-label="Delete recording"><Trash2 size={15}/></button>}</div>
         </div>
       </article>)}</div>
     }
