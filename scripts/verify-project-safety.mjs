@@ -31,6 +31,8 @@ for (const handler of ['signIn','createAccount','resetAccount','deleteAccount','
   assert.ok(start >= 0 && end > start, `${handler} must release busy state in finally`);
 }
 assert.match(app, /Sign out failed\. Please try again\./);
+assert.match(app, /Could not load workspace data\. Please refresh\./);
+assert.match(app, /Could not restore your session\. Please refresh\./);
 
 // Account deletion permissions must be enforced by the server and reflected in the UI.
 assert.match(deleteAccount, /actor\.role !== "admin" && \["teacher", "assistant"\]\.includes\(target\.role\)/);
