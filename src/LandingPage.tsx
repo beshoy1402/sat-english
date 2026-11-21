@@ -5,7 +5,6 @@ import {ArrowRight,ArrowUpRight,BookOpen,BrainCircuit,ChartNoAxesCombined,Check,
 type Props={onLogin:()=>void};
 const ease=[.22,1,.36,1] as const;
 const rise={hidden:{opacity:0,y:28},show:{opacity:1,y:0,transition:{duration:.7,ease}}};
-const stagger={hidden:{opacity:0},show:{opacity:1,transition:{staggerChildren:.1}}};
 const exams=[
  {number:'01',name:'SAT English',label:'DIGITAL SAT',desc:'Master Reading and Writing with focused practice, clear explanations and realistic exam preparation.',icon:BookOpen,topics:['Reading & Writing','Grammar','Rhetorical skills']},
  {number:'02',name:'EST English',label:'EGYPTIAN EXAMS',desc:'Build confidence with structured lessons and practice designed around your exam goals.',icon:Target,topics:['Exam practice','Core skills','Progress tracking']},
@@ -53,7 +52,7 @@ export default function LandingPage({onLogin}:Props){
       <aside className="nova-mini-nav"><div className="nova-mini-logo">S.</div><span className="selected"><Layers size={15}/></span><span><BrainCircuit size={15}/></span><span><BookOpen size={15}/></span><span><ChartNoAxesCombined size={15}/></span><div className="nova-mini-nav-bottom"><ShieldCheck size={15}/></div></aside>
       <div className="nova-dash-main">
        <div className="nova-dash-greeting"><div><small>MONDAY, YOUR NEXT STEP STARTS HERE</small><h3>Good morning, Student.</h3><p>Keep your momentum going. You're making progress.</p></div><div className="nova-avatar">B</div></div>
-       <div className="nova-dash-stats"><div><small>STUDY STREAK</small><b>07 <em>days</em></b><div className="nova-streak">{[1,1,1,1,1,1,1].map((v,i)=><i key={i}/>)}</div></div><div><small>SKILL MASTERY</small><b>76<em>%</em></b><div className="nova-progress"><i/></div></div></div>
+       <div className="nova-dash-stats"><div><small>STUDY STREAK</small><b>07 <em>days</em></b><div className="nova-streak">{[1,1,1,1,1,1,1].map((_,i)=><i key={i}/>)}</div></div><div><small>SKILL MASTERY</small><b>76<em>%</em></b><div className="nova-progress"><i/></div></div></div>
        <div className="nova-next-label">PICK UP WHERE YOU LEFT OFF <ArrowUpRight size={13}/></div>
        <div className="nova-lesson"><span className="nova-lesson-icon"><BookOpen size={18}/></span><div><b>Subject–verb agreement</b><small>Grammar foundations · 12 min</small></div><button onClick={onLogin}><ArrowRight size={16}/></button></div>
        <div className="nova-dash-bottom"><span><i/> AI tutor ready</span><span><Clock3 size={13}/> 24 min studied today</span></div>
