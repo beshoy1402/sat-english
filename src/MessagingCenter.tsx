@@ -1,74 +1,28 @@
-import {useCallback,useEffect,useState} from 'react';
-import {MessageCircle,Paperclip,RefreshCw,Send,X,Download,Plus} from 'lucide-react';
+import {useCallback,useEffect,useMemo,useState} from 'react';
+import {MessageCircle,Paperclip,RefreshCw,Send,X,Download,Plus,UserPlus,Users} from 'lucide-react';
 import './messaging-center.css';
-type Row=Record<string,any>;
-type Profile={id:string;role:string;display_name?:string};
-type Props={client:any;profile:Profile};
-export default function MessagingCenter({client,profile}:Props){
- const staff=['admin','teacher','assistant'].includes(profile.role);
- const [conversations,setConversations]=useState<Row[]>([]),[people,setPeople]=useState<Row[]>([]),[messages,setMessages]=useState<Row[]>([]);
- const [selected,setSelected]=useState<Row|null>(null),[subject,setSubject]=useState(''),[firstMessage,setFirstMessage]=useState(''),[recipient,setRecipient]=useState('');
- const [draft,setDraft]=useState(''),[file,setFile]=useState<File|null>(null),[showNew,setShowNew]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
- const load=useCallback(async()=>{
-  const [c,p]=await Promise.all([
-   client.from('conversations').select('*').order('updated_at',{ascending:false}),
-   staff?client.from('profiles').select('id,display_name,username,role').in('role',['student','parent']).eq('is_active',true).order('display_name'):Promise.resolve({data:[],error:null})
-  ]);
-  if(c.error||p.error){setNotice(c.error?.message||p.error?.message||'Unable to load conversations.');return;}
-  setConversations(c.data??[]);setPeople(p.data??[]);
-  if(!selected&&c.data?.length)setSelected(c.data[0]);
- },[client,staff,selected]);
+type Row=Record<string,any>;type Profile={id:string;role:string;display_name?:string};
+export default function MessagingCenter({client,profile}:{client:any;profile:Profile}){
+ const staff=['admin','teacher','assistant'].includes(profile.role),assistant=profile.role==='assistant';
+ const [conversations,setConversations]=useState<Row[]>([]),[people,setPeople]=useState<Row[]>([]),[messages,setMessages]=useState<Row[]>([]),[participants,setParticipants]=useState<Row[]>([]);
+ const [selected,setSelected]=useState<Row|null>(null),[subject,setSubject]=useState(''),[firstMessage,setFirstMessage]=useState(''),[recipient,setRecipient]=useState(''),[draft,setDraft]=useState(''),[file,setFile]=useState<File|null>(null),[showNew,setShowNew]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[teacherToInvite,setTeacherToInvite]=useState('');
+ const load=useCallback(async()=>{const [c,p]=await Promise.all([client.from('conversations').select('*').order('updated_at',{ascending:false}),staff?client.from('profiles').select('id,display_name,username,role').in('role',['student','parent','teacher','assistant']).eq('is_active',true).order('display_name'):Promise.resolve({data:[],error:null})]);if(c.error||p.error){setNotice(c.error?.message||p.error?.message||'Unable to load conversations.');return;}setConversations(c.data??[]);setPeople(p.data??[]);if(selected){const fresh=(c.data??[]).find((x:Row)=>x.id===selected.id);if(fresh)setSelected(fresh);else setSelected(null);}else if(c.data?.length)setSelected(c.data[0]);},[client,staff,selected]);
  useEffect(()=>{void load();},[load]);
- const loadMessages=useCallback(async(id:string)=>{
-  const {data,error}=await client.from('messages').select('*').eq('conversation_id',id).order('created_at',{ascending:true}).limit(300);
-  if(error){setNotice(error.message);return;}setMessages(data??[]);
- },[client]);
- useEffect(()=>{if(!selected){setMessages([]);return;}void loadMessages(selected.id);
-  const channel=client.channel('conversation-'+selected.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+selected.id},(payload:any)=>{
-   setMessages(old=>old.some(m=>m.id===payload.new.id)?old:[...old,payload.new]);
-  }).subscribe();
-  return()=>{void client.removeChannel(channel);};
- },[client,selected,loadMessages]);
- const create=async(e:React.FormEvent)=>{
-  e.preventDefault();if(!subject.trim()||!firstMessage.trim()||(staff&&!recipient)){setNotice('Complete the subject, first message and recipient.');return;}
-  setBusy(true);
-  const type=staff?'support':profile.role==='parent'?'parent_teacher':'student_teacher';
-  const {data,error}=await client.from('conversations').insert({subject:subject.trim(),conversation_type:type,created_by:profile.id,assigned_to:staff?profile.id:null}).select('*').single();
-  if(error){setNotice(error.message);setBusy(false);return;}
-  const participants=[{conversation_id:data.id,profile_id:profile.id},{...(staff?{conversation_id:data.id,profile_id:recipient}: {})}].filter(x=>x.profile_id);
-  const {error:pe}=await client.from('conversation_participants').insert(participants);
-  if(pe){setNotice(pe.message);setBusy(false);return;}
-  const {error:me}=await client.from('messages').insert({conversation_id:data.id,sender_profile_id:profile.id,body:firstMessage.trim()});
-  if(me){setNotice(me.message);setBusy(false);return;}
-  setSubject('');setFirstMessage('');setRecipient('');setShowNew(false);await load();setSelected(data);setBusy(false);
- };
- const send=async(e:React.FormEvent)=>{
-  e.preventDefault();if(!selected||(!draft.trim()&&!file))return;setBusy(true);let path:string|null=null;
-  if(file){if(file.size>10*1024*1024){setNotice('Attachments must be 10 MB or smaller.');setBusy(false);return;}
-   path=selected.id+'/'+profile.id+'/'+crypto.randomUUID()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-   const {error}=await client.storage.from('message-attachments').upload(path,file,{upsert:false});if(error){setNotice(error.message);setBusy(false);return;}
-  }
-  const {error}=await client.from('messages').insert({conversation_id:selected.id,sender_profile_id:profile.id,body:draft.trim()||'Attachment',attachment_path:path});
-  if(error)setNotice(error.message);else{setDraft('');setFile(null);await loadMessages(selected.id);await load();}
-  setBusy(false);
- };
- const openAttachment=async(path:string)=>{
-  const popup=window.open('about:blank','_blank');
-  if(!popup){setNotice('Allow pop-ups to open message attachments, then try again.');return;}
-  popup.opener=null;
-  const {data,error}=await client.storage.from('message-attachments').createSignedUrl(path,60);
-  if(error||!data?.signedUrl){popup.close();setNotice(error?.message||'Could not create a secure attachment link.');return;}
-  popup.location.href=data.signedUrl;
- };
- const setStatus=async(status:string)=>{
-  if(!selected)return;const {error}=await client.from('conversations').update({status,updated_at:new Date().toISOString()}).eq('id',selected.id);
-  if(error)setNotice(error.message);else{setSelected({...selected,status});await load();}
- };
- const sender=(id:string)=>id===profile.id?'You':staff?(people.find(p=>p.id===id)?.display_name||'Team member'):'Teaching team';
- return <section className="messaging-center"><div className="messaging-heading"><div><span>MESSAGING AND SUPPORT</span><h2>Messages</h2><p>{staff?'Manage student and parent conversations.':'Contact your teaching team and follow replies.'}</p></div><div><button onClick={()=>void load()}><RefreshCw size={14}/> Refresh</button><button className="messaging-new" onClick={()=>setShowNew(true)}><Plus size={14}/> New conversation</button></div></div>{notice&&<div className="messaging-notice">{notice}<button onClick={()=>setNotice('')}><X size={13}/></button></div>}
-  <div className="messaging-layout"><aside className="messaging-conversations"><b>Conversations ({conversations.length})</b>{conversations.map(c=><button key={c.id} onClick={()=>setSelected(c)} className={selected?.id===c.id?'active':''}><span>{c.subject}</span><small>{new Date(c.updated_at).toLocaleString()} · {c.status}</small></button>)}{!conversations.length&&<p>No conversations yet.</p>}</aside>
-   <div className="messaging-thread">{selected?<><header><div><b>{selected.subject}</b><small>{selected.conversation_type.replaceAll('_',' ')} · {selected.status}</small></div>{staff&&<select value={selected.status} onChange={e=>void setStatus(e.target.value)}><option value="open">Open</option><option value="pending">Pending</option><option value="closed">Closed</option></select>}</header><div className="messaging-messages">{messages.map(m=><article key={m.id} className={m.sender_profile_id===profile.id?'mine':''}><span>{sender(m.sender_profile_id)}</span><p>{m.body}</p>{m.attachment_path&&<button onClick={()=>void openAttachment(m.attachment_path)}><Download size={13}/>{m.attachment_path.split('/').at(-1)}</button>}<small>{new Date(m.created_at).toLocaleString()}</small></article>)}{!messages.length&&<div className="messaging-empty">Start the conversation with a message.</div>}</div><form className="messaging-compose" onSubmit={send}><label title="Attach file"><Paperclip size={17}/><input type="file" onChange={e=>setFile(e.target.files?.[0]??null)}/></label><textarea rows={2} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Write a message…"/><button disabled={busy||(!draft.trim()&&!file)}><Send size={15}/></button></form>{file&&<small className="messaging-file-selected">{file.name}</small>}</>:<div className="messaging-empty"><MessageCircle/><b>Select a conversation</b><p>Choose a conversation or start a new one.</p><button onClick={()=>setShowNew(true)}>New conversation</button></div>}</div>
-  </div>
-  {showNew&&<div className="messaging-modal"><form onSubmit={create}><button type="button" className="messaging-close" onClick={()=>setShowNew(false)}><X/></button><span>NEW CONVERSATION</span><h3>Start a conversation</h3><label>Subject<input required maxLength={180} value={subject} onChange={e=>setSubject(e.target.value)}/></label>{staff&&<label>Recipient<select required value={recipient} onChange={e=>setRecipient(e.target.value)}><option value="">Choose student or parent</option>{people.map(p=><option key={p.id} value={p.id}>{p.display_name} · {p.role}</option>)}</select></label>}<label>Message<textarea required rows={5} value={firstMessage} onChange={e=>setFirstMessage(e.target.value)}/></label><button className="messaging-send" disabled={busy}>Create conversation</button></form></div>}
- </section>;
+ const loadMessages=useCallback(async(id:string)=>{const [m,p]=await Promise.all([client.from('messages').select('*').eq('conversation_id',id).order('created_at',{ascending:true}).limit(300),client.from('conversation_participants').select('profile_id,participant_role').eq('conversation_id',id)]);if(m.error||p.error){setNotice(m.error?.message||p.error?.message||'Unable to load this chat.');return;}setMessages(m.data??[]);setParticipants(p.data??[]);},[client]);
+ useEffect(()=>{if(!selected){setMessages([]);setParticipants([]);return;}void loadMessages(selected.id);const ch=client.channel('conversation-'+selected.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+selected.id},(p:any)=>setMessages(old=>old.some(m=>m.id===p.new.id)?old:[...old,p.new])).subscribe();const pc=client.channel('participants-'+selected.id).on('postgres_changes',{event:'*',schema:'public',table:'conversation_participants',filter:'conversation_id=eq.'+selected.id},()=>void loadMessages(selected.id)).subscribe();return()=>{void client.removeChannel(ch);void client.removeChannel(pc);};},[client,selected,loadMessages]);
+ const isParticipant=participants.some(p=>p.profile_id===profile.id),teachers=useMemo(()=>people.filter(p=>p.role==='teacher'),[people]);
+ const create=async(e:React.FormEvent)=>{e.preventDefault();if(!subject.trim()||!firstMessage.trim()||(staff&&!recipient))return;setBusy(true);const {data,error}=await client.from('conversations').insert({subject:subject.trim(),conversation_type:staff?'support':profile.role==='parent'?'parent_teacher':'student_teacher',created_by:profile.id,assigned_to:staff?profile.id:null}).select('*').single();if(error||!data){setNotice(error?.message||'Could not create chat.');setBusy(false);return;}const ps=[{conversation_id:data.id,profile_id:profile.id,participant_role:staff?'assistant':'requester'},...(staff?[{conversation_id:data.id,profile_id:recipient,participant_role:'requester'}]:[])];const {error:pe}=await client.from('conversation_participants').insert(ps);if(pe){setNotice(pe.message);setBusy(false);return;}const {error:me}=await client.from('messages').insert({conversation_id:data.id,sender_profile_id:profile.id,body:firstMessage.trim()});if(me)setNotice(me.message);else{setSubject('');setFirstMessage('');setRecipient('');setShowNew(false);setSelected(data);await load();}setBusy(false);};
+ const join=async()=>{if(!selected)return;setBusy(true);const {error}=await client.from('conversation_participants').insert({conversation_id:selected.id,profile_id:profile.id,participant_role:assistant?'assistant':'teacher'});if(error)setNotice(error.message);else{setNotice('You joined the chat. You can now reply live.');await loadMessages(selected.id);await load();}setBusy(false);};
+ const inviteTeacher=async()=>{if(!selected||!teacherToInvite)return;setBusy(true);const {error}=await client.from('conversation_participants').insert({conversation_id:selected.id,profile_id:teacherToInvite,participant_role:'teacher'});if(error)setNotice(error.message);else{setTeacherToInvite('');setNotice('Teacher invited to this conversation.');await loadMessages(selected.id);}setBusy(false);};
+ const send=async(e:React.FormEvent)=>{e.preventDefault();if(!selected||!isParticipant||(!draft.trim()&&!file))return;setBusy(true);let path:string|null=null;if(file){if(file.size>10*1024*1024){setNotice('Attachments must be 10 MB or smaller.');setBusy(false);return;}path=selected.id+'/'+profile.id+'/'+crypto.randomUUID()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const {error}=await client.storage.from('message-attachments').upload(path,file,{upsert:false});if(error){setNotice(error.message);setBusy(false);return;}}const {error}=await client.from('messages').insert({conversation_id:selected.id,sender_profile_id:profile.id,body:draft.trim()||'Attachment',attachment_path:path});if(error)setNotice(error.message);else{setDraft('');setFile(null);await loadMessages(selected.id);await load();}setBusy(false);};
+ const openAttachment=async(path:string)=>{const popup=window.open('about:blank','_blank');if(!popup){setNotice('Allow pop-ups to open attachments.');return;}popup.opener=null;const {data,error}=await client.storage.from('message-attachments').createSignedUrl(path,60);if(error||!data?.signedUrl){popup.close();setNotice(error?.message||'Could not create a secure attachment link.');return;}popup.location.href=data.signedUrl;};
+ const setStatus=async(status:string)=>{if(!selected)return;const {error}=await client.from('conversations').update({status,updated_at:new Date().toISOString()}).eq('id',selected.id);if(error)setNotice(error.message);else{setSelected({...selected,status});await load();}};
+ const sender=(id:string)=>id===profile.id?'You':people.find(p=>p.id===id)?.display_name||'Teaching team';
+ return <section className="messaging-center"><div className="messaging-heading"><div><span>LIVE MESSAGING & SUPPORT</span><h2>Messages</h2><p>{staff?'Student and parent support queue. Assistants can handle chats or invite a teacher.':'Chat live with an assistant or teacher and keep the full conversation in one place.'}</p></div><div><button onClick={()=>void load()}><RefreshCw size={14}/> Refresh</button><button className="messaging-new" onClick={()=>setShowNew(true)}><Plus size={14}/> New conversation</button></div></div>{notice&&<div className="messaging-notice">{notice}<button onClick={()=>setNotice('')}><X size={13}/></button></div>}
+ <div className="messaging-layout"><aside className="messaging-conversations"><b>Conversations ({conversations.length})</b>{conversations.map(c=><button key={c.id} onClick={()=>setSelected(c)} className={selected?.id===c.id?'active':''}><span>{c.subject}</span><small>{new Date(c.updated_at).toLocaleString()} · {c.status}</small></button>)}{!conversations.length&&<p>No conversations yet.</p>}</aside>
+ <div className="messaging-thread">{selected?<><header><div><b>{selected.subject}</b><small>{selected.conversation_type.replaceAll('_',' ')} · {selected.status} · {participants.length} participants</small></div>{staff&&<div className="messaging-thread-actions">{assistant&&!isParticipant&&selected.status!=='closed'&&<button onClick={()=>void join()} disabled={busy}><UserPlus size={13}/> Join chat</button>}{isParticipant&&<select value={selected.status} onChange={e=>void setStatus(e.target.value)}><option value="open">Open</option><option value="pending">Pending</option><option value="closed">Closed</option></select>}</div>}</header>
+ {assistant&&isParticipant&&<div className="messaging-escalate"><span>Need a teacher?</span><select value={teacherToInvite} onChange={e=>setTeacherToInvite(e.target.value)}><option value="">Invite a teacher into this chat</option>{teachers.filter(t=>!participants.some(p=>p.profile_id===t.id)).map(t=><option key={t.id} value={t.id}>{t.display_name}</option>)}</select><button disabled={!teacherToInvite||busy} onClick={()=>void inviteTeacher()}><Users size={13}/> Invite teacher</button></div>}
+ <div className="messaging-messages">{messages.map(m=><article key={m.id} className={m.sender_profile_id===profile.id?'mine':''}><span>{sender(m.sender_profile_id)}</span><p>{m.body}</p>{m.attachment_path&&<button onClick={()=>void openAttachment(m.attachment_path)}><Download size={13}/>{m.attachment_path.split('/').at(-1)}</button>}<small>{new Date(m.created_at).toLocaleString()}</small></article>)}{!messages.length&&<div className="messaging-empty">Start the conversation with a message.</div>}</div>
+ {isParticipant?<form className="messaging-compose" onSubmit={send}><label title="Attach file"><Paperclip size={17}/><input type="file" onChange={e=>setFile(e.target.files?.[0]??null)}/></label><textarea rows={2} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Write a message…"/><button disabled={busy||(!draft.trim()&&!file)}><Send size={15}/></button></form>:<div className="messaging-empty"><b>Join this conversation to reply</b><p>An assistant can take ownership, then invite a teacher if needed.</p></div>}{file&&<small className="messaging-file-selected">{file.name}</small>}</>:<div className="messaging-empty"><MessageCircle/><b>Select a conversation</b><p>Choose a conversation or start a new one.</p><button onClick={()=>setShowNew(true)}>New conversation</button></div>}</div></div>
+ {showNew&&<div className="messaging-modal"><form onSubmit={create}><button type="button" className="messaging-close" onClick={()=>setShowNew(false)}><X/></button><span>NEW CONVERSATION</span><h3>Start a live conversation</h3><label>Subject<input required maxLength={180} value={subject} onChange={e=>setSubject(e.target.value)}/></label>{staff&&<label>Recipient<select required value={recipient} onChange={e=>setRecipient(e.target.value)}><option value="">Choose student or parent</option>{people.filter(p=>['student','parent'].includes(p.role)).map(p=><option key={p.id} value={p.id}>{p.display_name} · {p.role}</option>)}</select></label>}<label>Message<textarea required rows={5} value={firstMessage} onChange={e=>setFirstMessage(e.target.value)}/></label><button className="messaging-send" disabled={busy}>Start chat</button></form></div>}</section>;
 }
