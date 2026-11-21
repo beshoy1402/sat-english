@@ -208,11 +208,13 @@ Deno.serve(async (req: Request) => {
       if (!content) throw new Error("Provider returned an empty response.");
       const usage = usageOf(provider.provider, payload);
       const latency = Date.now() - started;
-      await admin.from("ai_usage_logs").insert({
-        user_profile_id: actor.id, feature: action, provider: provider.provider, model, success: true,
-        latency_ms: latency, prompt_tokens: usage.prompt, completion_tokens: usage.completion,
-        estimated_cost_usd: null,
-      });
+      const recordSuccess = async () => {
+        await admin.from("ai_usage_logs").insert({
+          user_profile_id: actor.id, feature: action, provider: provider.provider, model, success: true,
+          latency_ms: latency, prompt_tokens: usage.prompt, completion_tokens: usage.completion,
+          estimated_cost_usd: null,
+        });
+      };
 
       if (action === "homework_review") {
         let draft;
@@ -221,6 +223,7 @@ Deno.serve(async (req: Request) => {
           submission_id: submission.id, ...draft, provider: provider.provider, model, generated_by: actor.id,
         }, { onConflict: "submission_id" }).select("*").single();
         if (saveError) throw new Error("Could not save the AI review draft.");
+        await recordSuccess();
         return respond({ success: true, feature: action, provider: provider.provider, model, usage, draft: saved, requires_teacher_approval: true });
       }
       if (action === "study_plan") {
@@ -251,6 +254,7 @@ Deno.serve(async (req: Request) => {
           weekly_hours: Number(body.weekly_hours ?? 5), plan_json: plan, created_by: actor.id,
         }).select("*").single();
         if (saveError) throw new Error("Could not save your study plan.");
+        await recordSuccess();
         return respond({ success: true, feature: action, provider: provider.provider, model, usage, plan: saved });
       }
       if (action === "worksheet") {
@@ -268,8 +272,10 @@ Deno.serve(async (req: Request) => {
           if (!questions.length) throw new Error("No questions were generated.");
           worksheet = { title: String(value.title ?? "English Practice Worksheet").slice(0, 180), instructions: String(value.instructions ?? "Choose the best answer for each question.").slice(0, 1000), passage: value.passage ? String(value.passage).slice(0, 7000) : null, questions };
         } catch { throw new Error("AI response could not be parsed as a worksheet. Please try again."); }
+        await recordSuccess();
         return respond({ success: true, feature: action, provider: provider.provider, model, usage, worksheet, failover_used: failures.length > 0, requires_teacher_review: true });
       }
+      await recordSuccess();
       return respond({ success: true, feature: action, provider: provider.provider, model, usage, content, failover_used: failures.length > 0 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Provider request failed.";
