@@ -15,9 +15,9 @@ const defaultModels: Record<string, string> = {
   qwen: "qwen-plus",
   nvidia: "nvidia/nemotron-3.5-lightning-30b-a3b",
   gemini: "gemini-2.5-flash",
-  groq: "llama-3.3-70b-versatile",
+  groq: "openai/gpt-oss-120b",
   deepseek: "deepseek-chat",
-  openrouter: "openai/gpt-4o-mini",
+  openrouter: "openrouter/free",
   openai: "gpt-4o-mini",
   anthropic: "claude-3-5-haiku-latest",
   meta_llama: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
@@ -89,9 +89,11 @@ Deno.serve(async (req: Request) => {
   const { count: recentCount, error: rateError } = await admin.from("ai_usage_logs")
     .select("id", { count: "exact", head: true })
     .eq("user_profile_id", actor.id)
+    .eq("success", true)
     .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
   if (rateError) return respond({ error: "AI usage limits could not be checked safely. Please try again later." }, 503);
-  if ((recentCount ?? 0) >= (action === "homework_review" ? 20 : action === "worksheet" ? 12 : action === "study_plan" ? 8 : 50)) return respond({ error: "You've reached the hourly AI request limit. Please try again later." }, 429);
+  const hourlyLimit = action === "homework_review" ? 20 : action === "worksheet" ? 12 : action === "study_plan" ? 8 : 50;
+  if ((recentCount ?? 0) >= hourlyLimit) return respond({ error: "You've reached the hourly AI request limit. Only successful AI actions count toward this limit. Please try again when an earlier successful request expires." , limit: hourlyLimit, used: recentCount ?? 0, remaining: 0, window_minutes: 60 }, 429);
 
   let messages: ChatMessage[] = [];
   let submission: any = null;
@@ -181,10 +183,15 @@ Deno.serve(async (req: Request) => {
           && path === "/v1beta"
           && provider.model === "gemini-3.8-flash";
       }
+      if (provider.provider === "groq") {
+        return parsed.origin === "https://api.groq.com"
+          && path === "/openai/v1"
+          && provider.model === "openai/gpt-oss-120b";
+      }
       if (provider.provider === "openrouter") {
         return parsed.origin === "https://openrouter.ai"
           && path === "/api/v1"
-          && ["meta-llama/llama-3.3-70b-instruct", "meta-llama/llama-3.3-70b-instruct:free"].includes(provider.model);
+          && provider.model === "openrouter/free";
       }
       return false;
     } catch {
@@ -199,6 +206,7 @@ Deno.serve(async (req: Request) => {
   }, 503);
 
   const failures: string[] = [];
+  const quota = { limit: hourlyLimit, used: (recentCount ?? 0) + 1, remaining: Math.max(0, hourlyLimit - (recentCount ?? 0) - 1), window_minutes: 60 };
   for (const provider of enabled) {
     const started = Date.now();
     const { data: secret, error: secretError } = await admin.rpc("ai_provider_config_read_secret", { p_provider: provider.provider });
@@ -206,17 +214,9 @@ Deno.serve(async (req: Request) => {
     let model = provider.model || defaultModels[provider.provider] || "";
     if (!model) { failures.push(provider.provider + ": model ID is required"); continue; }
 
-    // Keep the configured OpenRouter Llama fallback on its explicitly free endpoint.
-    // The unsuffixed model is metered; the :free variant is rate-limited but has zero token price.
-    if (provider.provider === "openrouter" && model === "meta-llama/llama-3.3-70b-instruct") {
-      model = "meta-llama/llama-3.3-70b-instruct:free";
-    }
-    // This Groq model was retired in August 2026. Skip it rather than waste the
-    // fallback window; a Developer can configure a currently supported model.
-    if (provider.provider === "groq" && model === "llama-3.3-70b-versatile") {
-      failures.push("groq: configured model was retired on 2026-08-16; choose a supported model in Developer → AI providers");
-      continue;
-    }
+    // OpenRouter's free router dynamically selects an available $0 model, avoiding
+    // hard-coded free model IDs that may be withdrawn or moved behind paid access.
+    if (provider.provider === "openrouter") model = "openrouter/free";
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
@@ -240,7 +240,7 @@ Deno.serve(async (req: Request) => {
       } else {
         endpoint = provider.base_url.replace(/\/$/,"") + "/chat/completions";
         headers.Authorization = "Bearer " + secret;
-        requestBody = { model, messages: [{ role: "system", content: system }, ...messages], temperature: action === "tutor" ? 0.35 : 0.15, max_tokens: action === "worksheet" ? 4096 : 1400, ...(action !== "tutor" ? { response_format: { type: "json_object" } } : {}) };
+        requestBody = { model, messages: [{ role: "system", content: system }, ...messages], temperature: action === "tutor" ? 0.35 : 0.15, max_tokens: action === "worksheet" ? 4096 : 2048, ...(action !== "tutor" ? { response_format: { type: "json_object" } } : {}), ...(provider.provider === "nvidia" ? { chat_template_kwargs: { enable_thinking: false } } : {}) };
       }
 
       const response = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(requestBody), signal: controller.signal });
@@ -268,7 +268,7 @@ Deno.serve(async (req: Request) => {
         }, { onConflict: "submission_id" }).select("*").single();
         if (saveError) return respond({ error: "The AI review was generated, but the draft could not be saved. Please retry after the database issue is fixed." }, 500);
         await recordSuccess();
-        return respond({ success: true, feature: action, provider: provider.provider, model, usage, draft: saved, requires_teacher_approval: true });
+        return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, draft: saved, requires_teacher_approval: true });
       }
       if (action === "study_plan") {
         let plan: any;
@@ -299,7 +299,7 @@ Deno.serve(async (req: Request) => {
         }).select("*").single();
         if (saveError) return respond({ error: "The study plan was generated, but it could not be saved. Please retry after the database issue is fixed." }, 500);
         await recordSuccess();
-        return respond({ success: true, feature: action, provider: provider.provider, model, usage, plan: saved });
+        return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, plan: saved });
       }
       if (action === "worksheet") {
         let worksheet: any;
@@ -317,10 +317,10 @@ Deno.serve(async (req: Request) => {
           worksheet = { title: String(value.title ?? "English Practice Worksheet").slice(0, 180), instructions: String(value.instructions ?? "Choose the best answer for each question.").slice(0, 1000), passage: value.passage ? String(value.passage).slice(0, 7000) : null, questions };
         } catch { throw new Error("AI response could not be parsed as a worksheet. Please try again."); }
         await recordSuccess();
-        return respond({ success: true, feature: action, provider: provider.provider, model, usage, worksheet, failover_used: failures.length > 0, requires_teacher_review: true });
+        return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, worksheet, failover_used: failures.length > 0, requires_teacher_review: true });
       }
       await recordSuccess();
-      return respond({ success: true, feature: action, provider: provider.provider, model, usage, content, failover_used: failures.length > 0 });
+      return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, content, failover_used: failures.length > 0 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Provider request failed.";
       failures.push(provider.provider + ": " + message.slice(0, 180));
