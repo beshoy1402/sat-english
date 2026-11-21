@@ -47,6 +47,16 @@ async function uploadWithTus(
   const endpoint = `${projectUrl.protocol}//${storageHost}/storage/v1/upload/resumable`;
   const fingerprint = `${bucket}:${objectPath}:${file.size}:${file.lastModified}`;
   const storageKey = `supabase-tus:${fingerprint}`;
+  const endpointOrigin = new URL(endpoint).origin;
+  const isTrustedUploadUrl = (value: string) => {
+    try {
+      const parsed = new URL(value);
+      return parsed.origin === endpointOrigin
+        && parsed.pathname.startsWith('/storage/v1/upload/resumable/');
+    } catch {
+      return false;
+    }
+  };
   const baseHeaders: Record<string, string> = {
     authorization: `Bearer ${accessToken}`,
     apikey: client.supabaseKey,
@@ -77,12 +87,21 @@ async function uploadWithTus(
     const location = response.headers.get('Location');
     if (!location) throw new Error('Storage did not return a resumable upload URL.');
     const uploadUrl = new URL(location, endpoint).toString();
+    if (!isTrustedUploadUrl(uploadUrl)) {
+      throw new Error('Storage returned an untrusted resumable upload URL.');
+    }
     localStorage.setItem(storageKey, uploadUrl);
     return uploadUrl;
   };
 
   let uploadUrl = localStorage.getItem(storageKey);
   let offset = 0;
+  if (uploadUrl && !isTrustedUploadUrl(uploadUrl)) {
+    // Never send a bearer token or project key to a URL read from browser storage
+    // unless it belongs to this Supabase project's Storage upload endpoint.
+    localStorage.removeItem(storageKey);
+    uploadUrl = null;
+  }
   if (uploadUrl) {
     try {
       const head = await fetch(uploadUrl, {
