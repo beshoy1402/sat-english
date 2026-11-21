@@ -158,7 +158,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const system = action === "tutor"
-    ? "You are a patient, precise English exam tutor for SAT, EST and ACT English. Help the student understand reading comprehension, grammar, rhetorical skills, vocabulary and writing. Explain step by step, ask guiding questions when useful, correct misconceptions kindly, and provide short practice questions. Do not claim to know official exam answers unless the student provides the question. Keep answers focused on English learning."
+    ? "You are a patient, precise SAT English learning coach. Stay strictly within SAT English study. When a student submits an answer or an attempt, evaluate it carefully against the question and supplied answer key when available. Clearly state whether the answer is correct, identify the exact mistake, explain the underlying grammar/reading/rhetorical concept, show a reliable step-by-step method to solve it, and demonstrate how to improve the student's answer or reasoning. If the student's answer is already correct, explain what they did well and how to make the reasoning more efficient. Never invent an answer key or claim certainty when the question is incomplete or ambiguous; ask for the missing question, choices, or passage. Use encouraging, specific feedback and finish with one short practice prompt when useful. Do not simply give away answers when a hint would teach better. Do not answer unrelated questions."
     : action === "study_plan"
       ? "You are an expert English exam-preparation coach. Create achievable, structured plans with spaced review, skill practice and timed checkpoints. Return strict JSON only."
       : action === "worksheet"
@@ -204,6 +204,21 @@ Deno.serve(async (req: Request) => {
   if (!enabled.length) return respond({
     error: "AI is paused by the zero-cost safety policy. Configure Gemini 3.8 Flash on a Google AI Studio Free Tier project with billing disabled, or the approved OpenRouter Llama 3.3 :free model."
   }, 503);
+
+  const pointCost = action === "tutor" ? 5 : action === "study_plan" ? 15 : 0;
+  const pointRequestId = crypto.randomUUID();
+  let pointsRemaining: number | null = null;
+  if (pointCost > 0) {
+    const { data: pointResult, error: pointError } = await admin.rpc("student_ai_points_consume", {
+      p_student_profile_id: actor.id, p_points: pointCost, p_feature: action, p_request_id: pointRequestId,
+    });
+    if (pointError) return respond({ error: "AI points could not be checked safely. Please try again later." }, 503);
+    if (!pointResult?.success) return respond({
+      error: "You have used all your AI study points. Ask your teacher or administrator for more points.",
+      ai_points: { remaining: Number(pointResult?.remaining ?? 0), cost: pointCost },
+    }, 429);
+    pointsRemaining = Number(pointResult.remaining);
+  }
 
   const failures: string[] = [];
   const quota = { limit: hourlyLimit, used: (recentCount ?? 0) + 1, remaining: Math.max(0, hourlyLimit - (recentCount ?? 0) - 1), window_minutes: 60 };
@@ -268,7 +283,7 @@ Deno.serve(async (req: Request) => {
         }, { onConflict: "submission_id" }).select("*").single();
         if (saveError) return respond({ error: "The AI review was generated, but the draft could not be saved. Please retry after the database issue is fixed." }, 500);
         await recordSuccess();
-        return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, draft: saved, requires_teacher_approval: true });
+        return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, ai_points: pointCost ? { remaining: pointsRemaining, charged: pointCost } : null, draft: saved, requires_teacher_approval: true });
       }
       if (action === "study_plan") {
         let plan: any;
@@ -299,7 +314,7 @@ Deno.serve(async (req: Request) => {
         }).select("*").single();
         if (saveError) return respond({ error: "The study plan was generated, but it could not be saved. Please retry after the database issue is fixed." }, 500);
         await recordSuccess();
-        return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, plan: saved });
+        return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, ai_points: pointCost ? { remaining: pointsRemaining, charged: pointCost } : null, plan: saved });
       }
       if (action === "worksheet") {
         let worksheet: any;
@@ -320,7 +335,7 @@ Deno.serve(async (req: Request) => {
         return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, worksheet, failover_used: failures.length > 0, requires_teacher_review: true });
       }
       await recordSuccess();
-      return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, content, failover_used: failures.length > 0 });
+      return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, ai_points: pointCost ? { remaining: pointsRemaining, charged: pointCost } : null, content, failover_used: failures.length > 0 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Provider request failed.";
       failures.push(provider.provider + ": " + message.slice(0, 180));
@@ -332,5 +347,11 @@ Deno.serve(async (req: Request) => {
       clearTimeout(timeout);
     }
   }
-  return respond({ error: "All enabled AI providers failed. " + failures.join(" | ") }, 503);
+  if (pointCost > 0) {
+    const { error: refundError } = await admin.rpc("student_ai_points_refund", {
+      p_student_profile_id: actor.id, p_points: pointCost, p_feature: action, p_request_id: pointRequestId,
+    });
+    if (refundError) console.error("AI point refund failed", refundError.message);
+  }
+  return respond({ error: "All enabled AI providers failed. " + failures.join(" | "), ai_points: pointCost ? { remaining: pointsRemaining === null ? null : pointsRemaining + pointCost, refunded: !false } : null }, 503);
 });
