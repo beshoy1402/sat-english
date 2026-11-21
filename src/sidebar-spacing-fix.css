@@ -1,8 +1,11 @@
-/* Compact the brand-to-workspace transition in the authenticated sidebar. */
+/* Tighten the vertical stack from the sidebar brand to the first nav item. */
 .portal .sidebar .portal-brand {
-  padding: 14px 22px 12px !important;
+  padding: 14px 22px 8px !important;
 }
 .portal .sidebar .workspace-label {
-  margin: 8px 18px 8px !important;
-  padding: 6px 12px 8px !important;
+  margin: 8px 18px 2px !important;
+  padding: 6px 12px 4px !important;
+}
+.portal .sidebar .side-nav {
+  padding-top: 0 !important;
 }
