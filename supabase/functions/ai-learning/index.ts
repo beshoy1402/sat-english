@@ -175,7 +175,7 @@ Deno.serve(async (req: Request) => {
     if (!model) { failures.push(provider.provider + ": model ID is required"); continue; }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    const timeout = setTimeout(() => controller.abort(), 12000);
     try {
       let endpoint = "";
       let headers: Record<string,string> = { "Content-Type": "application/json", Accept: "application/json" };
