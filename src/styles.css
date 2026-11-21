@@ -628,3 +628,17 @@ button{cursor:pointer}
 .error-banner{padding:11px 12px;background:#301c27;border:1px solid #744252;border-radius:7px;color:#f1c6d1;font-size:10px;line-height:1.6}
 .auth-footer{padding:17px 6.5%;border-top:1px solid #292832;color:#777482;font-size:8px;letter-spacing:.12em;display:flex;justify-content:space-between}
 @media(max-width:760px){.public-header{height:66px;padding:0 18px}.secure-label{font-size:7px}.auth-content{padding:40px 20px;grid-template-columns:1fr;gap:28px}.auth-intro h1{font-size:48px;margin:17px 0}.auth-intro>p{font-size:11px}.auth-orbit{display:none}.login-card{padding:24px}.auth-footer{padding:15px 20px;gap:10px;flex-wrap:wrap}.auth-footer span:last-child{display:none}}
+
+
+/* Shared keyboard focus treatment across public, auth and role workspaces. */
+.app :is(button,a,input,select,textarea,[tabindex]):focus-visible,
+.auth-shell :is(button,a,input,select,textarea,[tabindex]):focus-visible,
+.portal :is(button,a,input,select,textarea,[tabindex]):focus-visible {
+  outline: 2px solid #b7a5ff;
+  outline-offset: 3px;
+}
+.portal button:disabled,
+.auth-shell button:disabled,
+.app button:disabled {
+  cursor: not-allowed;
+}
