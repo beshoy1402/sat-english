@@ -73,6 +73,17 @@ async function uploadWithTus(
       return false;
     }
   };
+  const readStoredUploadUrl = () => {
+    try { return localStorage.getItem(storageKey); }
+    catch { throw new Error('Browser storage is unavailable. Enable site storage to resume this upload.'); }
+  };
+  const saveStoredUploadUrl = (value: string) => {
+    try { localStorage.setItem(storageKey, value); }
+    catch { throw new Error('Browser storage is full or blocked. Free some site storage and retry the upload.'); }
+  };
+  const clearStoredUploadUrl = () => {
+    try { localStorage.removeItem(storageKey); } catch { /* Best-effort cleanup only. */ }
+  };
   const encodeMetadata = (value: string) => btoa(unescape(encodeURIComponent(value)));
   const metadata = [
     ['bucketName', bucket],
@@ -101,34 +112,37 @@ async function uploadWithTus(
     if (!isTrustedUploadUrl(uploadUrl)) {
       throw new Error('Storage returned an untrusted resumable upload URL.');
     }
-    localStorage.setItem(storageKey, uploadUrl);
+    saveStoredUploadUrl(uploadUrl);
     return uploadUrl;
   };
 
-  let uploadUrl = localStorage.getItem(storageKey);
+  let uploadUrl = readStoredUploadUrl();
   let offset = 0;
   if (uploadUrl && !isTrustedUploadUrl(uploadUrl)) {
-    // Never send a bearer token or project key to a URL read from browser storage
-    // unless it belongs to this Supabase project's Storage upload endpoint.
-    localStorage.removeItem(storageKey);
+    // Never send a bearer token or project key to an untrusted stored URL.
+    clearStoredUploadUrl();
     uploadUrl = null;
   }
   if (uploadUrl) {
+    let head: Response;
     try {
-      const head = await fetch(uploadUrl, {
-        method: 'HEAD',
-        headers: await getBaseHeaders()
-      });
-      if (!head.ok) throw new Error('Saved upload session is no longer available.');
-      offset = Number(head.headers.get('Upload-Offset') || 0);
-      const remoteLength = Number(head.headers.get('Upload-Length') || file.size);
-      if (remoteLength !== file.size || offset > file.size) {
-        throw new Error('The saved upload does not match the selected file.');
-      }
+      head = await fetch(uploadUrl, { method: 'HEAD', headers: await getBaseHeaders() });
     } catch {
-      localStorage.removeItem(storageKey);
+      throw new Error('Could not verify the saved upload session. Check your connection and retry; the existing upload has been preserved.');
+    }
+    if (head.status === 404 || head.status === 410) {
+      clearStoredUploadUrl();
       uploadUrl = null;
-      offset = 0;
+    } else if (!head.ok) {
+      throw new Error(`Could not resume the saved upload (HTTP ${head.status}). Retry after checking your connection and sign-in.`);
+    } else {
+      offset = Number(head.headers.get('Upload-Offset'));
+      const remoteLength = Number(head.headers.get('Upload-Length') || file.size);
+      if (!Number.isSafeInteger(offset) || offset < 0 || offset > file.size || remoteLength !== file.size) {
+        clearStoredUploadUrl();
+        uploadUrl = null;
+        offset = 0;
+      }
     }
   }
   if (!uploadUrl) uploadUrl = await createUpload();
@@ -157,7 +171,7 @@ async function uploadWithTus(
         throw new Error(detail || `Temporary upload error (${response.status}).`);
       }
       const confirmedOffset = Number(response.headers.get('Upload-Offset'));
-      if (!Number.isFinite(confirmedOffset) || confirmedOffset <= offset) {
+      if (!Number.isSafeInteger(confirmedOffset) || confirmedOffset <= offset || confirmedOffset > nextOffset || confirmedOffset > file.size) {
         throw new Error('Storage returned an invalid upload offset.');
       }
       offset = confirmedOffset;
@@ -172,7 +186,10 @@ async function uploadWithTus(
       await new Promise(resolve => window.setTimeout(resolve, [1000, 2000, 4000, 8000, 15000][retries - 1]));
       const head = await fetch(uploadUrl, { method: 'HEAD', headers: await getBaseHeaders() });
       if (!head.ok) throw new Error('The resumable upload session expired. Start the upload again.');
-      offset = Number(head.headers.get('Upload-Offset') || 0);
+      offset = Number(head.headers.get('Upload-Offset'));
+      if (!Number.isSafeInteger(offset) || offset < 0 || offset > file.size) {
+        throw new Error('Storage returned an invalid resumable upload offset.');
+      }
       onProgress(Math.min(100, Math.round((offset / file.size) * 100)));
     }
   }
@@ -203,7 +220,6 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
   const [activeVideo, setActiveVideo] = useState<{ id: string; title: string; url: string } | null>(null);
 
   const load = useCallback(async () => {
-    if (!client) return;
     if (!client) {
       setLoading(false);
       return;
@@ -270,32 +286,38 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
     setUploadProgress(0);
     try {
       await uploadWithTus(client, BUCKET, path, file, setUploadProgress);
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'The video upload failed.');
-      setBusy(false);
-      return;
-    }
-    const { error: insertError } = await client.from('session_recordings').insert({
-      course_id: courseId,
-      title: title.trim(),
-      description: description.trim(),
-      storage_path: path,
-      original_filename: file.name,
-      mime_type: file.type,
-      file_size_bytes: file.size,
-      recorded_at: recordedAt ? new Date(recordedAt).toISOString() : null,
-      is_published: published,
-      created_by: profile.id
-    });
-    if (insertError) {
-      await client.storage.from(BUCKET).remove([path]);
-      localStorage.removeItem(tusStorageKey);
-      localStorage.removeItem(pathStorageKey);
-      setError(insertError.message);
-    } else {
-      localStorage.removeItem(tusStorageKey);
-      localStorage.removeItem(pathStorageKey);
-      setNotice('Recording uploaded and saved to the session library.');
+
+      // Make metadata insertion idempotent: a lost response must not create duplicate
+      // library rows when the user retries a completed upload.
+      const { data: existing, error: lookupError } = await client
+        .from('session_recordings')
+        .select('id')
+        .eq('storage_path', path)
+        .maybeSingle();
+      if (lookupError) throw new Error(lookupError.message);
+
+      if (!existing) {
+        const { error: insertError } = await client.from('session_recordings').insert({
+          course_id: courseId,
+          title: title.trim(),
+          description: description.trim(),
+          storage_path: path,
+          original_filename: file.name,
+          mime_type: file.type,
+          file_size_bytes: file.size,
+          recorded_at: recordedAt ? new Date(recordedAt).toISOString() : null,
+          is_published: published,
+          created_by: profile.id
+        });
+        if (insertError) throw new Error(insertError.message);
+      }
+
+      // Clear recovery data only after the metadata row is confirmed to exist.
+      try {
+        localStorage.removeItem(tusStorageKey);
+        localStorage.removeItem(pathStorageKey);
+      } catch { /* The saved recording is safe; stale recovery keys are harmless. */ }
+      setNotice(existing ? 'This recording was already saved. The library has been refreshed.' : 'Recording uploaded and saved to the session library.');
       setTitle('');
       setDescription('');
       setRecordedAt('');
@@ -304,8 +326,11 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
       setUploadProgress(0);
       setShowForm(false);
       await load();
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'The recording could not be saved. Your uploaded video has been kept so you can retry with the same file.');
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   };
 
   const play = async (recording: Recording) => {
