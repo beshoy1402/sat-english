@@ -347,11 +347,13 @@ Deno.serve(async (req: Request) => {
       clearTimeout(timeout);
     }
   }
+  let refundResult: any = null;
   if (pointCost > 0) {
-    const { error: refundError } = await admin.rpc("student_ai_points_refund", {
+    const { data, error: refundError } = await admin.rpc("student_ai_points_refund", {
       p_student_profile_id: actor.id, p_points: pointCost, p_feature: action, p_request_id: pointRequestId,
     });
+    refundResult = data;
     if (refundError) console.error("AI point refund failed", refundError.message);
   }
-  return respond({ error: "All enabled AI providers failed. " + failures.join(" | "), ai_points: pointCost ? { remaining: pointsRemaining === null ? null : pointsRemaining + pointCost } : null }, 503);
+  return respond({ error: "All enabled AI providers failed. " + failures.join(" | "), ai_points: pointCost ? { remaining: Number(refundResult?.remaining ?? pointsRemaining ?? 0), refunded: Boolean(refundResult?.success) } : null }, 503);
 });
