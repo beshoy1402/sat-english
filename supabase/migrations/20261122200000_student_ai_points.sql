@@ -106,7 +106,6 @@ begin
   update public.student_ai_point_accounts
     set points_balance=points_balance+p_delta,
         points_granted_total=greatest(0,points_granted_total+greatest(p_delta,0)),
-        points_spent_total=greatest(0,points_spent_total+least(p_delta,0)*-1),
         updated_at=now()
     where student_profile_id=p_student_profile_id and points_balance+p_delta>=0
     returning points_balance into v_balance;
