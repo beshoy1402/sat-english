@@ -4,7 +4,7 @@ import { Activity, Eye, EyeOff, KeyRound, RefreshCw, Save, ShieldCheck, Sparkles
 type ProviderId = 'nvidia' | 'gemini' | 'groq' | 'openrouter';
 type ProviderConfig = { provider: ProviderId; base_url: string; model: string; is_enabled: boolean; priority: number; key_configured: boolean; last_tested_at: string | null; last_test_status: string | null };
 const catalog: { id: ProviderId; name: string; detail: string; placeholder: string }[] = [
-  { id: 'nvidia', name: 'NVIDIA NIM', detail: 'Primary AI · Nemotron 3.5 Lightning · Free Endpoint', placeholder: 'nvidia/nemotron-3.5-lightning-30b-a3b' },
+  { id: 'nvidia', name: 'NVIDIA NIM', detail: 'Primary AI · Nemotron 3.5 Super VL 120B · Free Endpoint', placeholder: 'nvidia/nemotron-3.5-super-vl-120b-a12b' },
   { id: 'gemini', name: 'Google Gemini', detail: 'Fallback AI · Gemini Free Tier only', placeholder: 'gemini-3.8-flash' },
   { id: 'groq', name: 'GroqCloud', detail: 'Alternative AI · GPT-OSS 120B · Free plan', placeholder: 'openai/gpt-oss-120b' },
   { id: 'openrouter', name: 'OpenRouter', detail: 'Fallback AI · Dynamic free-model router', placeholder: 'openrouter/free' },
@@ -38,7 +38,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
       const next: Record<string, ProviderConfig> = {};
       for (const row of data.providers ?? []) next[row.provider] = row;
       setConfigs(next);
-      const defaults: Record<string, string> = { nvidia: 'nvidia/nemotron-3.5-lightning-30b-a3b', gemini: 'gemini-3.8-flash', groq: 'openai/gpt-oss-120b', openrouter: 'openrouter/free' };
+      const defaults: Record<string, string> = { nvidia: 'nvidia/nemotron-3.5-super-vl-120b-a12b', gemini: 'gemini-3.8-flash', groq: 'openai/gpt-oss-120b', openrouter: 'openrouter/free' };
       setModels(Object.fromEntries(catalog.map(provider => [provider.id, provider.id === 'groq' && next[provider.id]?.model === 'llama-3.3-70b-versatile' ? defaults[provider.id] : provider.id === 'openrouter' ? defaults[provider.id] : next[provider.id]?.model || defaults[provider.id]])));
       setBaseUrls(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.base_url ?? ''])));
       setEnabled(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.is_enabled])));
@@ -76,7 +76,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
   return <section className="panel full-panel ai-provider-panel">
     <div className="panel-heading"><div><small>DEVELOPER · AI CONFIGURATION</small><h3>AI Provider Management</h3><p>Manage your AI routing stack, securely store provider keys, and monitor reliability and usage.</p></div><Sparkles/></div>
     <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Credentials stay server-side</b><span>API keys are saved in Supabase Vault and are never returned to the browser after saving.</span></div></div>
-    <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Zero-cost routing is enforced</b><span>Only NVIDIA Nemotron 3.5 Lightning, Gemini Free Tier, Groq GPT-OSS 120B Free and OpenRouter's dynamic free router are allowed. NVIDIA's free endpoint and other providers can have rate limits or quotas; free access is not unlimited. Other providers and paid model IDs are blocked.</span></div></div>
+    <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Zero-cost routing is enforced</b><span>Only NVIDIA Nemotron 3.5 Super VL 120B, Gemini Free Tier, Groq GPT-OSS 120B Free and OpenRouter's dynamic free router are allowed. NVIDIA's free endpoint and other providers can have rate limits or quotas; free access is not unlimited. Other providers and paid model IDs are blocked.</span></div></div>
     {message && <div className={message.error ? 'error-banner' : 'notice-banner'}>{message.text}</div>}
     <div className="ai-provider-list">{catalog.map(provider => {
       const row = configs[provider.id];
