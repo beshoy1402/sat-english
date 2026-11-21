@@ -353,5 +353,5 @@ Deno.serve(async (req: Request) => {
     });
     if (refundError) console.error("AI point refund failed", refundError.message);
   }
-  return respond({ error: "All enabled AI providers failed. " + failures.join(" | "), ai_points: pointCost ? { remaining: pointsRemaining === null ? null : pointsRemaining + pointCost, refunded: !false } : null }, 503);
+  return respond({ error: "All enabled AI providers failed. " + failures.join(" | "), ai_points: pointCost ? { remaining: pointsRemaining === null ? null : pointsRemaining + pointCost } : null }, 503);
 });
