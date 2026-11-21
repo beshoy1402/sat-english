@@ -66,8 +66,12 @@ export default function DeveloperWorkspace({client,profile}:Props){
    setBusy(false);e.target.value='';
  };
  const openAttachment=async(path:string)=>{
+   const popup=window.open('about:blank','_blank');
+   if(!popup){setNotice('Allow pop-ups to open attachments, then try again.');return;}
+   popup.opener=null;
    const {data,error}=await client.storage.from('developer-workspace').createSignedUrl(path,60);
-   if(error){setNotice(error.message);return;}window.open(data.signedUrl,'_blank','noopener,noreferrer');
+   if(error||!data?.signedUrl){popup.close();setNotice(error?.message||'Could not create a secure attachment link.');return;}
+   popup.location.href=data.signedUrl;
  };
  const createBug=async(e:React.FormEvent)=>{
    e.preventDefault();setBusy(true);const {error}=await client.from('developer_bug_reports').insert({...bugForm,reported_by:profile.id});
