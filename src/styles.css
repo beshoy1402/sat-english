@@ -346,7 +346,7 @@ body{background:#0b0b10;color:#ededf4}
 .portal-topbar{height:78px}
 .portal-topbar h1{font-size:19px}
 .sidebar{width:258px}
-.portal-main{margin-left:258px}
+.portal-main{margin-left:0}
 .side-nav button{min-height:39px}
 .sidebar-bottom{padding:16px}
 .sidebar-help{padding:11px}
