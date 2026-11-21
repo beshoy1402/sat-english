@@ -33,6 +33,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: target, error: targetError } = await service.from("profiles").select("id,username,display_name,role").eq("id", userId).maybeSingle();
   if (targetError || !target) return respond({ error: "Account not found." }, 404);
+  if (actor.role !== "admin" && ["teacher", "assistant"].includes(target.role)) return respond({ error: "Only Admin accounts can delete Teacher or Assistant accounts." }, 403);
   if (["admin", "developer", "designer"].includes(target.role)) return respond({ error: "Admin, Developer, and Designer accounts are protected from deletion." }, 403);
   const { error: auditError } = await service.from("audit_events").insert({
     actor_profile_id: actor.id, action: "account.deleted", entity_type: "profile", entity_id: target.id,
