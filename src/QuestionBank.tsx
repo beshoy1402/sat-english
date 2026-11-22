@@ -31,7 +31,8 @@ const empty={exam_program:'SAT English',topic:'Grammar',difficulty:'medium',pass
 export default function QuestionBank({client}:{client:any}){
  const [items,setItems]=useState<Row[]>([]),[exams,setExams]=useState<Row[]>([]),[form,setForm]=useState({...empty}),[editing,setEditing]=useState<string|null>(null);
  const [programFilter,setProgramFilter]=useState('all'),[search,setSearch]=useState(''),[selected,setSelected]=useState<string[]>([]),[examId,setExamId]=useState('');
- const [busy,setBusy]=useState(false),[notice,setNotice]=useState('');\n const [importRows,setImportRows]=useState<ImportRow[]>([]),[importName,setImportName]=useState('');
+ const [busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+ const [importRows,setImportRows]=useState<ImportRow[]>([]),[importName,setImportName]=useState('');
  const load=useCallback(async()=>{
   setBusy(true);const [q,e]=await Promise.all([
    client.rpc('staff_list_question_bank_items',{p_exam_program:programFilter==='all'?null:programFilter}),
