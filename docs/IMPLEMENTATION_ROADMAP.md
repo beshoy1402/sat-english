@@ -162,3 +162,11 @@ Configurable XP, achievements, streaks, weekly challenges, class leaderboards an
 
 
 For the maintained, full product scope, implementation stages, acceptance criteria and current status, see [Complete Platform Implementation Plan](./COMPLETE_PLATFORM_IMPLEMENTATION_PLAN.md). This is the master plan; this roadmap remains the concise delivery summary.
+
+
+### Live Classroom foundation (source only)
+- Added staff/student Live classroom navigation, session scheduling, lifecycle controls, student join/leave and private Realtime presence roster.
+- Added source-only migration for session records, participant attendance, course-scoped RLS and private topic authorization.
+- Server-side RPCs own lifecycle transitions and attendance timestamps; direct client writes to those fields are revoked.
+- Not yet implemented: WebRTC audio/video, TURN/SFU, screen sharing, chat, moderation and live recording.
+- Migration not applied; build and runtime tests pending; no production deployment.
