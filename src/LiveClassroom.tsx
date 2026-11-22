@@ -44,6 +44,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [recordingActive, setRecordingActive] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -376,6 +377,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   };
 
   const changeStatus = async (session: LiveSession, status: LiveSession['status']) => {
+    if (recordingActive && activeSession?.id === session.id && ['ended','cancelled'].includes(status)) { setError('Stop and save or discard the recording before ending this classroom.'); return; }
     const canManage = staff || (session.room_type === 'study' && session.created_by === profile.id);
     if (!client || !canManage || busy) return;
     setBusy(true); setError(''); setNotice('');
@@ -489,6 +491,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
 
   const leaveRoom = async () => {
     if (!activeSession || !client) return;
+    if (recordingActive) { setError('Stop and save or discard the recording before leaving this classroom.'); return; }
     setBusy(true);
     try {
       const { error: leaveError } = await client.rpc('live_session_leave', {
@@ -540,7 +543,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     </form>}
 
     {activeSession && <section className="live-room-panel">
-      <div className="live-room-top"><div><span className="live-room-kicker">SECURE CLASSROOM LOBBY</span><h3>{activeSession.title}</h3><p>{activeSession.courses?.title || 'Course'} · {statusLabel[activeSession.status]}</p></div><div className="live-room-top-actions">{!staff && <button className={ownHandRaised ? 'live-secondary live-hand-raised' : 'live-secondary'} onClick={() => void toggleHandRaise()} disabled={handRaiseBusy}><Hand size={14}/>{ownHandRaised ? 'Lower hand' : 'Raise hand'}</button>}<button className="live-secondary" onClick={() => void leaveRoom()} disabled={busy}><DoorOpen size={14}/> Leave room</button></div></div>
+      <div className="live-room-top"><div><span className="live-room-kicker">SECURE CLASSROOM LOBBY</span><h3>{activeSession.title}</h3><p>{activeSession.courses?.title || 'Course'} · {statusLabel[activeSession.status]}</p></div><div className="live-room-top-actions">{!staff && <button className={ownHandRaised ? 'live-secondary live-hand-raised' : 'live-secondary'} onClick={() => void toggleHandRaise()} disabled={handRaiseBusy}><Hand size={14}/>{ownHandRaised ? 'Lower hand' : 'Raise hand'}</button>}<button className="live-secondary" onClick={() => void leaveRoom()} disabled={busy || recordingActive}><DoorOpen size={14}/> Leave room</button></div></div>
       <div className="live-room-notice"><Users size={17}/><div><b>{onlineMembers.length} online</b><span>Presence is shared only inside this private session channel.</span></div></div>
       <div className="live-presence-list">{onlineMembers.map((member, index) => {
         const until = member.profile_id ? mutedUntil[member.profile_id] : null;
@@ -555,7 +558,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         </div>;
       })}{!onlineMembers.length && <small>Connecting to the private classroom…</small>}</div>
       <LiveMedia client={client} sessionId={activeSession.id} profile={profile} members={onlineMembers}/>
-      {activeSession.room_type === 'lesson' && activeSession.provider === 'website' && staff && (profile.role === 'admin' || activeSession.created_by === profile.id) && <LiveRecording client={client} profile={profile} session={activeSession} canRecord={activeSession.status === 'live'}/>}
+      {activeSession.room_type === 'lesson' && activeSession.provider === 'website' && staff && (profile.role === 'admin' || activeSession.created_by === profile.id) && <LiveRecording client={client} profile={profile} session={activeSession} canRecord={activeSession.status === 'live'} onRecordingChange={setRecordingActive}/>}
       <section className="live-chat-panel">
         <div className="live-chat-heading"><div><MessageCircle size={15}/><b>Classroom chat</b></div><span>Saved messages · 1,000 characters max</span></div>
         <div className="live-chat-messages" aria-live="polite">
