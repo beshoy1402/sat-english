@@ -41,7 +41,21 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
       pc.addTransceiver('video', { direction: 'sendrecv' });
       peers.current.set(peerId, pc);
       localRef.current?.getTracks().forEach(track => pc.addTrack(track, localRef.current!));
-      pc.onicecandidate = event => { if (event.candidate && !disposed) void send({ to: peerId, kind: 'ice', candidate: event.candidate.toJSON() }); };
+      pc.onicecandidate = event => {
+        const candidate = event.candidate as RTCIceCandidate | null;
+        if (candidate && !disposed) {
+          void send({
+            to: peerId,
+            kind: 'ice',
+            candidate: {
+              candidate: candidate.candidate,
+              sdpMid: candidate.sdpMid,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+              usernameFragment: candidate.usernameFragment,
+            },
+          });
+        }
+      };
       pc.ontrack = event => {
         const stream = event.streams[0] || new MediaStream([event.track]);
         setRemoteStreams(current => ({ ...current, [peerId]: stream }));
