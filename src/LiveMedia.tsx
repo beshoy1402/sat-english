@@ -93,6 +93,9 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
     return () => {
       disposed = true; subscribedRef.current = false; makePeerRef.current = null; offerPeerRef.current = null; channelRef.current = null;
       peers.current.forEach(pc => pc.close()); peers.current.clear(); pendingIce.current.clear();
+      screenRef.current?.getTracks().forEach(track => track.stop());
+      localRef.current?.getTracks().forEach(track => track.stop());
+      screenRef.current = null; localRef.current = null;
       setRemoteStreams({}); void client.removeChannel(channel);
     };
   }, [client, sessionId, profile.id]);
@@ -100,6 +103,15 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
   useEffect(() => {
     if (!subscribedRef.current) return;
     const peersNow = [...new Set(members.map(member => member.profile_id).filter((id): id is string => Boolean(id) && id !== profile.id))];
+    const activePeers = new Set(peersNow);
+    peers.current.forEach((pc, peerId) => {
+      if (!activePeers.has(peerId)) {
+        pc.close();
+        peers.current.delete(peerId);
+        pendingIce.current.delete(peerId);
+        setRemoteStreams(current => { const next = { ...current }; delete next[peerId]; return next; });
+      }
+    });
     if (peersNow.length > 5) setError('This prototype supports up to 6 participants.');
     peersNow.slice(0, 5).forEach(peerId => {
       makePeerRef.current?.(peerId);
