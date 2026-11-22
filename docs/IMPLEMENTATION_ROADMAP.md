@@ -276,3 +276,14 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - The accessibility markup follow-up is committed separately and awaits its own CI result. No deployment was performed; visual QA on real browsers/devices remains required.
 
 - Follow-up: the public landing-page dashboard mockup now labels itself as an interface preview and marks its sample streak/mastery/activity values as illustrative rather than implying live student data.
+
+
+## Frontend refinement and question-import hardening (2026-11-22)
+
+- Refined the authenticated workspace design: indigo/navy navigation, clearer active states, improved dashboard hero, quick-access controls, cards, panels, forms and mobile spacing.
+- Improved narrow-screen layouts for the slide-in sidebar, dashboard metrics, quick actions, account summaries and content rows. Existing reduced-motion handling remains in place.
+- Fixed PDF text reconstruction to preserve actual line breaks between extracted PDF text rows.
+- XLSX imports now reject a first worksheet without a recognized question column (prompt, question or question_text) before previewing rows.
+- Added static regression assertions for responsive UI hooks and the import parsing safeguards.
+- GitHub Actions run [45001655711](https://github.com/beshoy1402/sat-english/actions/runs/45001655711) passed: dependency install, policy checks, TypeScript type-check and Vite production build.
+- This is CI/build verification only. Real-device visual QA, browser interaction tests, PDF/XLSX fixture tests and end-to-end workflows remain outstanding. No deployment or production change was performed.
