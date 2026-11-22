@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import { withSupabase } from 'npm:@supabase/server@1';
 
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -39,7 +39,8 @@ const asIso = (value: unknown, fallbackMs: unknown) => {
     : new Date().toISOString();
 };
 
-Deno.serve(async (req: Request) => {
+export default {
+  fetch: withSupabase({ auth: 'none' }, async (req: Request, ctx) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const secret = Deno.env.get('ZOOM_WEBHOOK_SECRET_TOKEN');
@@ -79,12 +80,8 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Zoom webhook signature verification failed' }, 401);
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const expectedAccountId = Deno.env.get('ZOOM_ACCOUNT_ID');
-  if (!supabaseUrl || !serviceRoleKey || !expectedAccountId) {
-    return json({ error: 'Webhook database integration is not configured' }, 503);
-  }
+  if (!expectedAccountId) return json({ error: 'Zoom account validation is not configured' }, 503);
 
   const payload = event.payload;
   const meeting = payload?.object;
@@ -101,9 +98,7 @@ Deno.serve(async (req: Request) => {
   ]);
   if (!supportedEvents.has(event.event)) return json({ received: true, ignored: true });
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
+  const supabase = ctx.supabaseAdmin;
 
   const { data: session, error: sessionError } = await supabase
     .from('live_sessions')
@@ -169,4 +164,5 @@ Deno.serve(async (req: Request) => {
   }
 
   return json({ received: true, duplicate });
-});
+  })
+};
