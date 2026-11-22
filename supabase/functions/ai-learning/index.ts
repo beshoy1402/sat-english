@@ -215,6 +215,18 @@ Deno.serve(async (req: Request) => {
     pointsRemaining = Number(pointResult.remaining);
   }
 
+  const refundReservedPoints = async () => {
+    if (pointCost <= 0) return { remaining: pointsRemaining, refunded: false };
+    const { data, error } = await admin.rpc("student_ai_points_refund", {
+      p_student_profile_id: actor.id, p_points: pointCost, p_feature: action, p_request_id: pointRequestId,
+    });
+    if (error) {
+      console.error("AI point refund failed", error.message);
+      return { remaining: pointsRemaining, refunded: false };
+    }
+    return { remaining: Number(data?.remaining ?? pointsRemaining ?? 0), refunded: Boolean(data?.success) };
+  };
+
   const failures: string[] = [];
   const quota = { limit: hourlyLimit, used: (recentCount ?? 0) + 1, remaining: Math.max(0, hourlyLimit - (recentCount ?? 0) - 1), window_minutes: 60 };
   for (const provider of enabled) {
@@ -307,7 +319,13 @@ Deno.serve(async (req: Request) => {
           target_score: body.target_score === null || body.target_score === undefined || body.target_score === '' ? null : (Number.isFinite(Number(body.target_score)) ? Number(body.target_score) : null),
           weekly_hours: Number(body.weekly_hours ?? 5), plan_json: plan, created_by: actor.id,
         }).select("*").single();
-        if (saveError) return respond({ error: "The study plan was generated, but it could not be saved. Please retry after the database issue is fixed." }, 500);
+        if (saveError) {
+          const refund = await refundReservedPoints();
+          return respond({
+            error: "The study plan was generated, but it could not be saved. Please retry after the database issue is fixed.",
+            ai_points: { remaining: refund.remaining, refunded: refund.refunded },
+          }, 500);
+        }
         await recordSuccess();
         return respond({ success: true, feature: action, provider: provider.provider, model, usage, rate_limit: quota, ai_points: pointCost ? { remaining: pointsRemaining, charged: pointCost } : null, plan: saved });
       }
@@ -342,13 +360,6 @@ Deno.serve(async (req: Request) => {
       clearTimeout(timeout);
     }
   }
-  let refundResult: any = null;
-  if (pointCost > 0) {
-    const { data, error: refundError } = await admin.rpc("student_ai_points_refund", {
-      p_student_profile_id: actor.id, p_points: pointCost, p_feature: action, p_request_id: pointRequestId,
-    });
-    refundResult = data;
-    if (refundError) console.error("AI point refund failed", refundError.message);
-  }
-  return respond({ error: "All enabled AI providers failed. " + failures.join(" | "), ai_points: pointCost ? { remaining: Number(refundResult?.remaining ?? pointsRemaining ?? 0), refunded: Boolean(refundResult?.success) } : null }, 503);
+  const refund = await refundReservedPoints();
+  return respond({ error: "All enabled AI providers failed. " + failures.join(" | "), ai_points: pointCost ? { remaining: refund.remaining, refunded: refund.refunded } : null }, 503);
 });
