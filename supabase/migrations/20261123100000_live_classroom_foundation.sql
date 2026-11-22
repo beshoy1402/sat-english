@@ -41,8 +41,10 @@ create index if not exists live_session_participants_session_idx
 alter table public.live_sessions enable row level security;
 alter table public.live_session_participants enable row level security;
 
-grant select, insert, update on public.live_sessions to authenticated;
-grant select, insert, update on public.live_session_participants to authenticated;
+grant select, insert on public.live_sessions to authenticated;
+revoke update on public.live_sessions from authenticated;
+grant select on public.live_session_participants to authenticated;
+revoke insert, update on public.live_session_participants from authenticated;
 
 create or replace function private.can_access_live_session(p_session_id uuid)
 returns boolean
@@ -192,6 +194,111 @@ with check (
   profile_id = (select auth.uid())
   or private.can_manage_live_session(session_id)
 );
+
+-- Mutating attendance and session lifecycle timestamps must be server-authored.
+create or replace function public.live_session_set_status(
+  p_session_id uuid,
+  p_status text
+)
+returns public.live_sessions
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_session public.live_sessions;
+begin
+  if not private.can_manage_live_session(p_session_id) then
+    raise exception 'You are not authorized to manage this live lesson';
+  end if;
+
+  if p_status not in ('lobby','live','ended','cancelled') then
+    raise exception 'Invalid live lesson status';
+  end if;
+
+  select * into v_session
+  from public.live_sessions
+  where id = p_session_id
+  for update;
+
+  if not found then
+    raise exception 'Live lesson not found';
+  end if;
+
+  if v_session.status = p_status then
+    return v_session;
+  end if;
+
+  if not (
+    (v_session.status = 'scheduled' and p_status in ('lobby','live','cancelled'))
+    or (v_session.status = 'lobby' and p_status in ('live','cancelled'))
+    or (v_session.status = 'live' and p_status = 'ended')
+  ) then
+    raise exception 'Invalid live lesson status transition: % to %', v_session.status, p_status;
+  end if;
+
+  update public.live_sessions
+  set status = p_status,
+      started_at = case when p_status = 'live' then coalesce(started_at, now()) else started_at end,
+      ended_at = case when p_status = 'ended' then now() else ended_at end,
+      updated_at = now()
+  where id = p_session_id
+  returning * into v_session;
+
+  return v_session;
+end;
+$function$;
+
+create or replace function public.live_session_join(p_session_id uuid)
+returns public.live_session_participants
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_participant public.live_session_participants;
+begin
+  if not private.can_join_live_session(p_session_id) then
+    raise exception 'This live classroom is not open to your account';
+  end if;
+
+  insert into public.live_session_participants(session_id, profile_id, joined_at, last_seen_at)
+  values (p_session_id, auth.uid(), now(), now())
+  on conflict (session_id, profile_id)
+  do update set left_at = null, last_seen_at = now()
+  returning * into v_participant;
+
+  return v_participant;
+end;
+$function$;
+
+create or replace function public.live_session_leave(p_session_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if not private.can_access_live_session(p_session_id) then
+    raise exception 'You are not authorized to leave this live lesson';
+  end if;
+
+  update public.live_session_participants
+  set left_at = now(), last_seen_at = now()
+  where session_id = p_session_id
+    and profile_id = auth.uid()
+    and left_at is null;
+
+  return found;
+end;
+$function$;
+
+revoke all on function public.live_session_set_status(uuid,text) from public, anon;
+revoke all on function public.live_session_join(uuid) from public, anon;
+revoke all on function public.live_session_leave(uuid) from public, anon;
+grant execute on function public.live_session_set_status(uuid,text) to authenticated;
+grant execute on function public.live_session_join(uuid) to authenticated;
+grant execute on function public.live_session_leave(uuid) to authenticated;
 
 -- Private Realtime topics use the exact format: live-session:<session UUID>.
 -- SELECT permits receiving presence/broadcast events; INSERT permits sending them.
