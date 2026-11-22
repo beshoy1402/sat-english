@@ -28,20 +28,26 @@ create table if not exists public.admission_rule_versions (
       and verified_by is not null
       and formula->>'kind' = 'weighted_sum'
       and jsonb_typeof(formula->'weights') = 'object'
-      and coalesce((formula #>> '{weights,gpa}') ~ '^[0-9]+([.][0-9]+)?$', false)
-      and coalesce((formula #>> '{weights,sat1}') ~ '^[0-9]+([.][0-9]+)?$', false)
-      and coalesce((formula #>> '{weights,sat2}') ~ '^[0-9]+([.][0-9]+)?$', false)
-      and (
-        (formula #>> '{weights,gpa}')::numeric
-        + (formula #>> '{weights,sat1}')::numeric
-        + (formula #>> '{weights,sat2}')::numeric
-      ) = 100
-      and coalesce((score_scales->>'gpa_max') ~ '^[0-9]+([.][0-9]+)?$', false)
-      and coalesce((score_scales->>'sat1_max') ~ '^[0-9]+([.][0-9]+)?$', false)
-      and coalesce((score_scales->>'sat2_max') ~ '^[0-9]+([.][0-9]+)?$', false)
-      and (score_scales->>'gpa_max')::numeric > 0
-      and (score_scales->>'sat1_max')::numeric > 0
-      and (score_scales->>'sat2_max')::numeric > 0
+      and case
+        when coalesce((formula #>> '{weights,gpa}') ~ '^[0-9]+([.][0-9]+)?$', false)
+          and coalesce((formula #>> '{weights,sat1}') ~ '^[0-9]+([.][0-9]+)?$', false)
+          and coalesce((formula #>> '{weights,sat2}') ~ '^[0-9]+([.][0-9]+)?$', false)
+        then (
+          (formula #>> '{weights,gpa}')::numeric
+          + (formula #>> '{weights,sat1}')::numeric
+          + (formula #>> '{weights,sat2}')::numeric
+        ) = 100
+        else false
+      end
+      and case
+        when coalesce((score_scales->>'gpa_max') ~ '^[0-9]+([.][0-9]+)?$', false)
+          and coalesce((score_scales->>'sat1_max') ~ '^[0-9]+([.][0-9]+)?$', false)
+          and coalesce((score_scales->>'sat2_max') ~ '^[0-9]+([.][0-9]+)?$', false)
+        then (score_scales->>'gpa_max')::numeric > 0
+          and (score_scales->>'sat1_max')::numeric > 0
+          and (score_scales->>'sat2_max')::numeric > 0
+        else false
+      end
     )
   )
 );
