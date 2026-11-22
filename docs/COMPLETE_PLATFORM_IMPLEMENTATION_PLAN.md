@@ -393,3 +393,14 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Corrected PDF extracted-line joining and added early XLSX header validation for a recognized question prompt column.
 - Verified with GitHub Actions run [45001655711](https://github.com/beshoy1402/sat-english/actions/runs/45001655711): install, policy checks, TypeScript and Vite build all passed.
 - Remaining verification: browser/device visual QA, interactive end-to-end tests, real PDF/XLSX import fixtures, SQL execution, Supabase authorization tests, WebRTC/Zoom activation and launch readiness. No deployment or production changes.
+
+
+## Question-import reliability and regression tests — source only (2026-11-22)
+
+- Extracted CSV parsing and import-row normalization into a pure ESM helper module, separate from the Question Bank React screen.
+- Added strict CSV handling for BOM, quoted commas, escaped quotes, multiline fields, malformed quotes and duplicate/empty headings.
+- Strengthened row validation for supported question types, difficulty, exam program, topic, points, duplicate prompts, duplicate choices and multiple-choice option count (2–6).
+- Normalized A–F answer keys into their matching answer-choice text, while retaining separate option-column support in spreadsheets.
+- Added 10 executable Node regression tests and made CI run them before TypeScript and production-build checks.
+- Verified by GitHub Actions run [45003319433](https://github.com/beshoy1402/sat-english/actions/runs/45003319433): policy checks, 10/10 import tests, TypeScript and Vite build all passed.
+- Remaining work includes browser-level import and save tests, realistic document fixtures, OCR/diagram handling, retryable batch imports and full exam assembly tests. This change is source-only; no database migration, Edge Function deployment, secrets/config change or Vercel deployment was performed.
