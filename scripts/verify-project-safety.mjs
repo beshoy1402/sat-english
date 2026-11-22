@@ -144,6 +144,9 @@ assert.match(liveMigration, /create or replace function public\.live_session_set
 assert.match(liveMigration, /Only an enrolled student in an open room can raise a hand/);
 assert.match(liveMigration, /Only the classroom host or assigned staff may lower another participant hand/);
 assert.match(liveMigration, /lowered_by_teacher/);
+assert.match(liveMigration, /Automatically lower raised hands/);
+assert.match(liveMigration, /live_session_hand_raise_events\(session_id, actor_profile_id, target_profile_id, action\)/);
+assert.match(liveMigration, /values \(p_session_id, auth\.uid\(\), auth\.uid\(\), 'lowered'\)/);
 assert.match(liveMigration, /revoke all on function public\.live_session_set_hand_raise\(uuid,boolean,uuid\) from public, anon/);
 assert.match(liveClassroom, /from\('live_session_hand_raises'\)/);
 assert.match(liveClassroom, /from\('live_session_hand_raise_events'\)/);
