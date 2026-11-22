@@ -69,7 +69,11 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
     const offerPeer = async (peerId: string) => {
       const pc = makePeer(peerId);
       if (!pc || pc.signalingState !== 'stable' || pc.localDescription) return;
-      try { const offer = await pc.createOffer(); await pc.setLocalDescription(offer); await send({ to: peerId, kind: 'offer', description: pc.localDescription?.toJSON() }); }
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await send({ to: peerId, kind: 'offer', description: { type: offer.type, sdp: offer.sdp } });
+      }
       catch { setError('Could not negotiate a peer connection.'); }
     };
     makePeerRef.current = makePeer;
@@ -84,8 +88,9 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
           await pc.setRemoteDescription(payload.description);
           for (const candidate of pendingIce.current.get(payload.from) || []) await pc.addIceCandidate(candidate);
           pendingIce.current.delete(payload.from);
-          const answer = await pc.createAnswer(); await pc.setLocalDescription(answer);
-          await send({ to: payload.from, kind: 'answer', description: pc.localDescription?.toJSON() });
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          await send({ to: payload.from, kind: 'answer', description: { type: answer.type, sdp: answer.sdp } });
         } else if (payload.kind === 'answer' && payload.description) {
           await pc.setRemoteDescription(payload.description);
           for (const candidate of pendingIce.current.get(payload.from) || []) await pc.addIceCandidate(candidate);
