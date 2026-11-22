@@ -41,6 +41,11 @@ begin
   if auth.role() <> 'service_role' then
     raise exception 'Not authorized';
   end if;
+  if p_request_id is null then raise exception 'Request ID is required'; end if;
+  if exists (select 1 from public.student_ai_point_transactions t where t.request_id = p_request_id and t.transaction_type = 'consume') then
+    select points_balance into v_balance from public.student_ai_point_accounts where student_profile_id = p_student_profile_id;
+    return jsonb_build_object('success', true, 'remaining', coalesce(v_balance, 0), 'already_charged', true);
+  end if;
   if p_points < 1 or p_points > 100 or p_feature not in ('tutor','study_plan') then
     raise exception 'Invalid point charge';
   end if;
@@ -72,7 +77,8 @@ language plpgsql security definer set search_path = ''
 as $$
 declare v_balance integer;
 begin
-  if auth.role() <> 'service_role' then raise exception 'Not authorized'; end if;
+  if coalesce(auth.role(), '') <> 'service_role' then raise exception 'Not authorized'; end if;
+  if p_request_id is null then raise exception 'Request ID is required'; end if;
   if p_points < 1 or p_points > 100 then raise exception 'Invalid refund'; end if;
   if exists(select 1 from public.student_ai_point_transactions t where t.request_id=p_request_id and t.transaction_type='refund') then
     select points_balance into v_balance from public.student_ai_point_accounts where student_profile_id=p_student_profile_id;
@@ -99,7 +105,7 @@ language plpgsql security definer set search_path = ''
 as $$
 declare v_balance integer;
 begin
-  if private.current_user_role() <> 'admin' then raise exception 'Admin access required'; end if;
+  if coalesce(private.current_user_role()::text, '') <> 'admin' then raise exception 'Admin access required'; end if;
   if p_delta = 0 or abs(p_delta) > 100000 then raise exception 'Invalid point adjustment'; end if;
   if not exists(select 1 from public.profiles p where p.id=p_student_profile_id and p.role='student' and p.is_active) then
     raise exception 'Active student account required';
@@ -119,6 +125,8 @@ begin
 end;
 $$;
 
+revoke all on function public.student_ai_points_consume(uuid,integer,text,uuid) from public, anon, authenticated;
+revoke all on function public.student_ai_points_refund(uuid,integer,text,uuid) from public, anon, authenticated;
 grant execute on function public.student_ai_points_consume(uuid,integer,text,uuid) to service_role;
 grant execute on function public.student_ai_points_refund(uuid,integer,text,uuid) to service_role;
 revoke all on function public.staff_adjust_student_ai_points(uuid,integer,text) from public, anon;
