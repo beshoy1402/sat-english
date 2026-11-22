@@ -437,14 +437,16 @@ begin
     raise exception 'Live classroom not found';
   end if;
 
-  -- A crashed tab or disconnected device must not occupy a room seat forever.
-  -- Active clients refresh last_seen_at through live_session_heartbeat every 30 seconds.
-  update public.live_session_participants
-  set left_at = now(), last_seen_at = now()
-  where session_id = p_session_id
-    and left_at is null
-    and removed_at is null
-    and last_seen_at < now() - interval '2 minutes';
+  -- A crashed website tab must not occupy a WebRTC room seat forever.
+  -- Zoom attendance is driven by explicit participant-left webhook events instead.
+  if v_session.provider = 'website' then
+    update public.live_session_participants
+    set left_at = now(), last_seen_at = now()
+    where session_id = p_session_id
+      and left_at is null
+      and removed_at is null
+      and last_seen_at < now() - interval '2 minutes';
+  end if;
 
   select count(*) into v_active_count
   from public.live_session_participants
