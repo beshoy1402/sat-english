@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Clock3, LoaderCircle, MonitorUp, Pause, Play, Square, UploadCloud, X } from 'lucide-react';
 import type { Profile } from './lib/supabase';
 import { uploadWithTus } from './RecordedSessions';
+import './live-recording.css';
 
 type Session = { id: string; course_id: string; title: string; scheduled_at: string; status: string };
 
