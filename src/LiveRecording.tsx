@@ -32,6 +32,7 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
   const micRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const uploadPathRef = useRef<string | null>(null);
   const startedAtRef = useRef(0);
   const stopRequestedRef = useRef(false);
 
@@ -164,7 +165,8 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
     }
     if (title.trim().length < 2) { setError('Enter a recording title with at least two characters.'); return; }
     setBusy(true); setError(''); setNotice(''); setProgress(0);
-    const path = profile.id + '/' + crypto.randomUUID() + '-' + videoFile.name;
+    const path = uploadPathRef.current || (profile.id + '/' + crypto.randomUUID() + '-' + videoFile.name);
+    uploadPathRef.current = path;
     try {
       await uploadWithTus(client, 'sat-session-recordings', path, videoFile, setProgress);
       const { error: insertError } = await client.from('session_recordings').insert({
@@ -181,6 +183,8 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
         created_by: profile.id
       });
       if (insertError) throw new Error(insertError.message);
+      try { localStorage.removeItem('supabase-tus:sat-session-recordings:' + path + ':' + videoFile.size + ':' + videoFile.lastModified); } catch { /* Best-effort cleanup. */ }
+      uploadPathRef.current = null;
       setNotice('Saved to Recorded Sessions as a private draft. Publish it later from the library.');
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(''); setVideoFile(null); setSeconds(0);
