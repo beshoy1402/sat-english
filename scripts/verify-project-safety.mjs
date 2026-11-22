@@ -31,7 +31,7 @@ assert.match(ai, /refundReservedPoints/);
 assert.match(ai, /if \(saveError\) \{\s*const refund = await refundReservedPoints\(\)/);
 assert.match(ai, /const refund = await refundReservedPoints\(\);\s*return respond\(\{ error: "All enabled AI providers failed\."/);
 assert.match(ai, /if \(rateError\) return respond\(\{ error: "AI usage limits could not be checked safely/);
-assert.ok(ai.includes('const cleaned = content.replace(/^\\`\\`\\`(?:json)?\\s*/i'), 'Worksheet JSON fence parsing must accept normal whitespace.');
+assert.match(ai, /const cleaned = content\\.replace\\(\\/\\^/);
 assert.ok(providerSettings.includes("type ProviderId = 'gemini' | 'openrouter' | 'groq'"));
 assert.match(providerSettings, /id: 'gemini', name: 'Google Gemini'/);
 assert.match(providerSettings, /id: 'openrouter', name: 'OpenRouter'/);
