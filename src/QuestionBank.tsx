@@ -66,7 +66,7 @@ export default function QuestionBank({client}:{client:any}){
   setBusy(true);let imported=0;const failures:ImportFailure[]=[];
   for(let i=0;i<ready.length;i+=5){
    const batch=ready.slice(i,i+5);
-   const results=await Promise.all(batch.map(async q=>{try{const {error}=await client.rpc('staff_save_question_bank_item',{p_id:null,p_exam_program:q.exam_program,p_topic:q.topic,p_difficulty:q.difficulty,p_passage:q.passage,p_prompt:q.prompt,p_question_type:q.question_type,p_choices:q.choices,p_answer_key:q.answer_key||null,p_explanation:q.explanation,p_points:q.points});return error?{error:error.message,prompt:q.prompt}:{};}catch(e){return {error:e instanceof Error?e.message:'Unknown error',prompt:q.prompt};}}));
+   const results=await Promise.all(batch.map(async q=>{try{const {error}=await client.rpc('staff_save_question_bank_item',{p_id:null,p_exam_program:q.exam_program,p_topic:q.topic,p_difficulty:q.difficulty,p_passage:q.passage,p_prompt:q.prompt,p_question_type:q.question_type,p_choices:q.choices,p_answer_key:q.answer_key||null,p_explanation:q.explanation,p_points:q.points});return error?{row:q.sourceRow,error:error.message,prompt:q.prompt}:{};}catch(e){return {row:q.sourceRow,error:e instanceof Error?e.message:'Unknown error',prompt:q.prompt};}}));
    results.forEach(r=>{if(r.error)failures.push(`${r.prompt}: ${r.error}`);else imported++;});
   }
   const skipped=importRows.filter(r=>r.errors.length>0);setImportReport({fileName:importName,imported,skipped,failures});
