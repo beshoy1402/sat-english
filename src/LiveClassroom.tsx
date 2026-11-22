@@ -84,13 +84,13 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     });
     channel.subscribe(async (status: string) => {
       if (status === 'SUBSCRIBED') {
-        const { error: trackError } = await channel.track({
+        const trackStatus = await channel.track({
           profile_id: profile.id,
           display_name: profile.display_name,
           role: profile.role,
           online_at: new Date().toISOString()
         });
-        if (trackError) setError('Connected to the room, but live presence could not start: ' + trackError.message);
+        if (trackStatus !== 'ok') setError('Connected to the room, but live presence could not start (' + trackStatus + ').');
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         setError('Private room connection failed. Refresh and verify that the live-classroom database migration has been applied in the test environment.');
       }
