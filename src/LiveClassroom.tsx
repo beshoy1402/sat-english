@@ -408,7 +408,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     setBusy(true); setError('');
     try {
       const { data, error: hostError } = await client.functions.invoke('zoom-meeting', {
-        body: { action: 'host', session_id: session.id }
+        body: { action: session.zoom_meeting_id ? 'host' : 'create', session_id: session.id }
       });
       if (hostError || !data?.start_url) throw new Error(hostError?.message || data?.error || 'The Zoom host link is unavailable.');
       window.open(data.start_url, '_blank', 'noopener,noreferrer');
