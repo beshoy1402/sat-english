@@ -28,10 +28,253 @@ create table if not exists public.admission_rule_versions (
       and verified_by is not null
       and formula ? 'kind'
       and formula->>'kind' = 'weighted_sum'
-      and formula ? 'weights'
-      and score_scales ? 'gpa_max'
-      and score_scales ? 'sat1_max'
-      and score_scales ? 'sat2_max'
+      and jsonb_typeof(formula->'weights') = 'object'
+      and (formula #>> '{weights,gpa}') ~ '^[0-9]+(\\.[0-9]+)?
+  )
+);
+create index if not exists admission_rule_lookup_idx
+  on public.admission_rule_versions (lower(university), lower(faculty), admission_year, status);
+
+alter table public.admission_rule_versions enable row level security;
+revoke all on public.admission_rule_versions from anon, authenticated;
+grant select, insert, update, delete on public.admission_rule_versions to authenticated;
+
+drop policy if exists admission_rules_admin_all on public.admission_rule_versions;
+drop policy if exists admission_rules_admin_select on public.admission_rule_versions;
+drop policy if exists admission_rules_admin_insert on public.admission_rule_versions;
+drop policy if exists admission_rules_admin_update on public.admission_rule_versions;
+drop policy if exists admission_rules_admin_delete on public.admission_rule_versions;
+
+create policy admission_rules_admin_select
+on public.admission_rule_versions for select to authenticated
+using (coalesce(private.current_user_role()::text, '') = 'admin');
+
+create policy admission_rules_admin_insert
+on public.admission_rule_versions for insert to authenticated
+with check (
+  coalesce(private.current_user_role()::text, '') = 'admin'
+  and created_by = (select auth.uid())
+  and (status <> 'verified' or verified_by = (select auth.uid()))
+);
+
+create policy admission_rules_admin_update
+on public.admission_rule_versions for update to authenticated
+using (coalesce(private.current_user_role()::text, '') = 'admin')
+with check (
+  coalesce(private.current_user_role()::text, '') = 'admin'
+  and (status <> 'verified' or verified_by = (select auth.uid()))
+);
+
+create policy admission_rules_admin_delete
+on public.admission_rule_versions for delete to authenticated
+using (coalesce(private.current_user_role()::text, '') = 'admin');
+
+drop policy if exists admission_rules_student_verified_read on public.admission_rule_versions;
+create policy admission_rules_student_verified_read
+on public.admission_rule_versions
+for select
+to authenticated
+using (
+  status = 'verified'
+  and exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and p.is_active = true
+      and p.role = 'student'
+  )
+);
+
+comment on table public.admission_rule_versions is
+  'Versioned, source-attributed Egyptian university admission rules. Only active administrators may manage rules; students can read verified versions only.';
+
+      and (formula #>> '{weights,sat1}') ~ '^[0-9]+(\\.[0-9]+)?
+  )
+);
+create index if not exists admission_rule_lookup_idx
+  on public.admission_rule_versions (lower(university), lower(faculty), admission_year, status);
+
+alter table public.admission_rule_versions enable row level security;
+revoke all on public.admission_rule_versions from anon, authenticated;
+grant select, insert, update, delete on public.admission_rule_versions to authenticated;
+
+drop policy if exists admission_rules_admin_all on public.admission_rule_versions;
+create policy admission_rules_admin_all
+on public.admission_rule_versions
+for all
+to authenticated
+using (coalesce(private.current_user_role()::text, '') = 'admin')
+with check (coalesce(private.current_user_role()::text, '') = 'admin');
+
+drop policy if exists admission_rules_student_verified_read on public.admission_rule_versions;
+create policy admission_rules_student_verified_read
+on public.admission_rule_versions
+for select
+to authenticated
+using (
+  status = 'verified'
+  and exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and p.is_active = true
+      and p.role = 'student'
+  )
+);
+
+comment on table public.admission_rule_versions is
+  'Versioned, source-attributed Egyptian university admission rules. Only active administrators may manage rules; students can read verified versions only.';
+
+      and (formula #>> '{weights,sat2}') ~ '^[0-9]+(\\.[0-9]+)?
+  )
+);
+create index if not exists admission_rule_lookup_idx
+  on public.admission_rule_versions (lower(university), lower(faculty), admission_year, status);
+
+alter table public.admission_rule_versions enable row level security;
+revoke all on public.admission_rule_versions from anon, authenticated;
+grant select, insert, update, delete on public.admission_rule_versions to authenticated;
+
+drop policy if exists admission_rules_admin_all on public.admission_rule_versions;
+create policy admission_rules_admin_all
+on public.admission_rule_versions
+for all
+to authenticated
+using (coalesce(private.current_user_role()::text, '') = 'admin')
+with check (coalesce(private.current_user_role()::text, '') = 'admin');
+
+drop policy if exists admission_rules_student_verified_read on public.admission_rule_versions;
+create policy admission_rules_student_verified_read
+on public.admission_rule_versions
+for select
+to authenticated
+using (
+  status = 'verified'
+  and exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and p.is_active = true
+      and p.role = 'student'
+  )
+);
+
+comment on table public.admission_rule_versions is
+  'Versioned, source-attributed Egyptian university admission rules. Only active administrators may manage rules; students can read verified versions only.';
+
+      and (
+        (formula #>> '{weights,gpa}')::numeric
+        + (formula #>> '{weights,sat1}')::numeric
+        + (formula #>> '{weights,sat2}')::numeric
+      ) = 100
+      and (score_scales->>'gpa_max') ~ '^[0-9]+(\\.[0-9]+)?
+  )
+);
+create index if not exists admission_rule_lookup_idx
+  on public.admission_rule_versions (lower(university), lower(faculty), admission_year, status);
+
+alter table public.admission_rule_versions enable row level security;
+revoke all on public.admission_rule_versions from anon, authenticated;
+grant select, insert, update, delete on public.admission_rule_versions to authenticated;
+
+drop policy if exists admission_rules_admin_all on public.admission_rule_versions;
+create policy admission_rules_admin_all
+on public.admission_rule_versions
+for all
+to authenticated
+using (coalesce(private.current_user_role()::text, '') = 'admin')
+with check (coalesce(private.current_user_role()::text, '') = 'admin');
+
+drop policy if exists admission_rules_student_verified_read on public.admission_rule_versions;
+create policy admission_rules_student_verified_read
+on public.admission_rule_versions
+for select
+to authenticated
+using (
+  status = 'verified'
+  and exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and p.is_active = true
+      and p.role = 'student'
+  )
+);
+
+comment on table public.admission_rule_versions is
+  'Versioned, source-attributed Egyptian university admission rules. Only active administrators may manage rules; students can read verified versions only.';
+
+      and (score_scales->>'sat1_max') ~ '^[0-9]+(\\.[0-9]+)?
+  )
+);
+create index if not exists admission_rule_lookup_idx
+  on public.admission_rule_versions (lower(university), lower(faculty), admission_year, status);
+
+alter table public.admission_rule_versions enable row level security;
+revoke all on public.admission_rule_versions from anon, authenticated;
+grant select, insert, update, delete on public.admission_rule_versions to authenticated;
+
+drop policy if exists admission_rules_admin_all on public.admission_rule_versions;
+create policy admission_rules_admin_all
+on public.admission_rule_versions
+for all
+to authenticated
+using (coalesce(private.current_user_role()::text, '') = 'admin')
+with check (coalesce(private.current_user_role()::text, '') = 'admin');
+
+drop policy if exists admission_rules_student_verified_read on public.admission_rule_versions;
+create policy admission_rules_student_verified_read
+on public.admission_rule_versions
+for select
+to authenticated
+using (
+  status = 'verified'
+  and exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and p.is_active = true
+      and p.role = 'student'
+  )
+);
+
+comment on table public.admission_rule_versions is
+  'Versioned, source-attributed Egyptian university admission rules. Only active administrators may manage rules; students can read verified versions only.';
+
+      and (score_scales->>'sat2_max') ~ '^[0-9]+(\\.[0-9]+)?
+  )
+);
+create index if not exists admission_rule_lookup_idx
+  on public.admission_rule_versions (lower(university), lower(faculty), admission_year, status);
+
+alter table public.admission_rule_versions enable row level security;
+revoke all on public.admission_rule_versions from anon, authenticated;
+grant select, insert, update, delete on public.admission_rule_versions to authenticated;
+
+drop policy if exists admission_rules_admin_all on public.admission_rule_versions;
+create policy admission_rules_admin_all
+on public.admission_rule_versions
+for all
+to authenticated
+using (coalesce(private.current_user_role()::text, '') = 'admin')
+with check (coalesce(private.current_user_role()::text, '') = 'admin');
+
+drop policy if exists admission_rules_student_verified_read on public.admission_rule_versions;
+create policy admission_rules_student_verified_read
+on public.admission_rule_versions
+for select
+to authenticated
+using (
+  status = 'verified'
+  and exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and p.is_active = true
+      and p.role = 'student'
+  )
+);
+
+comment on table public.admission_rule_versions is
+  'Versioned, source-attributed Egyptian university admission rules. Only active administrators may manage rules; students can read verified versions only.';
+
+      and (score_scales->>'gpa_max')::numeric > 0
+      and (score_scales->>'sat1_max')::numeric > 0
+      and (score_scales->>'sat2_max')::numeric > 0
     )
   )
 );
