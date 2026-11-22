@@ -221,7 +221,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Latest question-bank parser hardening rejects unterminated quoted fields, empty headings and duplicate headings; preview displays original source row numbers.
 
 ### Not yet verified or activated
-- Live Classroom scheduling/lobby, WebRTC audio/video, screen sharing, persisted chat, hand raise and teacher chat-mute source are committed to the feature branch but have not been built, runtime-tested or applied to Supabase. Participant removal, TURN/SFU, live recording and end-to-end tests remain outstanding. The Vercel check still reports the previously encountered free deployment-rate limit; it is not a successful build result.
+- Live Classroom scheduling/lobby, WebRTC audio/video, screen sharing, persisted chat, hand raise, teacher chat-mute and audited participant removal are committed to the feature branch but have not been built, runtime-tested or applied to Supabase. TURN/SFU, live recording and end-to-end tests remain outstanding. The Vercel check still reports the previously encountered free deployment-rate limit; it is not a successful build result.
 - The latest branch changes have not been verified by a successful build/runtime test.
 - Vercel deployment attempts were blocked by the free daily deployment API limit; do not upgrade the plan to bypass it.
 - AI points migration and AI learning Edge Function changes are source-only and not deployed.
@@ -232,7 +232,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 ## 7. Delivery order from here
 
-1. **Integrated Live Classroom:** scheduling, secure lobby, attendance, private Realtime presence, six-person WebRTC audio/video + screen-share prototype, persisted chat, hand raise and teacher chat-mute controls are in source; next complete participant removal, reconnection and end-to-end security/media tests.
+1. **Integrated Live Classroom:** scheduling, secure lobby, attendance, private Realtime presence, six-person WebRTC audio/video + screen-share prototype, persisted chat, hand raise, teacher chat mute and audited student removal are in source; next complete reconnect behavior and end-to-end security/media tests.
 2. **Live Recording:** explicit browser capture, draft upload, lesson linkage and permission/size/error handling.
 3. **Question Import Expansion:** XLSX, DOCX and PDF extraction, image handling, editable preview and safe batch retry/rollback.
 4. **Practice and Exam Completion:** validate end-to-end student workflows, timer/autosave and score/report accuracy.
