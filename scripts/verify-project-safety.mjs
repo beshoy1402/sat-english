@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
@@ -14,6 +14,8 @@ const [ai, recordings, supabaseClient, providerSettings, providerManagement, del
   read('../supabase/migrations/20261121162000_homework_teacher_attachments.sql'),
   read('../src/AdmissionCalculator.tsx'),
   read('../supabase/migrations/20261123130000_admission_rule_registry.sql'),
+  read('../src/QuestionBank.tsx'),
+  read('../package.json'),
 ]);
 
 // AI must use the approved NVIDIA-first provider/model/endpoint allowlist.
@@ -99,5 +101,20 @@ assert.match(admission, /No verified rule for this selection/);
 assert.match(admission, /matching\.source_url/);
 assert.match(app, /active==='admissionRules'&&profile\.role==='admin'/);
 assert.match(app, /active==='admission'&&profile\.role==='student'/);
+
+// Question-bank document imports must be bounded, previewed and explicit about OCR limits.
+assert.match(questionBank, /readXlsxRows/);
+assert.match(questionBank, /readDocxText/);
+assert.match(questionBank, /readPdfText/);
+assert.match(questionBank, /25\*1024\*1024/);
+assert.match(questionBank, /pdf\.numPages>80/);
+assert.match(questionBank, /No selectable text was found/);
+assert.match(questionBank, /Import is limited to 2,500 questions per file/);
+assert.match(questionBank, /Duplicate prompt within this file/);
+assert.match(questionBank, /Import valid rows/);
+assert.match(questionBank, /staff_save_question_bank_item/);
+assert.match(packageJson, /"mammoth": "\\^1\.13\.0"/);
+assert.match(packageJson, /"pdfjs-dist": "\\^6\.5\.438"/);
+assert.match(packageJson, /"read-excel-file": "\\^9\.3\.20"/);
 
 console.log('Project safety checks passed.');
