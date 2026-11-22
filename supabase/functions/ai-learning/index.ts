@@ -173,11 +173,6 @@ Deno.serve(async (req: Request) => {
     try {
       const parsed = new URL(provider.base_url);
       const path = parsed.pathname.endsWith("/") ? parsed.pathname.slice(0, -1) : parsed.pathname;
-      if (provider.provider === "nvidia") {
-        return parsed.origin === "https://integrate.api.nvidia.com"
-          && path === "/v1"
-          && provider.model === "nvidia/nemotron-3.5-super-vl-120b-a12b";
-      }
       if (provider.provider === "gemini") {
         return parsed.origin === "https://generativelanguage.googleapis.com"
           && path === "/v1beta"
@@ -202,7 +197,7 @@ Deno.serve(async (req: Request) => {
     .filter(p => p.is_enabled && p.key_configured && isApprovedFreeProvider(p))
     .sort((a,b)=>a.priority-b.priority);
   if (!enabled.length) return respond({
-    error: "AI is paused by the zero-cost safety policy. Configure Gemini 3.8 Flash on a Google AI Studio Free Tier project with billing disabled, or the approved OpenRouter Llama 3.3 :free model."
+    error: "AI is paused by the zero-cost safety policy. Configure Gemini 3.8 Flash on a Google AI Studio Free Tier project with billing disabled, OpenRouter Free, or the approved Groq GPT-OSS 120B free tier."
   }, 503);
 
   const pointCost = action === "tutor" ? 5 : action === "study_plan" ? 15 : 0;
@@ -255,7 +250,7 @@ Deno.serve(async (req: Request) => {
       } else {
         endpoint = provider.base_url.replace(/\/$/,"") + "/chat/completions";
         headers.Authorization = "Bearer " + secret;
-        requestBody = { model, messages: [{ role: "system", content: system }, ...messages], temperature: action === "tutor" ? 0.35 : 0.15, max_tokens: action === "worksheet" ? 4096 : 2048, ...(action !== "tutor" ? { response_format: { type: "json_object" } } : {}), ...(provider.provider === "nvidia" ? { chat_template_kwargs: { enable_thinking: false } } : {}) };
+        requestBody = { model, messages: [{ role: "system", content: system }, ...messages], temperature: action === "tutor" ? 0.35 : 0.15, max_tokens: action === "worksheet" ? 4096 : 2048, ...(action !== "tutor" ? { response_format: { type: "json_object" } } : {}),  };
       }
 
       const response = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(requestBody), signal: controller.signal });
