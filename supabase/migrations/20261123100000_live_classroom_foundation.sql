@@ -61,7 +61,7 @@ create table if not exists public.live_session_moderation_events (
   session_id uuid not null references public.live_sessions(id) on delete cascade,
   actor_profile_id uuid not null references public.profiles(id),
   target_profile_id uuid not null references public.profiles(id),
-  action text not null check (action in ('chat_muted','chat_unmuted')),
+  action text not null check (action in ('chat_muted','chat_unmuted','participant_removed')),
   created_at timestamptz not null default now()
 );
 
@@ -141,6 +141,12 @@ as $function$
       select 1 from public.live_sessions s
       where s.id = p_session_id
         and s.status in ('lobby','live')
+    )
+    and not exists (
+      select 1 from public.live_session_participants lp
+      where lp.session_id = p_session_id
+        and lp.profile_id = (select auth.uid())
+        and lp.removed_at is not null
     );
 $function$;
 
@@ -495,10 +501,58 @@ begin
 end;
 $function$;
 
+
+create or replace function public.live_session_remove_participant(
+  p_session_id uuid,
+  p_profile_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_target_role public.app_role;
+begin
+  if auth.uid() is null or not private.can_manage_live_session(p_session_id) then
+    raise exception 'You are not authorized to moderate this classroom';
+  end if;
+
+  select role into v_target_role
+  from public.profiles
+  where id = p_profile_id and is_active = true;
+
+  if not found or v_target_role <> 'student' then
+    raise exception 'Only an active student can be removed from the classroom';
+  end if;
+
+  update public.live_session_participants
+  set removed_at = now(),
+      removed_by = auth.uid(),
+      left_at = coalesce(left_at, now()),
+      last_seen_at = now()
+  where session_id = p_session_id
+    and profile_id = p_profile_id
+    and left_at is null
+    and removed_at is null;
+
+  if not found then
+    raise exception 'The student is not an active participant in this classroom';
+  end if;
+
+  insert into public.live_session_moderation_events(session_id, actor_profile_id, target_profile_id, action)
+  values (p_session_id, auth.uid(), p_profile_id, 'participant_removed');
+
+  return true;
+end;
+$function$;
+
 revoke all on function public.live_session_send_message(uuid,text) from public, anon;
 revoke all on function public.live_session_set_chat_mute(uuid,uuid,boolean) from public, anon;
+revoke all on function public.live_session_remove_participant(uuid,uuid) from public, anon;
 grant execute on function public.live_session_send_message(uuid,text) to authenticated;
 grant execute on function public.live_session_set_chat_mute(uuid,uuid,boolean) to authenticated;
+grant execute on function public.live_session_remove_participant(uuid,uuid) to authenticated;
 
 revoke all on function public.live_session_set_status(uuid,text) from public, anon;
 revoke all on function public.live_session_join(uuid) from public, anon;
