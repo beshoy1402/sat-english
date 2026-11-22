@@ -53,6 +53,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   const [chatBusy, setChatBusy] = useState(false);
   const [handRaiseBusy, setHandRaiseBusy] = useState(false);
   const [mutedUntil, setMutedUntil] = useState<Record<string, string | null>>({});
+  const [muteClock, setMuteClock] = useState(0);
   const roomChannelRef = useRef<any>(null);
   const lastChatSentAt = useRef(0);
 
@@ -125,7 +126,8 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
 
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState() as Record<string, PresenceMember[]>;
-      setOnlineMembers(Object.values(state).flat());
+      const members = Object.entries(state).flatMap(([profileId, entries]) => entries.map(member => ({ ...member, profile_id: profileId })));
+      setOnlineMembers(members);
     });
     channel.on('broadcast', { event: 'chat-message' }, async ({ payload }: { payload: { message_id?: string } }) => {
       if (disposed || !payload || typeof payload.message_id !== 'string') return;
@@ -168,6 +170,17 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       void client.removeChannel(channel);
     };
   }, [activeSession, client, profile.id, profile.display_name, profile.role]);
+
+  useEffect(() => {
+    const expiries = Object.values(mutedUntil)
+      .filter((value): value is string => Boolean(value))
+      .map(value => new Date(value).getTime())
+      .filter(value => value > Date.now());
+    if (!expiries.length) return;
+    const nextExpiry = Math.min(...expiries);
+    const timer = window.setTimeout(() => setMuteClock(value => value + 1), Math.max(50, nextExpiry - Date.now() + 50));
+    return () => window.clearTimeout(timer);
+  }, [mutedUntil, muteClock]);
 
   const sendChatMessage = async (event: React.FormEvent) => {
     event.preventDefault();
