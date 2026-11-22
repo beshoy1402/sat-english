@@ -35,11 +35,69 @@ create table if not exists public.live_session_participants (
   joined_at timestamptz not null default now(),
   left_at timestamptz,
   last_seen_at timestamptz not null default now(),
+  chat_muted_until timestamptz,
+  removed_at timestamptz,
+  removed_by uuid references public.profiles(id),
   unique(session_id, profile_id)
 );
 
 create index if not exists live_session_participants_session_idx
   on public.live_session_participants(session_id, joined_at);
+
+create table if not exists public.live_session_messages (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.live_sessions(id) on delete cascade,
+  sender_profile_id uuid not null references public.profiles(id),
+  sender_display_name text not null,
+  body text not null check (char_length(btrim(body)) between 1 and 1000),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists live_session_messages_history_idx
+  on public.live_session_messages(session_id, created_at desc);
+
+create table if not exists public.live_session_moderation_events (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.live_sessions(id) on delete cascade,
+  actor_profile_id uuid not null references public.profiles(id),
+  target_profile_id uuid not null references public.profiles(id),
+  action text not null check (action in ('chat_muted','chat_unmuted')),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists live_session_moderation_history_idx
+  on public.live_session_moderation_events(session_id, created_at desc);
+
+alter table public.live_session_messages enable row level security;
+alter table public.live_session_moderation_events enable row level security;
+
+grant select on public.live_session_messages to authenticated;
+revoke insert, update, delete on public.live_session_messages from authenticated;
+grant select on public.live_session_moderation_events to authenticated;
+revoke insert, update, delete on public.live_session_moderation_events from authenticated;
+
+drop policy if exists live_session_messages_read_participants on public.live_session_messages;
+create policy live_session_messages_read_participants
+on public.live_session_messages for select to authenticated
+using (
+  private.can_manage_live_session(session_id)
+  or (
+    private.can_join_live_session(session_id)
+    and exists (
+      select 1 from public.live_session_participants lp
+      where lp.session_id = live_session_messages.session_id
+        and lp.profile_id = (select auth.uid())
+        and lp.left_at is null
+        and lp.removed_at is null
+    )
+  )
+);
+
+drop policy if exists live_session_moderation_read_managers on public.live_session_moderation_events;
+create policy live_session_moderation_read_managers
+on public.live_session_moderation_events for select to authenticated
+using (private.can_manage_live_session(session_id));
+
 
 alter table public.live_sessions enable row level security;
 alter table public.live_session_participants enable row level security;
@@ -284,7 +342,12 @@ begin
   values (p_session_id, auth.uid(), now(), now())
   on conflict (session_id, profile_id)
   do update set left_at = null, last_seen_at = now()
+  where public.live_session_participants.removed_at is null
   returning * into v_participant;
+
+  if not found then
+    raise exception 'You were removed from this live classroom';
+  end if;
 
   return v_participant;
 end;
@@ -310,6 +373,131 @@ begin
   return found;
 end;
 $function$;
+
+
+-- Chat writes are server-validated, rate-limited and blocked for muted/removed participants.
+create or replace function public.live_session_send_message(
+  p_session_id uuid,
+  p_body text
+)
+returns public.live_session_messages
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_participant public.live_session_participants;
+  v_message public.live_session_messages;
+  v_body text;
+  v_display_name text;
+  v_recent_count integer;
+begin
+  if auth.uid() is null or not private.can_join_live_session(p_session_id) then
+    raise exception 'You are not authorized to chat in this classroom';
+  end if;
+
+  v_body := btrim(coalesce(p_body, ''));
+  if char_length(v_body) < 1 or char_length(v_body) > 1000 then
+    raise exception 'Message must contain between 1 and 1000 characters';
+  end if;
+
+  select * into v_participant
+  from public.live_session_participants
+  where session_id = p_session_id and profile_id = auth.uid()
+  for update;
+
+  if not found or v_participant.left_at is not null or v_participant.removed_at is not null then
+    raise exception 'Join the classroom before sending a message';
+  end if;
+
+  if v_participant.chat_muted_until is not null and v_participant.chat_muted_until > now() then
+    raise exception 'Your classroom chat is temporarily muted';
+  end if;
+
+  if exists (
+    select 1 from public.live_session_messages
+    where session_id = p_session_id
+      and sender_profile_id = auth.uid()
+      and created_at > now() - interval '2 seconds'
+  ) then
+    raise exception 'Please wait before sending another message';
+  end if;
+
+  select count(*) into v_recent_count
+  from public.live_session_messages
+  where session_id = p_session_id
+    and sender_profile_id = auth.uid()
+    and created_at > now() - interval '1 minute';
+
+  if v_recent_count >= 30 then
+    raise exception 'You have reached the classroom chat rate limit';
+  end if;
+
+  select display_name into v_display_name
+  from public.profiles
+  where id = auth.uid() and is_active = true;
+
+  if not found then
+    raise exception 'Your account is not active';
+  end if;
+
+  insert into public.live_session_messages(session_id, sender_profile_id, sender_display_name, body)
+  values (p_session_id, auth.uid(), coalesce(nullif(btrim(v_display_name), ''), 'Participant'), v_body)
+  returning * into v_message;
+
+  return v_message;
+end;
+$function$;
+
+create or replace function public.live_session_set_chat_mute(
+  p_session_id uuid,
+  p_profile_id uuid,
+  p_muted boolean
+)
+returns timestamptz
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_target_role public.app_role;
+  v_muted_until timestamptz;
+begin
+  if auth.uid() is null or not private.can_manage_live_session(p_session_id) then
+    raise exception 'You are not authorized to moderate this classroom';
+  end if;
+
+  select role into v_target_role
+  from public.profiles
+  where id = p_profile_id and is_active = true;
+
+  if not found or v_target_role <> 'student' then
+    raise exception 'Only an active student can be chat-muted';
+  end if;
+
+  update public.live_session_participants
+  set chat_muted_until = case when p_muted then now() + interval '10 minutes' else null end
+  where session_id = p_session_id
+    and profile_id = p_profile_id
+    and left_at is null
+    and removed_at is null
+  returning chat_muted_until into v_muted_until;
+
+  if not found then
+    raise exception 'The student is not an active participant in this classroom';
+  end if;
+
+  insert into public.live_session_moderation_events(session_id, actor_profile_id, target_profile_id, action)
+  values (p_session_id, auth.uid(), p_profile_id, case when p_muted then 'chat_muted' else 'chat_unmuted' end);
+
+  return v_muted_until;
+end;
+$function$;
+
+revoke all on function public.live_session_send_message(uuid,text) from public, anon;
+revoke all on function public.live_session_set_chat_mute(uuid,uuid,boolean) from public, anon;
+grant execute on function public.live_session_send_message(uuid,text) to authenticated;
+grant execute on function public.live_session_set_chat_mute(uuid,uuid,boolean) to authenticated;
 
 revoke all on function public.live_session_set_status(uuid,text) from public, anon;
 revoke all on function public.live_session_join(uuid) from public, anon;
