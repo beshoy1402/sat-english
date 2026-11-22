@@ -12,20 +12,13 @@ const respond = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
 const defaultModels: Record<string, string> = {
-  qwen: "qwen-plus",
-  nvidia: "nvidia/nemotron-3.5-super-vl-120b-a12b",
-  gemini: "gemini-2.5-flash",
+  gemini: "gemini-3.8-flash",
   groq: "openai/gpt-oss-120b",
-  deepseek: "deepseek-chat",
   openrouter: "openrouter/free",
-  openai: "gpt-4o-mini",
-  anthropic: "claude-3-5-haiku-latest",
-  meta_llama: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
 };
 
 function extractText(provider: string, data: any): string {
   if (provider === "gemini") return (data?.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? "").join("").trim();
-  if (provider === "anthropic") return (data?.content ?? []).filter((p: any) => p.type === "text").map((p: any) => p.text ?? "").join("").trim();
   const value = data?.choices?.[0]?.message?.content;
   if (typeof value === "string") return value.trim();
   if (Array.isArray(value)) return value.map((p: any) => p.text ?? "").join("").trim();
@@ -36,10 +29,6 @@ function usageOf(provider: string, data: any) {
   if (provider === "gemini") return {
     prompt: Number(data?.usageMetadata?.promptTokenCount ?? 0),
     completion: Number(data?.usageMetadata?.candidatesTokenCount ?? 0),
-  };
-  if (provider === "anthropic") return {
-    prompt: Number(data?.usage?.input_tokens ?? 0),
-    completion: Number(data?.usage?.output_tokens ?? 0),
   };
   return {
     prompt: Number(data?.usage?.prompt_tokens ?? 0),
@@ -254,11 +243,6 @@ Deno.serve(async (req: Request) => {
           contents: messages.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
           generationConfig: { temperature: action === "tutor" ? 0.35 : 0.15, maxOutputTokens: action === "worksheet" ? 4096 : 1400, ...(action !== "tutor" ? { responseMimeType: "application/json" } : {}) },
         };
-      } else if (provider.provider === "anthropic") {
-        endpoint = provider.base_url.replace(/\/$/,"") + "/messages";
-        headers["x-api-key"] = secret;
-        headers["anthropic-version"] = "2023-06-01";
-        requestBody = { model, max_tokens: action === "worksheet" ? 4096 : 1400, system, messages: messages.map(m => ({ role: m.role, content: m.content })), temperature: action === "tutor" ? 0.35 : 0.15 };
       } else {
         endpoint = provider.base_url.replace(/\/$/,"") + "/chat/completions";
         headers.Authorization = "Bearer " + secret;
