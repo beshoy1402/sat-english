@@ -160,6 +160,7 @@ Support both accepted recording methods:
 
 ### 4.6 Classroom acceptance tests
 - Unauthorized users cannot discover or join a room by guessing a lesson/session ID.
+- A removed student cannot rejoin the same session and their client closes the media/Realtime channels after verifying the server-side removal record.
 - Revoked/expired course access blocks new room joins.
 - Students cannot create rooms or use teacher moderation controls.
 - Two or more authorized clients can join, exchange signaling and cleanly leave.
@@ -167,6 +168,7 @@ Support both accepted recording methods:
 - Reconnect does not create duplicate participants or duplicate attendance.
 - Chat/signaling is restricted to the authorized private topic; chat rows are readable only by active room participants and authorized session managers. Verify Realtime's project-level public-channel setting is disabled before enabling the feature.
 - Muted users cannot send chat through the server RPC; chat sends are limited to one message per two seconds and 30 per minute per participant. Direct table writes are revoked; clients send through the authenticated RPC.
+- Teachers can remove active student participants through a server RPC; removal is audited, marks attendance as left, blocks rejoining, and triggers the removed student's client to close the room and media.
 - Recording starts/stops only after explicit teacher action and permission.
 - A finished recording is stored privately, linked to the right lesson and remains draft until published.
 - Test mobile, desktop, slow network and unsupported browser behavior.
@@ -202,7 +204,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 **Current media prototype:** `src/LiveMedia.tsx` adds browser camera/microphone capture, peer-to-peer WebRTC audio/video, participant video tiles, mute/camera controls and screen sharing. It uses a separate private `live-session-media:<UUID>` signaling topic, STUN discovery only, and a six-participant cap. Media transceivers are prepared before device permission is granted so later track attachment can use the negotiated audio/video sections.
 
-**Still not included:** TURN relay, SFU/scalable classrooms, teacher removal/kick controls, recording, automated browser/network acceptance tests and verified multi-device connectivity. Hand raise currently uses ephemeral private presence; classroom chat is persisted in the source schema with server-side rate limits and teacher chat-mute RPCs. STUN-only connectivity is not guaranteed on restrictive networks. This is an unverified prototype, not a production-ready video classroom. The migration has not been applied to any Supabase project.
+**Still not included:** TURN relay, SFU/scalable classrooms,  recording, automated browser/network acceptance tests and verified multi-device connectivity. Hand raise currently uses ephemeral private presence; classroom chat is persisted in the source schema with server-side rate limits and teacher chat-mute RPCs. STUN-only connectivity is not guaranteed on restrictive networks. This is an unverified prototype, not a production-ready video classroom. The migration has not been applied to any Supabase project.
 
 ## 6. Current implementation status
 
@@ -252,3 +254,5 @@ The first Live Classroom code slice is now committed to the working feature bran
 - **2026-11-23 (continued):** Added persisted live-session chat with server-side membership/mute checks, per-user rate limits, private-channel ID notifications, ephemeral hand raise, and audited teacher chat mute/unmute controls. Extended the existing un-applied classroom migration source; no production database changes.
 
 - **Activation prerequisite:** the current Supabase Realtime project setting `Allow public access` has not been verified or changed. Confirm it is disabled before activating private classroom topics; do not infer this from the SQL policies alone.
+
+- **2026-11-23 (continued):** Added teacher participant removal with an audited server-side action, attendance closure, reconnect blocking and client-side room/media teardown after the removed participant verifies the database state. No migration applied.
