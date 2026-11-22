@@ -184,6 +184,8 @@ Support both accepted recording methods:
 
 The first Live Classroom code slice is now committed to the working feature branch:
 - `supabase/migrations/20261123100000_live_classroom_foundation.sql`: source-only schema for live sessions and reconnect-safe participant attendance.
+- Server-side RPCs own session state transitions and attendance timestamps; authenticated clients cannot directly rewrite session status or participant join/leave timestamps.
+- The database validates that an optional linked lesson belongs to the selected course.
 - Session lifecycle values: scheduled, lobby, live, ended and cancelled.
 - RLS limits session visibility to active course staff and students with current active course access. Session management is limited to an administrator or staff member who created the session / owns the course.
 - Private Realtime topics use the exact `live-session:<UUID>` format. Receive/send policies authorize only active participants for sessions whose lobby is open or live.
@@ -231,4 +233,4 @@ The first Live Classroom code slice is now committed to the working feature bran
 - **2026-11-22:** Continued Question Bank CSV parser hardening on `feature/recorded-sessions-library`; no deployment, production migration or Edge Function deployment.
 - **Next milestone:** Integrated Live Classroom design and implementation, followed by explicit recording workflow.
 
-- **2026-11-23:** Added source-only live classroom scheduling, session lifecycle, attendance and private Realtime presence. Added staff/student navigation. No migration applied and no deployment.
+- **2026-11-23:** Added source-only live classroom scheduling, session lifecycle, attendance and private Realtime presence. Added staff/student navigation. Hardened state changes and attendance timestamps behind server-side RPCs, and validated lesson/course linkage. No migration applied and no deployment.
