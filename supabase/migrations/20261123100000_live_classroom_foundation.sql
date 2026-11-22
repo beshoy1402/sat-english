@@ -695,6 +695,17 @@ begin
     and profile_id = auth.uid()
     and left_at is null;
 
+  if exists (
+    select 1 from public.live_session_hand_raises
+    where session_id = p_session_id and profile_id = auth.uid() and lowered_at is null
+  ) then
+    update public.live_session_hand_raises
+    set lowered_at = now(), lowered_by = auth.uid()
+    where session_id = p_session_id and profile_id = auth.uid() and lowered_at is null;
+    insert into public.live_session_hand_raise_events(session_id, actor_profile_id, target_profile_id, action)
+    values (p_session_id, auth.uid(), auth.uid(), 'lowered');
+  end if;
+
   return found;
 end;
 $function$;
@@ -856,6 +867,17 @@ begin
 
   if not found then
     raise exception 'The student is not an active participant in this classroom';
+  end if;
+
+  if exists (
+    select 1 from public.live_session_hand_raises
+    where session_id = p_session_id and profile_id = p_profile_id and lowered_at is null
+  ) then
+    update public.live_session_hand_raises
+    set lowered_at = now(), lowered_by = auth.uid()
+    where session_id = p_session_id and profile_id = p_profile_id and lowered_at is null;
+    insert into public.live_session_hand_raise_events(session_id, actor_profile_id, target_profile_id, action)
+    values (p_session_id, auth.uid(), p_profile_id, 'lowered_by_teacher');
   end if;
 
   insert into public.live_session_moderation_events(session_id, actor_profile_id, target_profile_id, action)
