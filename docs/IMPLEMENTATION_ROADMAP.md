@@ -181,3 +181,5 @@ For the maintained, full product scope, implementation stages, acceptance criter
 - Chat notifications broadcast only a persisted message ID; receiving clients re-fetch the message through table RLS before displaying it.
 
 - Before activating the live room, verify Supabase Realtime's project-level **Allow public access** setting is disabled. The setting has not been checked or changed.
+
+- Added teacher removal of active student participants. The server records the action, closes attendance, and blocks the removed student from rejoining the same live session.
