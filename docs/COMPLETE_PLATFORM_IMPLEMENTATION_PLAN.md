@@ -58,6 +58,7 @@ Every role must be enforced server-side with Supabase RLS and Edge Function chec
 - Source now supports XLSX first-sheet extraction, DOCX text extraction and text-based PDF extraction using numbered question blocks. Document imports are previewed and validated before confirmed saves. Remaining stages: OCR for scanned PDFs; embedded images/diagrams; multi-sheet/column mapping; editable preview; import-batch rollback and retry.
 - Preserve source attribution. OCR or extraction output must be reviewed; never silently invent missing choices or answer keys.
 - Keep imports bounded and memory-safe. Do not claim a large import is accurate until sample records and full database results are checked.
+- Question-bank table access is RPC-only (no direct anon/authenticated table grants). Non-admin staff may update/delete only items they created; adding items to an exam is limited to its creator or an administrator and draft exams only.
 
 ### D. Practice, exams and assessment
 - Reusable question bank and exam assembly.
@@ -375,3 +376,11 @@ The first Live Classroom code slice is now committed to the working feature bran
 - The checked-out feature branch contains 51 migration files, and none of the applied remote version IDs have corresponding source files in this branch.
 - This prevents a trustworthy clean local database reset from the current repository state and means database migration/E2E testing cannot be claimed.
 - Recover the original applied migration source or generate a reviewed, authoritative baseline/squash from a schema snapshot before attempting local migration tests. Do not repair migration history or apply migrations to production as a shortcut.
+
+
+## Question bank permission hardening — source only (2026-11-22)
+
+- Kept `question_bank_items` inaccessible through direct anon/authenticated table grants; staff use the server-side RPCs.
+- Non-admin staff can edit or delete only question-bank items they created. Administrators retain platform-wide management.
+- Question-bank assembly locks the target exam row, requires the caller to be its creator unless administrator, and refuses changes unless the exam is still a draft.
+- The migration is source-only and not applied to the hosted database. SQL permission tests remain blocked by the migration-history mismatch documented above.
