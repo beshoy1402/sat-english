@@ -73,11 +73,7 @@ with check (
         profile_id = (select auth.uid())
       )
       or (
-        exists (
-          select 1 from public.conversation_participants own
-          where own.conversation_id = conversation_participants.conversation_id
-            and own.profile_id = (select auth.uid())
-        )
+        private.is_current_conversation_participant(conversation_id)
         and exists (
           select 1 from public.profiles target
           where target.id = profile_id
