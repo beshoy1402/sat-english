@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson, liveClassroom, liveMigration, liveCss] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson, liveClassroom, liveMigration, liveCss, questionBankMigration] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
@@ -19,6 +19,7 @@ const [ai, recordings, supabaseClient, providerSettings, providerManagement, del
   read('../src/LiveClassroom.tsx'),
   read('../supabase/migrations/20261123100000_live_classroom_foundation.sql'),
   read('../src/live-classroom.css'),
+  read('../supabase/migrations/20261120233000_flexible_question_bank.sql'),
 ]);
 
 // AI must use the approved NVIDIA-first provider/model/endpoint allowlist.
@@ -133,6 +134,17 @@ assert.match(questionBank, /staff_save_question_bank_item/);
 assert.ok(packageJson.includes('"mammoth": "^1.13.0"'));
 assert.ok(packageJson.includes('"pdfjs-dist": "^6.5.438"'));
 assert.ok(packageJson.includes('"read-excel-file": "^9.3.20"'));
+
+ // Question-bank table is RPC-only; non-admin staff may edit/delete only their own items.
+assert.match(questionBankMigration, /revoke all on public\.question_bank_items from anon,authenticated/);
+assert.match(questionBankMigration, /created_by = \(select auth\.uid\(\)\)/);
+assert.match(questionBankMigration, /Question bank item not found or you cannot edit it/);
+assert.match(questionBankMigration, /Question bank item not found or you cannot delete it/);
+assert.match(questionBankMigration, /where id=p_id\s+and\s+\(/);
+assert.match(questionBankMigration, /for update/);
+assert.match(questionBankMigration, /v_exam\.status::text <> 'draft'/);
+assert.match(questionBankMigration, /You can only add question-bank items to exams you created/);
+
 
 // Live hand raises persist in the database, are permission-checked by an RPC, and retain an event trail.
 assert.match(liveMigration, /create table if not exists public\.live_session_hand_raises/);
