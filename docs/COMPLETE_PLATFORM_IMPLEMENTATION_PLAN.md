@@ -241,7 +241,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 ### Not yet verified or activated
 - Live Classroom scheduling/lobby, WebRTC audio/video, screen sharing, persisted chat, hand raise, teacher chat-mute, audited participant removal, student study-room source and Zoom delivery integration source are committed to the feature branch but have not been built, runtime-tested or applied to Supabase. TURN/SFU and end-to-end tests remain outstanding; live recording is now implemented in source but still requires browser/runtime verification. The Vercel check still reports the previously encountered free deployment-rate limit; it is not a successful build result.
-- The latest branch changes have not been verified by a successful build/runtime test.
+- GitHub Actions verification for commit `1cd88c054d334f2594b419d2fd51da91900a67f9` completed successfully: dependency installation, project safety policy checks, TypeScript type-check and Vite production build. This is a source/build verification only, not a browser, database-migration, media, AI-provider or end-to-end runtime test.
 - Vercel deployment attempts were blocked by the free daily deployment API limit; do not upgrade the plan to bypass it.
 - AI points migration and AI learning Edge Function changes are source-only and not deployed.
 - Admission rules are not yet populated with verified university/faculty/year formulas.
@@ -338,3 +338,12 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Added an administrator-only Admission Rules area to create draft rules, verify/publish after checking the official source, and supersede old versions.
 - No university formulas were invented or preloaded. The supported formula type is a configurable weighted sum; more complex official rule structures must be implemented explicitly rather than approximated.
 - New migration: `supabase/migrations/20261123130000_admission_rule_registry.sql`. It is source-only and has not been applied to any hosted database. CI/typecheck verification is pending for the latest commits; no deployment or production changes.
+
+
+## Verification update — admission registry and branch build (2026-11-22)
+
+- GitHub Actions run `44995760523` passed on `1cd88c054d334f2594b419d2fd51da91900a67f9`.
+- Confirmed steps: dependency installation, `npm run test:policy`, `npm run typecheck` and `npm run build`.
+- Added static safety assertions for admission registry RLS, admin-only publishing, verified-only student reads, source attribution and UI routing.
+- This does not verify SQL execution, hosted Supabase migration compatibility, browser rendering, storage, WebRTC, Zoom, provider API calls or end-to-end workflows.
+- The branch remains unpublished. No migration applied, Edge Function deployed, secrets changed or production deployment performed.
