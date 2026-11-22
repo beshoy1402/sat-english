@@ -62,6 +62,26 @@ create table if not exists public.live_session_participants (
 create index if not exists live_session_participants_session_idx
   on public.live_session_participants(session_id, joined_at);
 
+create table if not exists public.live_session_zoom_events (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.live_sessions(id) on delete cascade,
+  event_id text not null unique,
+  event_type text not null check (event_type in ('meeting.started','meeting.ended','meeting.participant_joined','meeting.participant_left')),
+  meeting_id text not null,
+  meeting_uuid text,
+  participant_user_id text,
+  participant_uuid text,
+  participant_name text,
+  participant_email text,
+  occurred_at timestamptz not null,
+  received_at timestamptz not null default now()
+);
+
+create index if not exists live_session_zoom_events_session_time_idx
+  on public.live_session_zoom_events(session_id, occurred_at desc);
+alter table public.live_session_zoom_events enable row level security;
+revoke all on public.live_session_zoom_events from anon, authenticated;
+
 create table if not exists public.live_session_messages (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.live_sessions(id) on delete cascade,
@@ -447,6 +467,77 @@ begin
   return v_participant;
 end;
 $function$;
+
+-- Zoom webhooks are signature-verified by the dedicated Edge Function.
+-- This trigger maps verified participant email addresses to active enrolled students.
+create or replace function private.sync_zoom_attendance_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_profile_id uuid;
+  v_course_id uuid;
+begin
+  if new.event_type not in ('meeting.participant_joined','meeting.participant_left')
+    or nullif(btrim(coalesce(new.participant_email, '')), '') is null then
+    return new;
+  end if;
+
+  select course_id into v_course_id
+  from public.live_sessions
+  where id = new.session_id;
+
+  select au.id into v_profile_id
+  from auth.users au
+  join public.profiles p on p.id = au.id
+  join public.course_access ca on ca.student_profile_id = p.id
+  join public.courses c on c.id = ca.course_id
+  where lower(au.email) = lower(new.participant_email)
+    and p.role = 'student'
+    and p.is_active = true
+    and ca.course_id = v_course_id
+    and ca.status = 'active'
+    and c.status = 'published'
+    and (ca.starts_at is null or ca.starts_at <= new.occurred_at)
+    and (ca.expires_at is null or ca.expires_at > new.occurred_at)
+  limit 1;
+
+  if v_profile_id is null then
+    return new;
+  end if;
+
+  if new.event_type = 'meeting.participant_joined' then
+    insert into public.live_session_participants(session_id, profile_id, joined_at, last_seen_at)
+    values (new.session_id, v_profile_id, new.occurred_at, now())
+    on conflict (session_id, profile_id)
+    do update set
+      joined_at = least(public.live_session_participants.joined_at, excluded.joined_at),
+      left_at = case
+        when public.live_session_participants.left_at is not null
+          and excluded.joined_at > public.live_session_participants.left_at then null
+        else public.live_session_participants.left_at
+      end,
+      last_seen_at = now()
+    where public.live_session_participants.removed_at is null;
+  else
+    update public.live_session_participants
+    set left_at = greatest(coalesce(left_at, new.occurred_at), new.occurred_at),
+        last_seen_at = now()
+    where session_id = new.session_id
+      and profile_id = v_profile_id
+      and joined_at <= new.occurred_at
+      and removed_at is null;
+  end if;
+
+  return new;
+end;
+$function$;
+
+create trigger live_session_zoom_attendance_sync
+  after insert on public.live_session_zoom_events
+  for each row execute function private.sync_zoom_attendance_event();
 
 create or replace function public.live_session_store_zoom_meeting(
   p_session_id uuid,
