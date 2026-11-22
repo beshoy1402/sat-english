@@ -274,3 +274,5 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - Added accessible navigation labeling, aria-current for the active page, and expanded/controls semantics for the mobile navigation button.
 - GitHub Actions run [45001122041](https://github.com/beshoy1402/sat-english/actions/runs/45001122041) passed for the visual-system refresh commit 3f38d7c3ff147948ba0ec3743077d1dc22ad3cc6.
 - The accessibility markup follow-up is committed separately and awaits its own CI result. No deployment was performed; visual QA on real browsers/devices remains required.
+
+- Follow-up: the public landing-page dashboard mockup now labels itself as an interface preview and marks its sample streak/mastery/activity values as illustrative rather than implying live student data.
