@@ -30,6 +30,61 @@ function toImportRow(raw:Record<string,any>,sourceRow:number,existing:Set<string
  return row;
 }
 
+
+function parseDocumentQuestions(source:string):Record<string,any>[] {
+ const lines=source.replace(/\r/g,'').split('\n').map(v=>v.trim()).filter(Boolean);
+ const starts:number[]=[];
+ lines.forEach((line,index)=>{if(/^(?:(?:question|q)\s*)?\d{1,3}[.)\s:-]+/i.test(line))starts.push(index);});
+ if(!starts.length)throw new Error('No numbered question blocks were detected. Use numbered questions with A)–D) choices and Answer: labels, or import CSV/JSON for full control.');
+ const prefix=lines.slice(0,starts[0]).join('\n');
+ const sharedPassage=/\b(passage|read the following|based on the text below)\b/i.test(prefix)?prefix:'';
+ return starts.map((start,index)=>{
+  const block=lines.slice(start,starts[index+1]??lines.length);
+  const choices:string[]=[];let answer='';let explanation='';const prompt:string[]=[];
+  for(const line of block){
+   const choice=line.match(/^([A-D])[).:]\s*(.+)$/i);
+   const answerMatch=line.match(/^(?:correct\s+)?answer(?:\s+key)?\s*[:\-]\s*(.+)$/i);
+   const explanationMatch=line.match(/^(?:explanation|rationale)\s*[:\-]\s*(.+)$/i);
+   if(choice){choices.push(choice[2].trim());continue;}
+   if(answerMatch){answer=answerMatch[1].trim();continue;}
+   if(explanationMatch){explanation=explanationMatch[1].trim();continue;}
+   prompt.push(line.replace(/^(?:(?:question|q)\s*)?\d{1,3}[.)\s:-]+/i,'').trim());
+  }
+  const answerIndex=/^[A-D]$/i.test(answer)?answer.toUpperCase().charCodeAt(0)-65:-1;
+  const normalizedAnswer=answerIndex>=0?(choices[answerIndex]??answer):answer;
+  return {__sourceRow:start+1,exam_program:'SAT English',topic:'General',difficulty:'medium',passage:sharedPassage,prompt:prompt.filter(Boolean).join(' '),question_type:choices.length>=2?'multiple_choice':'short_answer',choices,answer_key:normalizedAnswer,explanation,points:1};
+ });
+}
+async function readXlsxRows(file:File):Promise<Record<string,any>[]> {
+ const {readSheet}=await import('read-excel-file/browser');
+ const sheet:any=await readSheet(file);
+ const rows:any[][]=Array.isArray(sheet)?sheet:Array.isArray(sheet?.rows)?sheet.rows:Array.isArray(sheet?.data)?sheet.data:[];
+ if(!rows.length)throw new Error('The first worksheet is empty.');
+ const headers=rows[0].map((v:any)=>String(v??'').trim().toLowerCase().replace(/[\s-]+/g,'_'));
+ if(headers.some((h:string)=>!h)||new Set(headers).size!==headers.length)throw new Error('The first worksheet must have unique, non-empty column headings.');
+ return rows.slice(1).map((cells:any[],index:number)=>({...Object.fromEntries(headers.map((h:string,i:number)=>[h,cells[i]??''])),__sourceRow:index+2}));
+}
+async function readDocxText(file:File):Promise<string> {
+ const module:any=await import('mammoth');
+ const parser=module.default??module;
+ const result=await parser.extractRawText({arrayBuffer:await file.arrayBuffer()});
+ return String(result.value??'');
+}
+async function readPdfText(file:File):Promise<string> {
+ const pdfjs:any=await import('pdfjs-dist');
+ pdfjs.GlobalWorkerOptions.workerSrc=new URL('pdfjs-dist/build/pdf.worker.mjs',import.meta.url).toString();
+ const pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;
+ if(pdf.numPages>80)throw new Error('PDF import is limited to 80 pages per file. Split the document into smaller files.');
+ const pages:string[]=[];
+ for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){
+  const page=await pdf.getPage(pageNo);const content=await page.getTextContent();
+  pages.push(content.items.map((item:any)=>typeof item.str==='string'?item.str:'').filter(Boolean).join(' '));
+ }
+ const text=pages.join('\n');
+ if(!text.trim())throw new Error('No selectable text was found. This PDF may be scanned or image-only; OCR and embedded-image extraction are not enabled yet.');
+ return text;
+}
+
 type ImportFailure={row:number;prompt:string;error:string};
 const empty={exam_program:'SAT English',topic:'Grammar',difficulty:'medium',passage:'',prompt:'',question_type:'multiple_choice',choices:'',answer_key:'',explanation:'',points:'1'};
 export default function QuestionBank({client}:{client:any}){
@@ -51,17 +106,23 @@ export default function QuestionBank({client}:{client:any}){
  const readImport=async(file:File)=>{
   setNotice('');setImportRows([]);setImportName(file.name);
   try{
-   const source=await file.text();let raw:Record<string,any>[];
-   if(file.name.toLowerCase().endsWith('.csv'))raw=parseCsv(source.replace(/^\uFEFF/,''));
-   else if(file.name.toLowerCase().endsWith('.json')){const parsed=JSON.parse(source);raw=Array.isArray(parsed)?parsed:parsed.questions;if(!Array.isArray(raw))throw new Error('JSON must be an array or an object containing a questions array.');}
-   else throw new Error('Choose a .csv or .json file. PDF, DOCX and XLSX are not supported in this import step.');
+   if(file.size>25*1024*1024)throw new Error('Import files are limited to 25 MB.');
+   const name=file.name.toLowerCase();let raw:Record<string,any>[];
+   if(name.endsWith('.csv'))raw=parseCsv((await file.text()).replace(new RegExp('^'+String.fromCharCode(0xfeff)), ''));
+   else if(name.endsWith('.json')){const parsed=JSON.parse(await file.text());raw=Array.isArray(parsed)?parsed:parsed.questions;if(!Array.isArray(raw))throw new Error('JSON must be an array or an object containing a questions array.');}
+   else if(name.endsWith('.xlsx'))raw=await readXlsxRows(file);
+   else if(name.endsWith('.docx'))raw=parseDocumentQuestions(await readDocxText(file));
+   else if(name.endsWith('.pdf'))raw=parseDocumentQuestions(await readPdfText(file));
+   else throw new Error('Choose CSV, JSON, XLSX, DOCX or a text-based PDF file.');
    if(!raw.length)throw new Error('The file contains no question rows.');
-   if(file.name.toLowerCase().endsWith('.csv')&&!Object.keys(raw[0]).some(key=>['prompt','question','question_text'].includes(key)))throw new Error('CSV header must include a question column named prompt, question or question_text.');
+   if(name.endsWith('.csv')&&!Object.keys(raw[0]).some(key=>['prompt','question','question_text'].includes(key)))throw new Error('CSV header must include a question column named prompt, question or question_text.');
    if(raw.length>2500)throw new Error('Import is limited to 2,500 questions per file. Split larger files into smaller batches.');
    const existing=new Set(items.map(q=>normalize(String(q.prompt??''))));
    const seen=new Set<string>();
-   const rowOffset=file.name.toLowerCase().endsWith('.csv')?2:1;const mapped=raw.map((r,i)=>{const item=toImportRow(r,i+rowOffset,existing);const key=normalize(item.prompt);if(key&&seen.has(key)){item.duplicate=true;item.errors.push('Duplicate prompt within this file.');}if(key)seen.add(key);return item;});
-   setImportRows(mapped);setNotice(`Preview ready: ${mapped.length} rows, ${mapped.filter(r=>!r.errors.length).length} valid, ${mapped.filter(r=>r.errors.length).length} need attention.`);
+   const rowOffset=name.endsWith('.csv')?2:1;
+   const mapped=raw.map((r,i)=>{const item=toImportRow(r,Number(r.__sourceRow??i+rowOffset),existing);const key=normalize(item.prompt);if(key&&seen.has(key)){item.duplicate=true;item.errors.push('Duplicate prompt within this file.');}if(key)seen.add(key);return item;});
+   setImportRows(mapped);
+   setNotice('Preview ready: '+mapped.length+' rows, '+mapped.filter(r=>!r.errors.length).length+' valid, '+mapped.filter(r=>r.errors.length).length+' need attention. Document extraction may need manual review; scanned PDF images are not OCR-processed.');
   }catch(error){setNotice(error instanceof Error?error.message:'Could not read this import file.');}
  };
  const runImport=async()=>{
@@ -117,7 +178,7 @@ export default function QuestionBank({client}:{client:any}){
  };
  return <section className="question-bank"><div className="question-bank-head"><div><span>ACADEMIC CONTENT LIBRARY</span><h2>Question bank</h2><p>Create reusable SAT, EST and ACT English questions and assemble exams.</p></div><button onClick={()=>void load()} disabled={busy}><RefreshCw size={14}/> Refresh</button></div>{notice&&<div className="question-bank-notice">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
   <div className="question-bank-layout"><form className="question-bank-form" onSubmit={save}><h3>{editing?<Edit3 size={15}/>:<Plus size={15}/>} {editing?'Edit question':'Create question'}</h3><label>Exam program<select value={form.exam_program} onChange={e=>setForm({...form,exam_program:e.target.value})}><option>SAT English</option><option>EST English</option><option>ACT English</option></select></label><div className="question-bank-two"><label>Topic<input value={form.topic} onChange={e=>setForm({...form,topic:e.target.value})}/></label><label>Difficulty<select value={form.difficulty} onChange={e=>setForm({...form,difficulty:e.target.value})}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label></div><label>Question type<select value={form.question_type} onChange={e=>setForm({...form,question_type:e.target.value})}><option value="multiple_choice">Multiple choice</option><option value="short_answer">Short answer</option><option value="essay">Written response</option></select></label><label>Reading passage (optional)<textarea rows={4} value={form.passage} onChange={e=>setForm({...form,passage:e.target.value})} placeholder="Paste the passage here…"/></label><label>Question prompt<textarea required rows={4} value={form.prompt} onChange={e=>setForm({...form,prompt:e.target.value})} placeholder="Write the question…"/></label>{form.question_type==='multiple_choice'&&<label>Answer choices (one per line)<textarea required rows={4} value={form.choices} onChange={e=>setForm({...form,choices:e.target.value})} placeholder={'A. ...\nB. ...\nC. ...\nD. ...'}/></label>}<label>Correct answer / answer key<input value={form.answer_key} onChange={e=>setForm({...form,answer_key:e.target.value})} placeholder={form.question_type==='essay'?'Optional manual rubric':'Copy the exact correct choice from above'}/></label><label>Explanation<textarea rows={3} value={form.explanation} onChange={e=>setForm({...form,explanation:e.target.value})}/></label><label>Points<input type="number" min="0.25" max="100" step="0.25" value={form.points} onChange={e=>setForm({...form,points:e.target.value})}/></label><div className="question-bank-form-actions"><button disabled={busy}>{busy?'Saving…':editing?'Save changes':'Add question'}</button>{editing&&<button type="button" className="secondary" onClick={reset}>Cancel</button>}</div></form>
-   <div className="question-bank-library"><div className="question-bank-import"><div><b>Bulk import</b><small>CSV or JSON · preview and validate before saving · up to 2,500 rows</small></div><label className="question-bank-file">Choose CSV / JSON<input type="file" accept=".csv,.json,application/json,text/csv" onChange={e=>{const file=e.target.files?.[0];if(file)void readImport(file);e.currentTarget.value='';}}/></label></div>
+   <div className="question-bank-library"><div className="question-bank-import"><div><b>Bulk import</b><small>CSV · JSON · XLSX · DOCX · text PDF · preview and validate · 25 MB / 2,500 rows</small></div><label className="question-bank-file">Choose file<input type="file" accept=".csv,.json,.xlsx,.docx,.pdf,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" onChange={e=>{const file=e.target.files?.[0];if(file)void readImport(file);e.currentTarget.value='';}}/></label></div>
     {importRows.length>0&&<div className="question-bank-preview"><div className="question-bank-preview-head"><div><b>Preview: {importName}</b><small>{importRows.filter(r=>!r.errors.length).length} valid · {importRows.filter(r=>r.errors.length).length} need attention</small></div><div><button className="secondary" onClick={()=>setImportRows([])}>Discard</button><button onClick={()=>void runImport()} disabled={busy||!importRows.some(r=>!r.errors.length)}>Import valid rows</button></div></div><div className="question-bank-preview-list">{importRows.slice(0,100).map((r,i)=><article key={`${r.sourceRow}-${i}`}><div><b>Row {r.sourceRow}: {r.prompt||'(missing prompt)'}</b><small>{r.exam_program} · {r.topic} · {r.question_type}</small>{r.errors.map((e,j)=><em key={j}>{e}</em>)}</div><span className={r.errors.length?'invalid':'valid'}>{r.errors.length?'Review':'Valid'}</span></article>)}</div>{importRows.length>100&&<small>Showing first 100 rows. Validation covers all {importRows.length} rows.</small>}</div>}
    {importReport&&<div className="question-bank-import-report"><div><b>Last import report</b><small>{importReport.fileName} · {importReport.imported} imported · {importReport.skipped.length} skipped · {importReport.failures.length} save failures</small></div><button type="button" onClick={downloadImportReport}>Download error report CSV</button></div>}
    <div className="question-bank-toolbar"><div><h3><BookOpen size={15}/> Reusable questions ({items.length})</h3><small>Search by topic, passage or prompt.</small></div><div className="question-bank-filters"><div><Search size={14}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search"/></div><select value={programFilter} onChange={e=>{setProgramFilter(e.target.value);setSelected([]);}}><option value="all">All programs</option><option>SAT English</option><option>EST English</option><option>ACT English</option></select></div></div>
