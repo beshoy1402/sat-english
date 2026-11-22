@@ -130,7 +130,7 @@ Session states: scheduled, lobby, live, ended, cancelled. Store timestamps and t
 
 ### 4.3 Free-tier-compatible media architecture
 - Use browser WebRTC for peer media and Supabase Realtime private channels for signaling/presence.
-- Use authenticated private channel topics scoped to a specific lesson/session.
+- Use authenticated private channel topics scoped to a specific lesson/session. Before activation, verify Supabase Realtime's project-level **Allow public access** setting is disabled; this setting has not been changed or verified.
 - Use a narrowly scoped `realtime.messages` RLS policy; only active staff assigned to the course and students with current active course access may join that session topic.
 - Do not use public signaling channels or broad `authenticated`-user policies.
 - Use free STUN discovery for the initial small-room prototype. STUN-only connectivity is not guaranteed on restrictive networks; show a clear connection error and fallback to the approved external meeting link where one exists.
@@ -165,8 +165,8 @@ Support both accepted recording methods:
 - Two or more authorized clients can join, exchange signaling and cleanly leave.
 - Camera/microphone permission denial does not crash the room.
 - Reconnect does not create duplicate participants or duplicate attendance.
-- Chat/signaling is restricted to the authorized private topic; chat rows are readable only by active room participants and authorized session managers.
-- Muted users cannot send chat through the server RPC; chat sends are limited to one message per two seconds and 30 per minute per participant.
+- Chat/signaling is restricted to the authorized private topic; chat rows are readable only by active room participants and authorized session managers. Verify Realtime's project-level public-channel setting is disabled before enabling the feature.
+- Muted users cannot send chat through the server RPC; chat sends are limited to one message per two seconds and 30 per minute per participant. Direct table writes are revoked; clients send through the authenticated RPC.
 - Recording starts/stops only after explicit teacher action and permission.
 - A finished recording is stored privately, linked to the right lesson and remains draft until published.
 - Test mobile, desktop, slow network and unsupported browser behavior.
@@ -250,3 +250,5 @@ The first Live Classroom code slice is now committed to the working feature bran
 - **Security follow-up:** the media signaling topic uses the same open-session authorization check for both sending and receiving; ended/cancelled/scheduled sessions cannot use the signaling topic.
 
 - **2026-11-23 (continued):** Added persisted live-session chat with server-side membership/mute checks, per-user rate limits, private-channel ID notifications, ephemeral hand raise, and audited teacher chat mute/unmute controls. Extended the existing un-applied classroom migration source; no production database changes.
+
+- **Activation prerequisite:** the current Supabase Realtime project setting `Allow public access` has not been verified or changed. Confirm it is disabled before activating private classroom topics; do not infer this from the SQL policies alone.
