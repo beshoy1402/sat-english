@@ -384,3 +384,12 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Non-admin staff can edit or delete only question-bank items they created. Administrators retain platform-wide management.
 - Question-bank assembly locks the target exam row, requires the caller to be its creator unless administrator, and refuses changes unless the exam is still a draft.
 - The migration is source-only and not applied to the hosted database. SQL permission tests remain blocked by the migration-history mismatch documented above.
+
+
+## Frontend and import follow-up (2026-11-22)
+
+- Refined authenticated workspace styling across navigation, dashboard hero, quick-access controls, cards, panels, forms and responsive mobile layouts.
+- Added regression checks for the responsive navigation and dashboard style hooks.
+- Corrected PDF extracted-line joining and added early XLSX header validation for a recognized question prompt column.
+- Verified with GitHub Actions run [45001655711](https://github.com/beshoy1402/sat-english/actions/runs/45001655711): install, policy checks, TypeScript and Vite build all passed.
+- Remaining verification: browser/device visual QA, interactive end-to-end tests, real PDF/XLSX import fixtures, SQL execution, Supabase authorization tests, WebRTC/Zoom activation and launch readiness. No deployment or production changes.
