@@ -148,4 +148,6 @@ Configurable XP, achievements, streaks, weekly challenges, class leaderboards an
 - Added source-controlled migration for student AI point accounts, transaction ledger, server-side consume/refund functions and Admin adjustment RPC.
 - Updated the AI learning Edge Function to charge 5 points for tutor responses and 15 for study-plan generation, reject insufficient balances and refund failed provider attempts.
 - Updated the student AI Tutor to emphasize answer checking, precise error explanations and improvement guidance, and to show the point balance.
+- Added a structured answer-review form for the question, passage, answer choices, student response and optional answer key; it prepares a grounded review request without inventing missing answers.
+- The points indicator now reports when the wallet cannot be loaded instead of displaying a misleading fallback balance.
 - These changes are on the existing feature branch. The database migration and Edge Function are **not deployed**. Production remains unchanged until explicit approval and successful verification.
