@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson, liveClassroom, liveMigration, liveCss] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
@@ -16,6 +16,9 @@ const [ai, recordings, supabaseClient, providerSettings, providerManagement, del
   read('../supabase/migrations/20261123130000_admission_rule_registry.sql'),
   read('../src/QuestionBank.tsx'),
   read('../package.json'),
+  read('../src/LiveClassroom.tsx'),
+  read('../supabase/migrations/20261123100000_live_classroom_foundation.sql'),
+  read('../src/live-classroom.css'),
 ]);
 
 // AI must use the approved NVIDIA-first provider/model/endpoint allowlist.
@@ -130,5 +133,24 @@ assert.match(questionBank, /staff_save_question_bank_item/);
 assert.ok(packageJson.includes('"mammoth": "^1.13.0"'));
 assert.ok(packageJson.includes('"pdfjs-dist": "^6.5.438"'));
 assert.ok(packageJson.includes('"read-excel-file": "^9.3.20"'));
+
+// Live hand raises persist in the database, are permission-checked by an RPC, and retain an event trail.
+assert.match(liveMigration, /create table if not exists public\.live_session_hand_raises/);
+assert.match(liveMigration, /create table if not exists public\.live_session_hand_raise_events/);
+assert.match(liveMigration, /alter table public\.live_session_hand_raises enable row level security/);
+assert.match(liveMigration, /live_session_hand_raises_read_participants/);
+assert.match(liveMigration, /live_session_hand_raise_events_read_participants/);
+assert.match(liveMigration, /create or replace function public\.live_session_set_hand_raise/);
+assert.match(liveMigration, /Only an enrolled student in an open room can raise a hand/);
+assert.match(liveMigration, /Only the classroom host or assigned staff may lower another participant hand/);
+assert.match(liveMigration, /lowered_by_teacher/);
+assert.match(liveMigration, /revoke all on function public\.live_session_set_hand_raise\(uuid,boolean,uuid\) from public, anon/);
+assert.match(liveClassroom, /from\('live_session_hand_raises'\)/);
+assert.match(liveClassroom, /from\('live_session_hand_raise_events'\)/);
+assert.match(liveClassroom, /rpc\('live_session_set_hand_raise'/);
+assert.match(liveClassroom, /lowerParticipantHand/);
+assert.match(liveClassroom, /Hand raise history/);
+assert.match(liveCss, /\.live-hand-history/);
+
 
 console.log('Project safety checks passed.');
