@@ -104,7 +104,7 @@ Continue planned live classroom, attendance, polls, shared question solving, tea
 
 Student-led study rooms: students may open a private website room for classmates in a course they currently access. The room creator is host, can start/end and moderate the room, and each student may have one active room with a maximum of six participants. Student rooms do not create Zoom meetings.
 
-Teacher-led live lessons: teachers choose the delivery mode per session — native website WebRTC room or Zoom. Zoom uses a server-side administrator-configured Server-to-Server OAuth app and the Zoom Meetings API. Students see only the join URL; the teacher's privileged start URL is stored separately and refreshed server-side. Zoom app credentials belong only in Supabase Edge Function secrets. Current integration opens Zoom externally (desktop client/browser), not embedded Meeting SDK. Zoom webhook attendance sync remains future work.
+Teacher-led live lessons: teachers choose the delivery mode per session — native website WebRTC room or Zoom. Zoom uses a server-side administrator-configured Server-to-Server OAuth app and the Zoom Meetings API. Students see only the join URL; the teacher's privileged start URL is stored separately and refreshed server-side. Zoom app credentials belong only in Supabase Edge Function secrets. Current integration opens Zoom externally (desktop client/browser), not embedded Meeting SDK. Zoom webhook source is now included for meeting lifecycle and participant join/leave attendance. Activation requires a webhook secret, Zoom Event Subscription, migration and function deployment; participant matching depends on Zoom providing an email address.
 
 ## Gamification
 
@@ -192,7 +192,7 @@ For the maintained, full product scope, implementation stages, acceptance criter
 
 - Added source-only student-created study rooms and teacher-selected Zoom/website delivery. Added a 30-second authenticated attendance heartbeat and a two-minute stale-participant expiry check before capacity enforcement. Student rooms are course-scoped, one active room per host, and capped at six participants by the database join RPC. Zoom API integration source creates scheduled meetings server-side and separates teacher host URLs from student join URLs. No credentials, migration, or deployment have been applied.
 
-- Teacher Zoom delivery now includes server-side create/refresh, start, end and cancel actions. Required Zoom scopes include create/read/end/delete meeting permissions. Webhook attendance sync and per-teacher Zoom OAuth remain future work.
+- Teacher Zoom delivery now includes server-side create/refresh, start, end and cancel actions. A separate source-only webhook verifies Zoom HMAC signatures, deduplicates meeting and participant events, updates meeting lifecycle state and maps participants to enrolled students by email where available. Activation and runtime verification remain outstanding; per-teacher Zoom OAuth remains future work.
 - See `docs/ZOOM_INTEGRATION_SETUP.md` for the source-only configuration and security guide.
 
-- Current Live Classroom source includes student-created study rooms and teacher-selected website/Zoom delivery. Zoom API Edge Function and database migration are source-only; no secrets configured or production deployment performed. Build/runtime tests and Zoom webhook attendance remain outstanding.
+- Current Live Classroom source includes student-created study rooms and teacher-selected website/Zoom delivery. Zoom API Edge Function and database migration are source-only; no secrets configured or production deployment performed. Build/runtime tests and Zoom webhook activation/verification remain outstanding.
