@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarClock, CheckCircle2, Clock3, DoorOpen, LoaderCircle, LockKeyhole, Plus, RefreshCw, Users, Video, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CalendarClock, CheckCircle2, Clock3, DoorOpen, Hand, LoaderCircle, LockKeyhole, MessageCircle, Plus, RefreshCw, Send, Users, Video, Volume2, VolumeX, X } from 'lucide-react';
 import type { Profile } from './lib/supabase';
 import LiveMedia from './LiveMedia';
 import './live-classroom.css';
@@ -20,7 +20,8 @@ type LiveSession = {
   courses?: { title?: string } | null;
   lessons?: { title?: string } | null;
 };
-type PresenceMember = { profile_id?: string; display_name?: string; role?: string; online_at?: string };
+type PresenceMember = { profile_id?: string; display_name?: string; role?: string; online_at?: string; hand_raised?: boolean; hand_raised_at?: string | null };
+type LiveMessage = { id: string; session_id: string; sender_profile_id: string; sender_display_name: string; body: string; created_at: string };
 
 const staffRoles = ['admin', 'teacher', 'assistant'];
 const formatDate = (value: string) => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -47,6 +48,13 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   const [scheduledAt, setScheduledAt] = useState(localDateTime);
   const [activeSession, setActiveSession] = useState<LiveSession | null>(null);
   const [onlineMembers, setOnlineMembers] = useState<PresenceMember[]>([]);
+  const [chatMessages, setChatMessages] = useState<LiveMessage[]>([]);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
+  const [handRaiseBusy, setHandRaiseBusy] = useState(false);
+  const [mutedUntil, setMutedUntil] = useState<Record<string, string | null>>({});
+  const roomChannelRef = useRef<any>(null);
+  const lastChatSentAt = useRef(0);
 
   const load = useCallback(async () => {
     if (!client) { setLoading(false); setError('The learning database is not configured in this environment.'); return; }
@@ -80,12 +88,49 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
 
   useEffect(() => {
     if (!activeSession || !client) return;
+    setChatMessages([]);
+    setMutedUntil({});
+    setChatDraft('');
     const channel = client.channel('live-session:' + activeSession.id, {
       config: { private: true, presence: { key: profile.id } }
     });
+    roomChannelRef.current = channel;
+
+    void (async () => {
+      const [messageResult, participantResult] = await Promise.all([
+        client.from('live_session_messages')
+          .select('id,session_id,sender_profile_id,sender_display_name,body,created_at')
+          .eq('session_id', activeSession.id)
+          .order('created_at', { ascending: false })
+          .limit(60),
+        client.from('live_session_participants')
+          .select('profile_id,chat_muted_until')
+          .eq('session_id', activeSession.id)
+          .is('left_at', null)
+      ]);
+      if (messageResult.error) setError('Classroom chat is unavailable until its database migration is applied.');
+      else setChatMessages(((messageResult.data ?? []) as LiveMessage[]).reverse());
+      if (!participantResult.error) {
+        const next: Record<string, string | null> = {};
+        (participantResult.data ?? []).forEach((row: { profile_id: string; chat_muted_until: string | null }) => { next[row.profile_id] = row.chat_muted_until; });
+        setMutedUntil(next);
+      }
+    })();
+
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState() as Record<string, PresenceMember[]>;
       setOnlineMembers(Object.values(state).flat());
+    });
+    channel.on('broadcast', { event: 'chat-message' }, async ({ payload }: { payload: { message_id?: string } }) => {
+      if (!payload || typeof payload.message_id !== 'string') return;
+      const { data, error: messageError } = await client.from('live_session_messages')
+        .select('id,session_id,sender_profile_id,sender_display_name,body,created_at')
+        .eq('id', payload.message_id)
+        .eq('session_id', activeSession.id)
+        .maybeSingle();
+      if (!messageError && data) {
+        setChatMessages(current => current.some(message => message.id === data.id) ? current : [...current, data as LiveMessage].slice(-100));
+      }
     });
     channel.subscribe(async (status: string) => {
       if (status === 'SUBSCRIBED') {
@@ -93,15 +138,91 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
           profile_id: profile.id,
           display_name: profile.display_name,
           role: profile.role,
-          online_at: new Date().toISOString()
+          online_at: new Date().toISOString(),
+          hand_raised: false,
+          hand_raised_at: null
         });
         if (trackStatus !== 'ok') setError('Connected to the room, but live presence could not start (' + trackStatus + ').');
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         setError('Private room connection failed. Refresh and verify that the live-classroom database migration has been applied in the test environment.');
       }
     });
-    return () => { void client.removeChannel(channel); };
+    return () => {
+      roomChannelRef.current = null;
+      void client.removeChannel(channel);
+    };
   }, [activeSession, client, profile.id, profile.display_name, profile.role]);
+
+  const sendChatMessage = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const body = chatDraft.trim();
+    if (!client || !activeSession || !body || chatBusy) return;
+    if (Date.now() - lastChatSentAt.current < 1500) {
+      setError('Please wait a moment before sending another message.');
+      return;
+    }
+    setChatBusy(true); setError('');
+    try {
+      const { data, error: sendError } = await client.rpc('live_session_send_message', {
+        p_session_id: activeSession.id,
+        p_body: body
+      });
+      if (sendError) throw new Error(sendError.message);
+      const message = (Array.isArray(data) ? data[0] : data) as LiveMessage | null;
+      if (!message?.id) throw new Error('The message was not saved. Please try again.');
+      lastChatSentAt.current = Date.now();
+      setChatMessages(current => current.some(item => item.id === message.id) ? current : [...current, message].slice(-100));
+      setChatDraft('');
+      const broadcastStatus = await roomChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'chat-message',
+        payload: { message_id: message.id }
+      });
+      if (broadcastStatus !== 'ok') setNotice('Your message was saved. Other participants may need to refresh to see it.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not send the classroom message.');
+    } finally { setChatBusy(false); }
+  };
+
+  const toggleHandRaise = async () => {
+    if (!activeSession || !roomChannelRef.current || handRaiseBusy) return;
+    const raised = Boolean(onlineMembers.find(member => member.profile_id === profile.id)?.hand_raised);
+    const next = !raised;
+    setHandRaiseBusy(true);
+    try {
+      const result = await roomChannelRef.current.track({
+        profile_id: profile.id,
+        display_name: profile.display_name,
+        role: profile.role,
+        online_at: new Date().toISOString(),
+        hand_raised: next,
+        hand_raised_at: next ? new Date().toISOString() : null
+      });
+      if (result !== 'ok') throw new Error('Could not update your hand-raise status.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update hand raise.');
+    } finally { setHandRaiseBusy(false); }
+  };
+
+  const toggleChatMute = async (member: PresenceMember) => {
+    if (!client || !activeSession || !staff || !member.profile_id || member.role !== 'student') return;
+    const currentUntil = mutedUntil[member.profile_id];
+    const currentlyMuted = Boolean(currentUntil && new Date(currentUntil).getTime() > Date.now());
+    const nextMuted = !currentlyMuted;
+    setBusy(true); setError('');
+    try {
+      const { data, error: muteError } = await client.rpc('live_session_set_chat_mute', {
+        p_session_id: activeSession.id,
+        p_profile_id: member.profile_id,
+        p_muted: nextMuted
+      });
+      if (muteError) throw new Error(muteError.message);
+      setMutedUntil(current => ({ ...current, [member.profile_id!]: data || null }));
+      setNotice(nextMuted ? member.display_name + ' is muted in chat for 10 minutes.' : member.display_name + ' can chat again.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update chat moderation.');
+    } finally { setBusy(false); }
+  };
 
   const availableLessons = useMemo(() => lessons.filter(lesson => lesson.course_id === courseId), [lessons, courseId]);
 
@@ -183,6 +304,8 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     } finally { setBusy(false); }
   };
 
+  const ownHandRaised = Boolean(onlineMembers.find(member => member.profile_id === profile.id)?.hand_raised);
+
   const statusLabel: Record<LiveSession['status'], string> = {
     scheduled: 'Scheduled', lobby: 'Lobby open', live: 'Live now', ended: 'Ended', cancelled: 'Cancelled'
   };
@@ -213,10 +336,36 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     </form>}
 
     {activeSession && <section className="live-room-panel">
-      <div className="live-room-top"><div><span className="live-room-kicker">SECURE CLASSROOM LOBBY</span><h3>{activeSession.title}</h3><p>{activeSession.courses?.title || 'Course'} · {statusLabel[activeSession.status]}</p></div><button className="live-secondary" onClick={() => void leaveRoom()} disabled={busy}><DoorOpen size={14}/> Leave room</button></div>
+      <div className="live-room-top"><div><span className="live-room-kicker">SECURE CLASSROOM LOBBY</span><h3>{activeSession.title}</h3><p>{activeSession.courses?.title || 'Course'} · {statusLabel[activeSession.status]}</p></div><div className="live-room-top-actions">{!staff && <button className={ownHandRaised ? 'live-secondary live-hand-raised' : 'live-secondary'} onClick={() => void toggleHandRaise()} disabled={handRaiseBusy}><Hand size={14}/>{ownHandRaised ? 'Lower hand' : 'Raise hand'}</button>}<button className="live-secondary" onClick={() => void leaveRoom()} disabled={busy}><DoorOpen size={14}/> Leave room</button></div></div>
       <div className="live-room-notice"><Users size={17}/><div><b>{onlineMembers.length} online</b><span>Presence is shared only inside this private session channel.</span></div></div>
-      <div className="live-presence-list">{onlineMembers.map((member, index) => <div key={member.profile_id || index}><span>{(member.display_name || 'Participant').slice(0,1).toUpperCase()}</span><b>{member.display_name || 'Participant'}{member.profile_id === profile.id ? ' (You)' : ''}</b><small>{member.role || 'Participant'}</small></div>)}{!onlineMembers.length && <small>Connecting to the private classroom…</small>}</div>
+      <div className="live-presence-list">{onlineMembers.map((member, index) => {
+        const until = member.profile_id ? mutedUntil[member.profile_id] : null;
+        const isMuted = Boolean(until && new Date(until).getTime() > Date.now());
+        return <div key={member.profile_id || index}>
+          <span>{(member.display_name || 'Participant').slice(0,1).toUpperCase()}</span>
+          <b>{member.display_name || 'Participant'}{member.profile_id === profile.id ? ' (You)' : ''}</b>
+          <small>{member.role || 'Participant'}</small>
+          {member.hand_raised && <em className="live-hand-indicator"><Hand size={11}/> Hand raised</em>}
+          {staff && member.role === 'student' && member.profile_id && <button className="live-chat-moderate" onClick={() => void toggleChatMute(member)} disabled={busy}>{isMuted ? <Volume2 size={12}/> : <VolumeX size={12}/>} {isMuted ? 'Unmute chat' : 'Mute 10m'}</button>}
+        </div>;
+      })}{!onlineMembers.length && <small>Connecting to the private classroom…</small>}</div>
       <LiveMedia client={client} sessionId={activeSession.id} profile={profile} members={onlineMembers}/>
+      <section className="live-chat-panel">
+        <div className="live-chat-heading"><div><MessageCircle size={15}/><b>Classroom chat</b></div><span>Saved messages · 1,000 characters max</span></div>
+        <div className="live-chat-messages" aria-live="polite">
+          {chatMessages.map(message => <article className={message.sender_profile_id === profile.id ? 'live-chat-message live-chat-message-own' : 'live-chat-message'} key={message.id}>
+            <div><b>{message.sender_display_name || 'Participant'}</b><time>{new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div>
+            <p>{message.body}</p>
+          </article>)}
+          {!chatMessages.length && <div className="live-chat-empty">No messages yet. Say hello to your class.</div>}
+        </div>
+        <form className="live-chat-compose" onSubmit={sendChatMessage}>
+          <input value={chatDraft} onChange={event => setChatDraft(event.target.value.slice(0,1000))} maxLength={1000} placeholder={mutedUntil[profile.id] && new Date(mutedUntil[profile.id]!).getTime() > Date.now() ? 'Your chat is temporarily muted' : 'Write a message…'} disabled={chatBusy || Boolean(mutedUntil[profile.id] && new Date(mutedUntil[profile.id]!).getTime() > Date.now())}/>
+          <button className="live-primary" type="submit" disabled={chatBusy || !chatDraft.trim() || Boolean(mutedUntil[profile.id] && new Date(mutedUntil[profile.id]!).getTime() > Date.now())}><Send size={14}/>{chatBusy ? 'Sending…' : 'Send'}</button>
+        </form>
+        {mutedUntil[profile.id] && new Date(mutedUntil[profile.id]!).getTime() > Date.now() && <small className="live-chat-muted-note">A teacher temporarily muted your classroom chat.</small>}
+      </section>
+
       <div className="live-coming-next"><Video size={16}/><span><b>Live media prototype</b>Audio/video and screen sharing are available through browser WebRTC. This small-room prototype is limited to six participants and does not include a TURN relay or scalable media server.</span></div>
     </section>}
 
