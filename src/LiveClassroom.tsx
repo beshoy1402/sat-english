@@ -10,6 +10,11 @@ type LiveSession = {
   id: string;
   course_id: string;
   lesson_id: string | null;
+  room_type: 'lesson' | 'study';
+  provider: 'website' | 'zoom';
+  zoom_meeting_id?: string | null;
+  zoom_join_url?: string | null;
+  zoom_password?: string | null;
   title: string;
   description: string;
   scheduled_at: string;
@@ -41,6 +46,9 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [showStudyRoomForm, setShowStudyRoomForm] = useState(false);
+  const [deliveryProvider, setDeliveryProvider] = useState<'website' | 'zoom'>('website');
+  const [studyRoomTitle, setStudyRoomTitle] = useState('Group study room');
   const [courseId, setCourseId] = useState('');
   const [lessonId, setLessonId] = useState('');
   const [title, setTitle] = useState('');
@@ -64,20 +72,32 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     try {
       const [sessionResult, courseResult, lessonResult] = await Promise.all([
         client.from('live_sessions').select('*, courses(title), lessons(title)').order('scheduled_at', { ascending: true }),
-        staff ? client.from('courses').select('id,title,created_by').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+        staff
+          ? client.from('courses').select('id,title,created_by').order('created_at', { ascending: false })
+          : client.from('course_access').select('course_id').eq('student_profile_id', profile.id).eq('status', 'active'),
         staff ? client.from('lessons').select('id,course_id,title').eq('is_published', true).order('sort_order') : Promise.resolve({ data: [], error: null })
       ]);
       if (sessionResult.error) throw new Error(sessionResult.error.message);
       if (courseResult.error) throw new Error(courseResult.error.message);
       if (lessonResult.error) throw new Error(lessonResult.error.message);
       setSessions((sessionResult.data ?? []) as LiveSession[]);
-      const courseRows = (courseResult.data ?? []) as Course[];
-      const manageableCourses = profile.role === 'admin'
-        ? courseRows
-        : courseRows.filter(course => course.created_by === profile.id);
-      setCourses(manageableCourses);
+      let courseRows: Course[] = [];
+      if (staff) {
+        courseRows = (courseResult.data ?? []) as Course[];
+      } else {
+        const ids = [...new Set((courseResult.data ?? []).map((row: { course_id: string }) => row.course_id))];
+        if (ids.length) {
+          const { data, error: enrolledError } = await client.from('courses').select('id,title').in('id', ids).eq('status', 'published');
+          if (enrolledError) throw new Error(enrolledError.message);
+          courseRows = (data ?? []) as Course[];
+        }
+      }
+      const availableCourses = staff
+        ? (profile.role === 'admin' ? courseRows : courseRows.filter(course => course.created_by === profile.id))
+        : courseRows;
+      setCourses(availableCourses);
       setLessons(lessonResult.data ?? []);
-      if (!courseId && manageableCourses.length) setCourseId(manageableCourses[0].id);
+      if ((!courseId || !availableCourses.some(course => course.id === courseId)) && availableCourses.length) setCourseId(availableCourses[0].id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load live classroom sessions.');
     } finally {
@@ -303,18 +323,24 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     }
     setBusy(true); setError(''); setNotice('');
     try {
-      const { error: insertError } = await client.from('live_sessions').insert({
+      const { data: created, error: insertError } = await client.from('live_sessions').insert({
         course_id: courseId,
         lesson_id: lessonId || null,
+        room_type: 'lesson',
+        provider: deliveryProvider,
         title: title.trim(),
         description: description.trim(),
         scheduled_at: new Date(scheduledAt).toISOString(),
         created_by: profile.id,
         status: 'scheduled'
-      });
-      if (insertError) throw new Error(insertError.message);
-      setTitle(''); setDescription(''); setLessonId(''); setScheduledAt(localDateTime()); setShowForm(false);
-      setNotice('Live lesson scheduled. Enrolled students will see it in their classroom.');
+      }).select('id').single();
+      if (insertError || !created) throw new Error(insertError?.message || 'Could not create the live lesson.');
+      if (deliveryProvider === 'zoom') {
+        const { error: zoomError } = await client.functions.invoke('zoom-meeting', { body: { action: 'create', session_id: created.id } });
+        if (zoomError) throw new Error('The lesson was saved, but Zoom could not create its meeting: ' + zoomError.message);
+      }
+      setTitle(''); setDescription(''); setLessonId(''); setScheduledAt(localDateTime()); setShowForm(false); setDeliveryProvider('website');
+      setNotice(deliveryProvider === 'zoom' ? 'Zoom lesson scheduled. Students can join from this classroom page.' : 'Live lesson scheduled. Enrolled students will see it in their classroom.');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not schedule the live lesson.');
@@ -322,7 +348,8 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   };
 
   const changeStatus = async (session: LiveSession, status: LiveSession['status']) => {
-    if (!client || !staff || busy) return;
+    const canManage = staff || (session.room_type === 'study' && session.created_by === profile.id);
+    if (!client || !canManage || busy) return;
     setBusy(true); setError(''); setNotice('');
     try {
       const { error: updateError } = await client.rpc('live_session_set_status', {
@@ -339,6 +366,54 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not update the session.');
+    } finally { setBusy(false); }
+  };
+
+  const createStudyRoom = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!client || staff || !courseId || studyRoomTitle.trim().length < 2 || busy) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const { data, error: createError } = await client.from('live_sessions').insert({
+        course_id: courseId,
+        lesson_id: null,
+        room_type: 'study',
+        provider: 'website',
+        title: studyRoomTitle.trim(),
+        description: 'Student-led group study room',
+        scheduled_at: new Date().toISOString(),
+        created_by: profile.id,
+        status: 'lobby'
+      }).select('id').single();
+      if (createError || !data) throw new Error(createError?.message || 'Could not open your study room.');
+      setStudyRoomTitle('Group study room');
+      setShowStudyRoomForm(false);
+      setNotice('Your study room is open. Classmates with active access to this course can join.');
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not open the study room.');
+    } finally { setBusy(false); }
+  };
+
+  const openZoomMeeting = async (session: LiveSession, host: boolean) => {
+    if (!session.zoom_join_url && !host) {
+      setError('The Zoom join link is not available yet. Ask the teacher to finish setting up the meeting.');
+      return;
+    }
+    if (!host) {
+      window.open(session.zoom_join_url!, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (!client || busy) return;
+    setBusy(true); setError('');
+    try {
+      const { data, error: hostError } = await client.functions.invoke('zoom-meeting', {
+        body: { action: 'host', session_id: session.id }
+      });
+      if (hostError || !data?.start_url) throw new Error(hostError?.message || data?.error || 'The Zoom host link is unavailable.');
+      window.open(data.start_url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not open Zoom as the host.');
     } finally { setBusy(false); }
   };
 
@@ -374,6 +449,8 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   };
 
   const ownHandRaised = Boolean(onlineMembers.find(member => member.profile_id === profile.id)?.hand_raised);
+  const activeSessionHost = Boolean(activeSession && activeSession.created_by === profile.id);
+  const canModerateActiveSession = staff || (activeSession?.room_type === 'study' && activeSessionHost);
 
   const statusLabel: Record<LiveSession['status'], string> = {
     scheduled: 'Scheduled', lobby: 'Lobby open', live: 'Live now', ended: 'Ended', cancelled: 'Cancelled'
@@ -385,12 +462,14 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         <p>{staff ? 'Schedule lessons, open the classroom and manage live-session attendance.' : 'Join live lessons scheduled for your enrolled courses.'}</p></div>
       <div className="live-classroom-actions">
         <button className="live-secondary" onClick={() => void load()} disabled={loading || busy}><RefreshCw size={14}/> Refresh</button>
-        {staff && <button className="live-primary" onClick={() => setShowForm(value => !value)}><Plus size={15}/> Schedule lesson</button>}
+        {staff && <button className="live-primary" onClick={() => setShowForm(value => !value)}><Plus size={15}/> Schedule lesson</button>}{!staff && profile.role === 'student' && <button className="live-primary" onClick={() => setShowStudyRoomForm(value => !value)}><Plus size={15}/> Start study room</button>}
       </div>
     </header>
 
     {notice && <div className="live-notice"><CheckCircle2 size={15}/><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss"><X size={14}/></button></div>}
     {error && <div className="live-error" role="alert">{error}<button onClick={() => setError('')} aria-label="Dismiss"><X size={14}/></button></div>}
+
+    {showStudyRoomForm && !staff && <form className="live-schedule-card" onSubmit={createStudyRoom}><div className="live-card-title"><Users size={18}/><div><b>Open a student study room</b><small>Invite classmates from your enrolled course. The room is private to active course members and supports up to six participants.</small></div></div><div className="live-form-grid"><label>Course<select required value={courseId} onChange={e => setCourseId(e.target.value)}><option value="">Select an enrolled course</option>{courses.map(course => <option key={course.id} value={course.id}>{course.title}</option>)}</select></label><label className="live-form-wide">Room name<input required minLength={2} maxLength={180} value={studyRoomTitle} onChange={e => setStudyRoomTitle(e.target.value)} placeholder="e.g. SAT Reading group practice"/></label></div><div className="live-form-footer"><span><LockKeyhole size={13}/> Website room · classmates only</span><button className="live-primary" disabled={busy || !courseId}>{busy ? 'Opening…' : 'Open study room'}</button></div></form>}
 
     {showForm && staff && <form className="live-schedule-card" onSubmit={createSession}>
       <div className="live-card-title"><CalendarClock size={18}/><div><b>Schedule a live lesson</b><small>Only students with active access to the selected course can see the session.</small></div></div>
@@ -399,9 +478,10 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         <label>Related lesson (optional)<select value={lessonId} onChange={e => setLessonId(e.target.value)}><option value="">No linked lesson</option>{availableLessons.map(lesson => <option key={lesson.id} value={lesson.id}>{lesson.title}</option>)}</select></label>
         <label className="live-form-wide">Session title<input required minLength={2} maxLength={180} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. SAT Reading: Evidence and Inference"/></label>
         <label>Scheduled start<input required type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)}/></label>
+        <label>Where should students meet?<select value={deliveryProvider} onChange={e => setDeliveryProvider(e.target.value as 'website' | 'zoom')}><option value="website">Open inside this website</option><option value="zoom">Use Zoom meeting</option></select></label>
         <label className="live-form-wide">Description<textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="What students should prepare before joining."/></label>
       </div>
-      <div className="live-form-footer"><span><LockKeyhole size={13}/> Private course access is enforced by database policies.</span><button className="live-primary" disabled={busy || !courseId}>{busy ? 'Saving…' : 'Save scheduled lesson'}</button></div>
+      <div className="live-form-footer"><span><LockKeyhole size={13}/> {deliveryProvider === 'zoom' ? 'Zoom is created securely using the school Zoom account.' : 'Private course access is enforced by database policies.'}</span><button className="live-primary" disabled={busy || !courseId}>{busy ? 'Saving…' : 'Save scheduled lesson'}</button></div>
     </form>}
 
     {activeSession && <section className="live-room-panel">
@@ -415,8 +495,8 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
           <b>{member.display_name || 'Participant'}{member.profile_id === profile.id ? ' (You)' : ''}</b>
           <small>{member.role || 'Participant'}</small>
           {member.hand_raised && <em className="live-hand-indicator"><Hand size={11}/> Hand raised</em>}
-          {staff && member.role === 'student' && member.profile_id && <button className="live-chat-moderate" onClick={() => void toggleChatMute(member)} disabled={busy}>{isMuted ? <Volume2 size={12}/> : <VolumeX size={12}/>} {isMuted ? 'Unmute chat' : 'Mute 10m'}</button>}
-          {staff && member.role === 'student' && member.profile_id && <button className="live-chat-moderate live-remove-participant" onClick={() => void removeParticipant(member)} disabled={busy}><UserX size={12}/> Remove</button>}
+          {canModerateActiveSession && member.role === 'student' && member.profile_id && <button className="live-chat-moderate" onClick={() => void toggleChatMute(member)} disabled={busy}>{isMuted ? <Volume2 size={12}/> : <VolumeX size={12}/>} {isMuted ? 'Unmute chat' : 'Mute 10m'}</button>}
+          {canModerateActiveSession && member.role === 'student' && member.profile_id && <button className="live-chat-moderate live-remove-participant" onClick={() => void removeParticipant(member)} disabled={busy}><UserX size={12}/> Remove</button>}
         </div>;
       })}{!onlineMembers.length && <small>Connecting to the private classroom…</small>}</div>
       <LiveMedia client={client} sessionId={activeSession.id} profile={profile} members={onlineMembers}/>
@@ -444,16 +524,19 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       <div className="live-session-list">{sessions.map(session => <article className="live-session-card" key={session.id}>
         <div className="live-session-icon"><Video size={20}/></div>
         <div className="live-session-main"><div className="live-session-title"><h3>{session.title}</h3><span className={'live-status live-status-' + session.status}>{statusLabel[session.status]}</span></div>
-          <p>{session.description || 'Live English lesson'} </p>
+          <p>{session.description || (session.room_type === 'study' ? 'Student-led study room' : 'Live English lesson')} · {session.room_type === 'study' ? 'Student study room' : session.provider === 'zoom' ? 'Zoom session' : 'Website classroom'}</p>
           <div className="live-session-meta"><span><BookOpenIcon/> {session.courses?.title || 'Course'}</span>{session.lessons?.title && <span>{session.lessons.title}</span>}<span><Clock3 size={13}/> {formatDate(session.scheduled_at)}</span></div>
         </div>
         <div className="live-session-controls">
-          {staff && session.status === 'scheduled' && <button className="live-secondary" onClick={() => void changeStatus(session, 'lobby')} disabled={busy}>Open lobby</button>}
-          {staff && ['scheduled','lobby'].includes(session.status) && <button className="live-primary" onClick={() => void changeStatus(session, 'live')} disabled={busy}>Start now</button>}
-          {!staff && ['lobby','live'].includes(session.status) && <button className="live-primary" onClick={() => void joinRoom(session)} disabled={busy || activeSession?.id === session.id}>Join classroom</button>}
-          {staff && ['lobby','live'].includes(session.status) && <button className="live-primary" onClick={() => void joinRoom(session)} disabled={busy || activeSession?.id === session.id}>Enter room</button>}
-          {staff && ['lobby','live'].includes(session.status) && <button className="live-danger" onClick={() => void changeStatus(session, 'ended')} disabled={busy}>End lesson</button>}
-          {staff && session.status === 'scheduled' && <button className="live-danger" onClick={() => void changeStatus(session, 'cancelled')} disabled={busy}>Cancel</button>}
+          {session.provider === 'zoom' && session.status !== 'ended' && session.status !== 'cancelled' && (staff && session.created_by === profile.id
+            ? <button className="live-primary" onClick={() => void openZoomMeeting(session, true)} disabled={busy}>{session.zoom_meeting_id ? 'Start in Zoom' : 'Set up Zoom'}</button>
+            : !staff && ['lobby','live','scheduled'].includes(session.status) && <button className="live-primary" onClick={() => void openZoomMeeting(session, false)} disabled={!session.zoom_join_url}>Join on Zoom</button>)}
+          {session.provider === 'website' && (staff || (session.room_type === 'study' && session.created_by === profile.id)) && session.status === 'scheduled' && <button className="live-secondary" onClick={() => void changeStatus(session, 'lobby')} disabled={busy}>Open lobby</button>}
+          {session.provider === 'website' && (staff || (session.room_type === 'study' && session.created_by === profile.id)) && ['scheduled','lobby'].includes(session.status) && <button className="live-primary" onClick={() => void changeStatus(session, 'live')} disabled={busy}>Start now</button>}
+          {session.provider === 'website' && !staff && !(session.room_type === 'study' && session.created_by === profile.id) && ['lobby','live'].includes(session.status) && <button className="live-primary" onClick={() => void joinRoom(session)} disabled={busy || activeSession?.id === session.id}>Join room</button>}
+          {session.provider === 'website' && (staff || (session.room_type === 'study' && session.created_by === profile.id)) && ['lobby','live'].includes(session.status) && <button className="live-primary" onClick={() => void joinRoom(session)} disabled={busy || activeSession?.id === session.id}>Enter room</button>}
+          {session.provider === 'website' && (staff || (session.room_type === 'study' && session.created_by === profile.id)) && ['lobby','live'].includes(session.status) && <button className="live-danger" onClick={() => void changeStatus(session, 'ended')} disabled={busy}>End room</button>}
+          {session.provider === 'website' && staff && session.status === 'scheduled' && <button className="live-danger" onClick={() => void changeStatus(session, 'cancelled')} disabled={busy}>Cancel</button>}
         </div>
       </article>)}</div>
     }
