@@ -71,7 +71,7 @@ Every role must be enforced server-side with Supabase RLS and Edge Function chec
 - Student-facing English tutor with grounded answer review.
 - Explain correct/incorrect status, exact error, concept, step-by-step reasoning, better method and distractors.
 - Ask for missing passage, choices or answer key; do not invent certainty.
-- Gemini primary with configured OpenRouter/Groq fallback; no Claude/OpenAI.
+- NVIDIA NIM primary, Gemini secondary and OpenRouter third fallback; no Claude or ChatGPT/OpenAI API. Groq and Qwen are excluded.
 - Initial wallet: 300 points per student; tutor/answer feedback 5 points; study plan 15 points.
 - Server-side atomic point consumption, transaction ledger, insufficient-balance handling and refunds on provider failure.
 - Admin point grants/deductions with reason and audit history.
@@ -79,6 +79,9 @@ Every role must be enforced server-side with Supabase RLS and Edge Function chec
 
 ### F. University admission calculator
 - Inputs: GPA, SAT I, Egyptian admission SAT II score/category, university, faculty/program and admission year.
+- Source implementation now includes an administrator-managed, versioned rule registry. Only active administrators can create drafts, verify/publish rules or supersede old versions; students can read verified versions only.
+- A published weighted-sum rule must include an HTTPS source, source title, verification timestamp, three explicit score scales and weights totaling 100. The calculator shows the source, date, component breakdown and configured minimum score.
+- No Egyptian university/faculty formulas have been preloaded. Administrators must verify each exact year/program against official published material before publishing. The source migration remains unapplied.
 - Use versioned university/faculty/year rules, including score scales, conversions, weights, minimums, required subjects, rounding and eligibility.
 - Display source, verification date, formula and assumptions.
 - Do not present a result as official until the exact rule is verified from a current authoritative source.
@@ -325,3 +328,13 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Corrected source migration `20261122210000_restrict_ai_provider_catalog.sql` to disable providers outside NVIDIA/Gemini/OpenRouter and set the requested 1/2/3 priorities. It does not enable providers or replace keys.
 - Updated source safety checks to enforce the requested provider set and order.
 - All changes remain source-only on `feature/recorded-sessions-library`. The migration is not applied, Edge Functions are not deployed, and no production database or secrets were changed. Provider billing/quotas depend on the actual provider account and must be confirmed before treating any endpoint as free.
+
+
+## Admission rule registry implementation — source only (2026-11-22)
+
+- Added `admission_rule_versions` migration with versioned university/faculty/year records, source attribution, verification metadata, score scales, explicit weighted-sum configuration, minimum score and rounding rule.
+- RLS restricts rule management to active administrators; students can select only records with `status='verified'`. Insert/update policies require the publishing administrator to be the recorded verifier.
+- The Admission Calculator now loads the exact matching verified version, validates input scales, shows component contributions and source information, and refuses to calculate when no matching verified rule exists.
+- Added an administrator-only Admission Rules area to create draft rules, verify/publish after checking the official source, and supersede old versions.
+- No university formulas were invented or preloaded. The supported formula type is a configurable weighted sum; more complex official rule structures must be implemented explicitly rather than approximated.
+- New migration: `supabase/migrations/20261123130000_admission_rule_registry.sql`. It is source-only and has not been applied to any hosted database. CI/typecheck verification is pending for the latest commits; no deployment or production changes.
