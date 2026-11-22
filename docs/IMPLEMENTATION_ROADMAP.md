@@ -196,3 +196,6 @@ For the maintained, full product scope, implementation stages, acceptance criter
 - See `docs/ZOOM_INTEGRATION_SETUP.md` for the source-only configuration and security guide.
 
 - Current Live Classroom source includes student-created study rooms and teacher-selected website/Zoom delivery. Zoom API and webhook Edge Functions and the database migration are source-only; no secrets configured or production deployment performed. Build/runtime tests and Zoom webhook activation/verification remain outstanding.
+
+
+- **2026-11-22 — Live recording source implementation:** Added teacher-only explicit browser capture for active website lessons, REC/timer indicator, stop/preview/discard, TUS upload to private storage, and automatic draft metadata linked to course + live session. Zoom sessions and student study rooms are excluded. New source-only migration adds the optional live-session reference. No deployment, migration application, or production configuration change.
