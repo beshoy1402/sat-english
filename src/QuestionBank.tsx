@@ -17,7 +17,8 @@ function parseCsv(source:string):Record<string,string>[]{
 function toImportRow(raw:Record<string,any>,sourceRow:number,existing:Set<string>):ImportRow{
  const choicesRaw=raw.choices??raw.options;
  const structuredChoices=['a','b','c','d'].map(letter=>raw['choice_'+letter]??raw['option_'+letter]??raw['choice'+letter.toUpperCase()]??raw['option'+letter.toUpperCase()]??raw['choice_'+(letter.charCodeAt(0)-96)]??raw['option_'+(letter.charCodeAt(0)-96)]).filter(v=>v!==undefined&&v!==null&&String(v).trim()!=='');
- const choices=Array.isArray(choicesRaw)?choicesRaw.map(v=>typeof v==='string'?v:String(v?.text??v?.label??'')).filter(Boolean):choicesRaw!==undefined?String(choicesRaw).split(/\r?\n/).map(v=>v.trim()).filter(Boolean):structuredChoices.map(v=>String(v).trim());
+ const listedChoices=Array.isArray(choicesRaw)?choicesRaw.map(v=>typeof v==='string'?v:String(v?.text??v?.label??'')).filter(Boolean):choicesRaw!==undefined?String(choicesRaw).split(/\r?\n/).map(v=>v.trim()).filter(Boolean):[];
+ const choices=listedChoices.length?listedChoices:structuredChoices.map(v=>String(v).trim());
  const prompt=String(raw.prompt??raw.question??raw.question_text??'').trim();
  const type=String(raw.question_type??raw.type??'multiple_choice').toLowerCase().replace(/[ -]/g,'_');
  const answer=String(raw.answer_key??raw.answer??raw.correct_answer??'').trim();
