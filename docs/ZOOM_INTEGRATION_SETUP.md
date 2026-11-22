@@ -21,6 +21,8 @@ This first integration uses one administrator-configured school Zoom host user. 
 3. Grant the minimum granular meeting scopes required by the implementation:
    - `meeting:write:meeting:admin` — create scheduled meetings.
    - `meeting:read:meeting:admin` — retrieve the meeting and refresh the expiring host start URL.
+   - `meeting:update:status:admin` — end a meeting when the teacher ends the lesson from the platform.
+   - `meeting:delete:meeting:admin` — delete a scheduled Zoom meeting when the teacher cancels it.
 4. Copy the account ID, client ID and client secret.
 5. Identify the Zoom user ID or email address that will host these lessons.
 
@@ -45,6 +47,7 @@ The function also uses Supabase's built-in `SUPABASE_URL` and `SUPABASE_ANON_KEY
 - The teacher's `start_url` is stored in a separate RLS-enabled table with all direct table grants revoked. An authenticated, owner-checked RPC stores meeting metadata and the host URL.
 - Student-visible session data contains only the participant `join_url` and meeting passcode.
 - The Zoom host URL is refreshed from Zoom before the teacher opens the meeting because Zoom host start URLs expire.
+- Teacher end/cancel actions call Zoom's meeting status/delete API before the platform session status changes.
 - Student study rooms cannot select the Zoom provider.
 
 ## Not included yet
