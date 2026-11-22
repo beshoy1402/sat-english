@@ -6,3 +6,5 @@
 
 .ai-points-pill{flex:0 0 auto;padding:7px 10px;border:1px solid #355477;border-radius:999px;background:#102b46;color:#b9d7ff;font-size:9px;font-weight:800;white-space:nowrap}
 @media(max-width:600px){.ai-tutor>header{flex-wrap:wrap}.ai-points-pill{margin-left:auto}.ai-tutor>header>div:nth-child(2){min-width:170px}}
+
+.ai-answer-review{border:1px solid #2b415c;border-radius:9px;background:#10243a;padding:10px 12px}.ai-answer-review summary{cursor:pointer;color:#c7dcf6;font-size:10px;font-weight:800}.ai-answer-review-fields{display:grid;gap:9px;padding-top:12px}.ai-answer-review-fields label{display:grid;gap:5px;color:#9fb8d5;font-size:9px;font-weight:700}.ai-answer-review-fields textarea,.ai-answer-review-fields input{width:100%;box-sizing:border-box;resize:vertical;border:1px solid #2b415c;border-radius:7px;background:#081629;color:#eaf2ff;padding:8px;font:inherit;font-size:10px}.ai-answer-review-fields button{justify-self:start;border:1px solid #456487;border-radius:7px;background:#1b3655;color:#e4efff;padding:8px 11px;font-size:9px;font-weight:800}.ai-answer-review-fields button:disabled{opacity:.45}
