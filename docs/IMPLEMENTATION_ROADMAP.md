@@ -297,3 +297,13 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - Added 10 executable Node regression tests and wired them into GitHub Actions before TypeScript/build verification.
 - GitHub Actions run [45003319433](https://github.com/beshoy1402/sat-english/actions/runs/45003319433) passed: policy checks, all 10 import tests, TypeScript type-check and Vite production build.
 - Remaining: browser file-picker/preview/save testing, representative real-world CSV/XLSX/DOCX/PDF fixtures, OCR for scanned PDFs, import batch rollback/retry and end-to-end exam assembly. No deployment, migration or production change was performed.
+
+
+## Live recording recovery and lifecycle hardening (2026-11-22)
+
+- Made live-recording metadata insertion idempotent: after a completed resumable upload, the client checks for an existing row by storage path before inserting, then verifies the existing row belongs to the same creator, course and live lesson.
+- Clearing a failed/discarded draft now clears its local TUS resume key and releases its upload path so a subsequent recording receives a fresh path instead of colliding with a previous partial upload.
+- Capture teardown now handles component unmount, browser permission prompts resolving after navigation, and React Strict Mode effect remounts. Unmount discards the in-memory capture rather than creating an orphaned preview URL or updating unmounted UI.
+- Navigation warning now remains active during both recording and upload. The 500 MB capture-threshold message now explains that a chunk may push the final file above the 500 MB storage limit and require compression.
+- GitHub Actions run [45003715994](https://github.com/beshoy1402/sat-english/actions/runs/45003715994) passed: policy checks, 10 question-import regression tests, TypeScript type-check and Vite build.
+- This is source/CI verification only. Real-browser capture, permission-denial, unmount, large-file and interrupted-upload tests remain outstanding. No migration, storage bucket setting, deployment or production change was performed.
