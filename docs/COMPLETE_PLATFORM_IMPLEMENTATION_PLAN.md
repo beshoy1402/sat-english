@@ -180,6 +180,18 @@ Support both accepted recording methods:
 - Backups, disaster recovery, monitoring and audit review.
 - Production launch checklist and explicit user approval before deployment.
 
+## 4.7 First implementation slice — secure scheduling and lobby (source only)
+
+The first Live Classroom code slice is now committed to the working feature branch:
+- `supabase/migrations/20261123100000_live_classroom_foundation.sql`: source-only schema for live sessions and reconnect-safe participant attendance.
+- Session lifecycle values: scheduled, lobby, live, ended and cancelled.
+- RLS limits session visibility to active course staff and students with current active course access. Session management is limited to an administrator or staff member who created the session / owns the course.
+- Private Realtime topics use the exact `live-session:<UUID>` format. Receive/send policies authorize only active participants for sessions whose lobby is open or live.
+- `src/LiveClassroom.tsx` and `src/live-classroom.css`: staff scheduling, optional lesson association, open-lobby/start/end/cancel controls, student join/leave, and private Realtime presence roster.
+- Staff and student navigation now includes **Live classroom**.
+
+**Not included yet:** actual WebRTC audio/video transport, TURN/SFU, screen sharing, classroom chat, moderation, and live browser recording. The UI explicitly states that the current room is a lobby/presence layer and does not transmit media. The migration has not been applied to any Supabase project; this source is not production-ready until the migration and permission tests pass.
+
 ## 6. Current implementation status
 
 ### Implemented in source on the feature branch
@@ -195,6 +207,7 @@ Support both accepted recording methods:
 - Latest question-bank parser hardening rejects unterminated quoted fields, empty headings and duplicate headings; preview displays original source row numbers.
 
 ### Not yet verified or activated
+- Live Classroom scheduling/lobby code and migration are committed to the feature branch but have not been built, runtime-tested or applied to Supabase. Audio/video, screen sharing, chat and live recording are still outstanding.
 - The latest branch changes have not been verified by a successful build/runtime test.
 - Vercel deployment attempts were blocked by the free daily deployment API limit; do not upgrade the plan to bypass it.
 - AI points migration and AI learning Edge Function changes are source-only and not deployed.
@@ -205,7 +218,7 @@ Support both accepted recording methods:
 
 ## 7. Delivery order from here
 
-1. **Integrated Live Classroom:** finalize session schema and private Realtime authorization; implement lobby, media, moderation, chat, attendance and reconnect behavior.
+1. **Integrated Live Classroom:** scheduling, secure lobby, attendance and private Realtime presence source are in place; next implement and test WebRTC media, moderation, chat and reconnect behavior.
 2. **Live Recording:** explicit browser capture, draft upload, lesson linkage and permission/size/error handling.
 3. **Question Import Expansion:** XLSX, DOCX and PDF extraction, image handling, editable preview and safe batch retry/rollback.
 4. **Practice and Exam Completion:** validate end-to-end student workflows, timer/autosave and score/report accuracy.
@@ -217,3 +230,5 @@ Support both accepted recording methods:
 ## 8. Change log
 - **2026-11-22:** Continued Question Bank CSV parser hardening on `feature/recorded-sessions-library`; no deployment, production migration or Edge Function deployment.
 - **Next milestone:** Integrated Live Classroom design and implementation, followed by explicit recording workflow.
+
+- **2026-11-23:** Added source-only live classroom scheduling, session lifecycle, attendance and private Realtime presence. Added staff/student navigation. No migration applied and no deployment.
