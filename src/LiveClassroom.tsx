@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarClock, CheckCircle2, Clock3, DoorOpen, LoaderCircle, LockKeyhole, Plus, RefreshCw, Users, Video, X } from 'lucide-react';
 import type { Profile } from './lib/supabase';
+import LiveMedia from './LiveMedia';
 import './live-classroom.css';
 
 type Course = { id: string; title: string; created_by?: string };
@@ -215,6 +216,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       <div className="live-room-top"><div><span className="live-room-kicker">SECURE CLASSROOM LOBBY</span><h3>{activeSession.title}</h3><p>{activeSession.courses?.title || 'Course'} · {statusLabel[activeSession.status]}</p></div><button className="live-secondary" onClick={() => void leaveRoom()} disabled={busy}><DoorOpen size={14}/> Leave room</button></div>
       <div className="live-room-notice"><Users size={17}/><div><b>{onlineMembers.length} online</b><span>Presence is shared only inside this private session channel.</span></div></div>
       <div className="live-presence-list">{onlineMembers.map((member, index) => <div key={member.profile_id || index}><span>{(member.display_name || 'Participant').slice(0,1).toUpperCase()}</span><b>{member.display_name || 'Participant'}{member.profile_id === profile.id ? ' (You)' : ''}</b><small>{member.role || 'Participant'}</small></div>)}{!onlineMembers.length && <small>Connecting to the private classroom…</small>}</div>
+      <LiveMedia client={client} sessionId={activeSession.id} profile={profile} members={onlineMembers}/>
       <div className="live-coming-next"><Video size={16}/><span><b>Classroom connection established</b>Audio/video, screen sharing and in-room chat are the next implementation layer. This lobby does not claim to transmit media yet.</span></div>
     </section>}
 
