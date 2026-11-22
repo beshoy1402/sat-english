@@ -159,3 +159,6 @@ Configurable XP, achievements, streaks, weekly challenges, class leaderboards an
 - Implemented an initial browser-side bulk import workflow for CSV and structured JSON question files in the Question Bank. It previews rows, validates required prompts, supported question types, difficulty, points and exact multiple-choice answer matching, and flags prompt duplicates against the existing bank and within the file. Staff explicitly confirm before valid rows are saved through the existing question-save RPC; writes are grouped in small concurrent batches and failed rows are reported. This first slice supports CSV/JSON only; PDF, DOCX and XLSX extraction, image extraction, downloadable error files, and batch rollback remain future work. No database migration, Edge Function deployment or production deployment was made.
 
 - Hardened CSV import parsing to reject unterminated quoted fields, empty headings and duplicate headings. The preview now displays the original source row number, matching the downloadable report. Source-only change; no deployment or database changes.
+
+
+For the maintained, full product scope, implementation stages, acceptance criteria and current status, see [Complete Platform Implementation Plan](./COMPLETE_PLATFORM_IMPLEMENTATION_PLAN.md). This is the master plan; this roadmap remains the concise delivery summary.
