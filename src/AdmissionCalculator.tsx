@@ -47,7 +47,9 @@ export default function AdmissionCalculator({client,profile}:{client:any;profile
   setBusy(true);setNotice('');
   const weights={gpa:Number(draft.gpa_weight),sat1:Number(draft.sat1_weight),sat2:Number(draft.sat2_weight)};
   const max={gpa_max:Number(draft.gpa_max),sat1_max:Number(draft.sat1_max),sat2_max:Number(draft.sat2_max)};
-  if(!draft.university.trim()||!draft.faculty.trim()||!draft.source_url.startsWith('https://')||!draft.source_title.trim()||Object.values(max).some(v=>!Number.isFinite(v)||v<=0)||Object.values(weights).some(v=>!Number.isFinite(v)||v<0)||Math.abs(weights.gpa+weights.sat1+weights.sat2-100)>0.001){setNotice('Complete all rule details. Weights must total exactly 100 and source URL must use HTTPS.');setBusy(false);return;}
+  const year=Number(draft.admission_year);
+  const minimum=draft.minimum_score.trim()===''?null:Number(draft.minimum_score);
+  if(!draft.university.trim()||!draft.faculty.trim()||!Number.isInteger(year)||year<2020||year>2100||!draft.source_url.startsWith('https://')||!draft.source_title.trim()||Object.values(max).some(v=>!Number.isFinite(v)||v<=0)||Object.values(weights).some(v=>!Number.isFinite(v)||v<0)||Math.abs(weights.gpa+weights.sat1+weights.sat2-100)>0.001||(minimum!==null&&(!Number.isFinite(minimum)||minimum<0||minimum>100))){setNotice('Check the university, faculty, year, HTTPS source, positive score scales, optional 0–100 minimum and weights totalling exactly 100.');setBusy(false);return;}
   const {error}=await client.from('admission_rule_versions').insert({university:draft.university.trim(),faculty:draft.faculty.trim(),admission_year:Number(draft.admission_year),status:'draft',source_url:draft.source_url.trim(),source_title:draft.source_title.trim(),formula:{kind:'weighted_sum',weights},score_scales:max,minimum_requirements:draft.minimum_score.trim()?{minimum_score:Number(draft.minimum_score)}:{},rounding_rule:'two_decimals',assumptions:draft.assumptions,notes:draft.notes,created_by:profile.id});
   if(error)setNotice(error.message);else{setNotice('Draft rule saved. It is not visible to students until an administrator verifies and publishes it.');setDraft({...blankRule});setShowEditor(false);await load();}
   setBusy(false);
@@ -87,7 +89,7 @@ export default function AdmissionCalculator({client,profile}:{client:any;profile
     <label>Assumptions<input value={draft.assumptions} onChange={e=>setDraft({...draft,assumptions:e.target.value})}/></label><label>Notes<textarea value={draft.notes} onChange={e=>setDraft({...draft,notes:e.target.value})}/></label>
     <button className="admission-check" disabled={busy} onClick={()=>void saveDraft()}>Save draft rule</button>
    </div>}
-   {rules.map(rule=><div key={rule.id} className="admission-not-ready"><div><b>{rule.university} · {rule.faculty} · {rule.admission_year}</b><p>{rule.status.toUpperCase()} · {rule.source_title}</p><a href={rule.source_url} target="_blank" rel="noreferrer">{rule.source_url}</a>{rule.status==='draft'&&<button onClick={()=>void publish(rule)} disabled={busy}>Verify and publish</button>}{rule.status==='verified'&&<button onClick={()=>void supersede(rule)} disabled={busy}>Supersede version</button>}</div></div>)}
+   {rules.map(rule=><div key={rule.id} className="admission-not-ready"><div><b>{rule.university} · {rule.faculty} · {rule.admission_year} · v{rule.version??1}</b><p>{rule.status.toUpperCase()} · {rule.source_title}</p><a href={rule.source_url} target="_blank" rel="noreferrer">{rule.source_url}</a>{rule.status==='draft'&&<button onClick={()=>void publish(rule)} disabled={busy}>Verify and publish</button>}{rule.status==='verified'&&<button onClick={()=>void supersede(rule)} disabled={busy}>Supersede version</button>}</div></div>)}
   </div>}
   {notice&&<p className="admission-validation">{notice}</p>}
  </section>;
