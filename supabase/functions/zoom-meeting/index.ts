@@ -57,16 +57,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Only the staff member who scheduled this Zoom lesson can manage its host link' }, 403);
     }
 
-    if (action === 'host') {
-      const { data: hostLink, error: hostError } = await supabase
-        .from('live_session_zoom_host_links')
-        .select('start_url')
-        .eq('session_id', sessionId)
-        .eq('host_profile_id', user.id)
-        .maybeSingle();
-      if (hostError || !hostLink?.start_url) return json({ error: 'The Zoom host link is unavailable. Recreate the meeting or contact an administrator.' }, 404);
-      return json({ start_url: hostLink.start_url });
-    }
+    if (action === 'host' && !session.zoom_meeting_id) return json({ error: 'Create the Zoom meeting before starting it.' }, 409);
 
     const basic = btoa(clientId + ':' + clientSecret);
     const tokenResponse = await fetch('https://zoom.us/oauth/token?grant_type=account_credentials&account_id=' + encodeURIComponent(accountId), {
