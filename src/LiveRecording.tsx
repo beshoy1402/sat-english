@@ -50,13 +50,16 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
     return () => URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
-  useEffect(() => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
     mountedRef.current = false;
     discardRequestedRef.current = true;
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
     displayRef.current?.getTracks().forEach(track => track.stop());
     micRef.current?.getTracks().forEach(track => track.stop());
     void audioContextRef.current?.close();
+    };
   }, []);
 
   const releaseCapture = () => {
@@ -105,6 +108,10 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
         video: { frameRate: { ideal: 30, max: 30 } },
         audio: true
       });
+      if (!mountedRef.current) {
+        display.getTracks().forEach(track => track.stop());
+        return;
+      }
       microphone = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       if (!mountedRef.current) {
         display.getTracks().forEach(track => track.stop());
