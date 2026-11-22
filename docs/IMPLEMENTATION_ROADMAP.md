@@ -175,3 +175,7 @@ For the maintained, full product scope, implementation stages, acceptance criter
 
 - Live session records now store the staff actor for start/end/cancel actions; optional linked lessons must be published and belong to the selected course.
 - Realtime broadcast send and receive authorization both require the session lobby/live state.
+
+- Added persistent classroom chat with database-enforced membership checks, 1,000-character bound, send rate limits and 10-minute teacher chat mute/unmute controls with audit events.
+- Added student hand raise through private Realtime presence. Persistent hand-raise history and participant removal remain outstanding.
+- Chat notifications broadcast only a persisted message ID; receiving clients re-fetch the message through table RLS before displaying it.
