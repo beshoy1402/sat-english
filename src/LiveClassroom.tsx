@@ -204,6 +204,33 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     };
   }, [activeSession, client, profile.id, profile.display_name, profile.role]);
 
+  // Keep attendance alive while the participant's tab remains connected.
+  // The database expires participants after two minutes without a heartbeat.
+  useEffect(() => {
+    if (!activeSession || !client) return;
+    let disposed = false;
+    let reportedFailure = false;
+    const heartbeat = async () => {
+      const { error: heartbeatError } = await client.rpc('live_session_heartbeat', {
+        p_session_id: activeSession.id
+      });
+      if (disposed) return;
+      if (heartbeatError && !reportedFailure) {
+        reportedFailure = true;
+        setError('Your attendance connection could not refresh. If the room stops responding, leave and rejoin.');
+      } else if (!heartbeatError && reportedFailure) {
+        reportedFailure = false;
+        setNotice('Your classroom attendance connection has recovered.');
+      }
+    };
+    void heartbeat();
+    const interval = window.setInterval(() => { void heartbeat(); }, 30_000);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [activeSession?.id, client]);
+
   useEffect(() => {
     const expiries = Object.values(mutedUntil)
       .filter((value): value is string => Boolean(value))
