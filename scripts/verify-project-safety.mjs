@@ -93,6 +93,18 @@ assert.match(admissionMigration, /status = 'verified'/);
 assert.match(admissionMigration, /p\.role = 'student'/);
 assert.match(admissionMigration, /verified_by = \(select auth\.uid\(\)\)/);
 assert.match(admissionMigration, /admission_verified_requires_source/);
+assert.match(admissionMigration, /version integer not null default 1/);
+assert.match(admissionMigration, /admission_rule_version_unique_idx/);
+assert.match(admissionMigration, /admission_rule_one_current_verified_idx/);
+assert.match(admissionMigration, /create or replace function public\.guard_admission_rule_version/);
+assert.match(admissionMigration, /Admission rules must be created as drafts/);
+assert.match(admissionMigration, /Published admission rules cannot be edited/);
+assert.match(admissionMigration, /Superseded admission rule versions are immutable/);
+assert.match(admissionMigration, /pg_advisory_xact_lock/);
+assert.match(admission, /Number\.isInteger\(year\)/);
+assert.match(admission, /minimum<0\|\|minimum>100/);
+assert.match(admission, /v\{rule\.version\?\?1\}/);
+
 assert.match(admission, /\.eq\('status','verified'\)/);
 assert.match(admission, /status==='verified'/);
 assert.match(admission, /window\.confirm\('Confirm that you personally checked this exact university/);
