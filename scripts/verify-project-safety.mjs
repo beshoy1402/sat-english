@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson, liveClassroom, liveMigration, liveCss, questionBankMigration, styles] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson, liveClassroom, liveMigration, liveCss, questionBankMigration, styles, recordingScopeMigration] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
@@ -21,6 +21,7 @@ const [ai, recordings, supabaseClient, providerSettings, providerManagement, del
   read('../src/live-classroom.css'),
   read('../supabase/migrations/20261120233000_flexible_question_bank.sql'),
   read('../src/styles.css'),
+  read('../supabase/migrations/20261123140000_scope_recorded_session_access.sql'),
 ]);
 
 // AI must use the approved NVIDIA-first provider/model/endpoint allowlist.
@@ -62,6 +63,21 @@ assert.match(app, /Could not restore your session\. Please refresh\./);
 assert.match(deleteAccount, /actor\.role !== "admin" && \["teacher", "assistant"\]\.includes\(target\.role\)/);
 assert.match(app, /canDeleteStaff=\{profile\.role===\'admin\'\}/);
 assert.match(app, /!\[\'teacher\',\'assistant\'\]\.includes\(r\.role\)\|\|canDeleteStaff/);
+
+// Private recording access must be scoped to active staff with a real course/lesson relationship.
+assert.match(recordingScopeMigration, /create or replace function private\\.can_manage_session_recording/);
+assert.match(recordingScopeMigration, /p\\.role = 'admin'/);
+assert.match(recordingScopeMigration, /p\\.role in \\('teacher', 'assistant'\\)/);
+assert.match(recordingScopeMigration, /c\\.created_by = p\\.id/);
+assert.match(recordingScopeMigration, /ls\\.created_by = p\\.id/);
+assert.match(recordingScopeMigration, /drop policy if exists session_recordings_staff_select/);
+assert.match(recordingScopeMigration, /private\\.can_manage_session_recording\\(course_id, created_by, live_session_id\\)/);
+assert.match(recordingScopeMigration, /Only an administrator may reassign a recording or change its storage identity/);
+assert.match(recordingScopeMigration, /p\\.role = 'student'/);
+assert.match(recordingScopeMigration, /sr\\.is_published = true/);
+assert.match(recordingScopeMigration, /ca\\.status = 'active'/);
+assert.match(recordingScopeMigration, /drop policy if exists session_recordings_storage_staff_delete/);
+assert.match(recordingScopeMigration, /private\\.current_user_role\\(\\) = 'teacher'/);
 
 // Resumable uploads must never send credentials to arbitrary browser-stored URLs.
 assert.match(recordings, /parsed\.origin === endpointOrigin/);
