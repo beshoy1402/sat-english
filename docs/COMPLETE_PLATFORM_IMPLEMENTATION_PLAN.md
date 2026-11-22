@@ -276,3 +276,16 @@ The first Live Classroom code slice is now committed to the working feature bran
 - **2026-11-23 (continued):** Added student-created website study rooms scoped to active course access, one active room per student and a six-participant database-enforced cap. Student room owners can start/end and moderate their own rooms. Teachers can select website or Zoom delivery when scheduling. Added source-only Zoom Server-to-Server OAuth meeting creation/host-link Edge Function and a separate RLS-protected host URL table. No Zoom secrets configured, no migration applied, and no Edge Function deployed.
 
 - **2026-11-23 (continued):** Added Zoom meeting end/cancel API calls and updated platform session status. Added a dedicated Zoom setup guide documenting the central school Zoom host account, required scopes, secret configuration and known integration limits. No Zoom secrets configured and no Edge Function deployed.
+
+
+## Live recording implementation — source only (2026-11-22)
+
+- Added teacher-initiated browser recording inside an active website-delivered teacher lesson. Only the lesson creator or an administrator can access the recording controls; student study rooms and Zoom-delivered lessons are excluded.
+- The browser asks for display/tab capture permission and microphone permission only after the teacher presses **Start recording**. The capture picker can supply tab/system audio; microphone audio is mixed into the recording when granted.
+- A persistent red REC indicator and elapsed timer remain visible while recording. The teacher can stop, preview, rename, describe, save, or discard the result.
+- The result uploads through the existing authenticated resumable TUS workflow to the private `sat-session-recordings` bucket, with a 500 MB limit, then creates an unpublished `session_recordings` row linked to the course and source live session.
+- The recording is never auto-published. The teacher must explicitly publish it from Recorded Sessions Library.
+- Browser capture records only the selected screen/tab and audio tracks supplied by the browser capture picker, plus the teacher microphone. It does not guarantee a separate clean recording of each remote participant. Teachers should choose the classroom tab and enable tab audio in the browser picker where supported.
+- Zoom cloud recording import, embedded Zoom recording and server-side recording are not part of this implementation.
+- New source migration: `supabase/migrations/20261123120000_link_live_recordings.sql`. It adds the nullable live-session foreign key and index only; it does not create or alter the existing private bucket or recording policies.
+- No migration applied, no storage configuration changed and no deployment performed. Browser compatibility, recording interruption behavior, file-size handling, upload recovery and private-storage authorization still require runtime tests.
