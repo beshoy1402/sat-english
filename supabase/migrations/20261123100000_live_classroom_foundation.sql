@@ -176,7 +176,10 @@ with check (private.can_manage_live_session(id));
 drop policy if exists live_participants_read_authorized on public.live_session_participants;
 create policy live_participants_read_authorized
 on public.live_session_participants for select to authenticated
-using (private.can_access_live_session(session_id));
+using (
+  profile_id = (select auth.uid())
+  or private.can_manage_live_session(session_id)
+);
 
 drop policy if exists live_participants_join_self on public.live_session_participants;
 create policy live_participants_join_self
