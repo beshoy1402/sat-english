@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarClock, CheckCircle2, Clock3, DoorOpen, Hand, LoaderCircle, LockKeyhole, MessageCircle, Plus, RefreshCw, Send, UserX, Users, Video, Volume2, VolumeX, X } from 'lucide-react';
 import type { Profile } from './lib/supabase';
 import LiveMedia from './LiveMedia';
+import LiveRecording from './LiveRecording';
 import './live-classroom.css';
 
 type Course = { id: string; title: string; created_by?: string };
@@ -554,6 +555,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         </div>;
       })}{!onlineMembers.length && <small>Connecting to the private classroom…</small>}</div>
       <LiveMedia client={client} sessionId={activeSession.id} profile={profile} members={onlineMembers}/>
+      {activeSession.room_type === 'lesson' && activeSession.provider === 'website' && staff && (profile.role === 'admin' || activeSession.created_by === profile.id) && <LiveRecording client={client} profile={profile} session={activeSession} canRecord={activeSession.status === 'live'}/>}
       <section className="live-chat-panel">
         <div className="live-chat-heading"><div><MessageCircle size={15}/><b>Classroom chat</b></div><span>Saved messages · 1,000 characters max</span></div>
         <div className="live-chat-messages" aria-live="polite">
