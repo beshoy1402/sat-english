@@ -95,6 +95,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       config: { private: true, presence: { key: profile.id } }
     });
     roomChannelRef.current = channel;
+    let disposed = false;
 
     void (async () => {
       const [messageResult, participantResult] = await Promise.all([
@@ -108,8 +109,13 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
           .eq('session_id', activeSession.id)
           .is('left_at', null)
       ]);
+      if (disposed) return;
       if (messageResult.error) setError('Classroom chat is unavailable until its database migration is applied.');
-      else setChatMessages(((messageResult.data ?? []) as LiveMessage[]).reverse());
+      else setChatMessages(current => {
+        const combined = [...((messageResult.data ?? []) as LiveMessage[]).reverse(), ...current];
+        const unique = Array.from(new Map(combined.map(message => [message.id, message])).values());
+        return unique.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).slice(-100);
+      });
       if (!participantResult.error) {
         const next: Record<string, string | null> = {};
         (participantResult.data ?? []).forEach((row: { profile_id: string; chat_muted_until: string | null }) => { next[row.profile_id] = row.chat_muted_until; });
@@ -122,13 +128,13 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       setOnlineMembers(Object.values(state).flat());
     });
     channel.on('broadcast', { event: 'chat-message' }, async ({ payload }: { payload: { message_id?: string } }) => {
-      if (!payload || typeof payload.message_id !== 'string') return;
+      if (disposed || !payload || typeof payload.message_id !== 'string') return;
       const { data, error: messageError } = await client.from('live_session_messages')
         .select('id,session_id,sender_profile_id,sender_display_name,body,created_at')
         .eq('id', payload.message_id)
         .eq('session_id', activeSession.id)
         .maybeSingle();
-      if (!messageError && data) {
+      if (!disposed && !messageError && data) {
         setChatMessages(current => current.some(message => message.id === data.id) ? current : [...current, data as LiveMessage].slice(-100));
       }
     });
@@ -148,6 +154,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       }
     });
     return () => {
+      disposed = true;
       roomChannelRef.current = null;
       void client.removeChannel(channel);
     };
@@ -157,7 +164,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     event.preventDefault();
     const body = chatDraft.trim();
     if (!client || !activeSession || !body || chatBusy) return;
-    if (Date.now() - lastChatSentAt.current < 1500) {
+    if (Date.now() - lastChatSentAt.current < 2200) {
       setError('Please wait a moment before sending another message.');
       return;
     }
