@@ -8,15 +8,6 @@ const providers = {
 } as const;
 
 type Provider = keyof typeof providers;
-const safeCustomUrl = (raw: string) => {
-  try {
-    const value = new URL(raw);
-    const host = value.hostname.toLowerCase();
-    if (value.protocol !== "https:" || value.username || value.password || value.search || value.hash) return false;
-    if (host === "localhost" || host.endsWith(".local") || host === "::1" || /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|169\.254\.)/.test(host)) return false;
-    return true;
-  } catch { return false; }
-};
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -98,7 +89,6 @@ Deno.serve(async (req: Request) => {
     const headers: Record<string,string> = { Accept: "application/json" };
     if (config.auth === "bearer") headers.Authorization = "Bearer " + secret;
     if (config.auth === "query") headers["x-goog-api-key"] = secret;
-    if (config.auth === "anthropic") { headers["x-api-key"] = secret; headers["anthropic-version"] = "2023-06-01"; }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     let status = "Connection failed";
