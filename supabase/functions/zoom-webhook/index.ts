@@ -144,8 +144,8 @@ Deno.serve(async (req: Request) => {
     occurred_at: occurredAt
   });
 
-  if (insertError?.code === '23505') return json({ received: true, duplicate: true });
-  if (insertError) return json({ error: 'Could not store the verified Zoom event' }, 500);
+  const duplicate = insertError?.code === '23505';
+  if (insertError && !duplicate) return json({ error: 'Could not store the verified Zoom event' }, 500);
 
   if (event.event === 'meeting.started' && ['scheduled', 'lobby'].includes(session.status)) {
     const { error } = await supabase.from('live_sessions')
@@ -168,5 +168,5 @@ Deno.serve(async (req: Request) => {
     if (error) return json({ error: 'Zoom event stored, but lesson status could not be updated' }, 500);
   }
 
-  return json({ received: true });
+  return json({ received: true, duplicate });
 });
