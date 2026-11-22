@@ -62,6 +62,7 @@ async function readXlsxRows(file:File):Promise<Record<string,any>[]> {
  if(!rows.length)throw new Error('The first worksheet is empty.');
  const headers=rows[0].map((v:any)=>String(v??'').trim().toLowerCase().replace(/[\s-]+/g,'_'));
  if(headers.some((h:string)=>!h)||new Set(headers).size!==headers.length)throw new Error('The first worksheet must have unique, non-empty column headings.');
+ if(!headers.some((h:string)=>['prompt','question','question_text'].includes(h)))throw new Error('The first worksheet must include a question column named prompt, question or question_text.');
  return rows.slice(1).map((cells:any[],index:number)=>({...Object.fromEntries(headers.map((h:string,i:number)=>[h,cells[i]??''])),__sourceRow:index+2}));
 }
 async function readDocxText(file:File):Promise<string> {
@@ -86,7 +87,7 @@ async function readPdfText(file:File):Promise<string> {
    if(!group){group={y,text:''};lineGroups.push(group);}
    group.text+=item.str;
   }
-  pages.push(lineGroups.sort((a,b)=>b.y-a.y).map(entry=>entry.text.trim()).filter(Boolean).join('\\n'));
+  pages.push(lineGroups.sort((a,b)=>b.y-a.y).map(entry=>entry.text.trim()).filter(Boolean).join('\n'));
  }
  const text=pages.join('\n');
  if(!text.trim())throw new Error('No selectable text was found. This PDF may be scanned or image-only; OCR and embedded-image extraction are not enabled yet.');
