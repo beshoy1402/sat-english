@@ -78,7 +78,6 @@ This endpoint is source-only. Do not add the Zoom event subscription, configure 
 - Per-teacher Zoom OAuth account connections.
 - Runtime verification of Zoom webhook signature handling, duplicate delivery, participant matching and event ordering.
 - Embedded Zoom Meeting SDK UI. The current implementation launches the Zoom desktop app or browser.
-- Zoom cloud recording synchronization into the Recorded Sessions Library.
 - Runtime tests against a real Zoom developer account.
 - Zoom cloud recording synchronization into the Recorded Sessions Library.
 
