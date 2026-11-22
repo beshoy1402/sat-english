@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, Eye, EyeOff, KeyRound, RefreshCw, Save, ShieldCheck, Sparkles } from 'lucide-react';
 
-type ProviderId = 'gemini' | 'openrouter' | 'groq';
+type ProviderId = 'nvidia' | 'gemini' | 'openrouter';
 type ProviderConfig = { provider: ProviderId; base_url: string; model: string; is_enabled: boolean; priority: number; key_configured: boolean; last_tested_at: string | null; last_test_status: string | null };
 const catalog: { id: ProviderId; name: string; detail: string; placeholder: string }[] = [
-  { id: 'gemini', name: 'Google Gemini', detail: 'Primary AI · Google AI Studio Free Tier only', placeholder: 'gemini-3.8-flash' },
+  { id: 'nvidia', name: 'NVIDIA NIM', detail: 'Primary AI · Nemotron 3.5 Super VL 120B', placeholder: 'nvidia/nemotron-3.5-super-vl-120b-a12b' },
+  { id: 'gemini', name: 'Google Gemini', detail: 'Fallback AI · Google AI Studio Free Tier', placeholder: 'gemini-3.8-flash' },
   { id: 'openrouter', name: 'OpenRouter', detail: 'Fallback AI · Dynamic free-model router', placeholder: 'openrouter/free' },
-  { id: 'groq', name: 'GroqCloud', detail: 'Fallback AI · GPT-OSS 120B free tier', placeholder: 'openai/gpt-oss-120b' },
 ];
 
 export default function AIProviderSettings({ client }: { client: any }) {
@@ -37,11 +37,11 @@ export default function AIProviderSettings({ client }: { client: any }) {
       const next: Record<string, ProviderConfig> = {};
       for (const row of data.providers ?? []) next[row.provider] = row;
       setConfigs(next);
-      const defaults: Record<string, string> = { gemini: 'gemini-3.8-flash', openrouter: 'openrouter/free', groq: 'openai/gpt-oss-120b' };
+      const defaults: Record<string, string> = { nvidia: 'nvidia/nemotron-3.5-super-vl-120b-a12b', gemini: 'gemini-3.8-flash', openrouter: 'openrouter/free' };
       setModels(Object.fromEntries(catalog.map(provider => [provider.id, provider.id === 'openrouter' ? defaults[provider.id] : next[provider.id]?.model || defaults[provider.id]])));
       setBaseUrls(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.base_url ?? ''])));
       setEnabled(Object.fromEntries(Object.entries(next).map(([id, row]) => [id, row.is_enabled])));
-      const defaultPriorities: Record<string, number> = { gemini: 1, openrouter: 2, groq: 3 };
+      const defaultPriorities: Record<string, number> = { nvidia: 1, gemini: 2, openrouter: 3 };
       setPriority(Object.fromEntries(catalog.map(provider => [provider.id, next[provider.id]?.priority ?? defaultPriorities[provider.id]])));
       setMessage(null);
     } catch (error) {
@@ -75,7 +75,7 @@ export default function AIProviderSettings({ client }: { client: any }) {
   return <section className="panel full-panel ai-provider-panel">
     <div className="panel-heading"><div><small>DEVELOPER · AI CONFIGURATION</small><h3>AI Provider Management</h3><p>Manage your AI routing stack, securely store provider keys, and monitor reliability and usage.</p></div><Sparkles/></div>
     <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Credentials stay server-side</b><span>API keys are saved in Supabase Vault and are never returned to the browser after saving.</span></div></div>
-    <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Zero-cost routing is enforced</b><span>Only Gemini Free Tier, OpenRouter's dynamic free router and Groq GPT-OSS 120B are allowed. Free tiers have provider quotas and rate limits; access is not unlimited. Other providers and paid model IDs are blocked.</span></div></div>
+    <div className="ai-security-note"><ShieldCheck size={18}/><div><b>Zero-cost routing is enforced</b><span>Routing order: NVIDIA NIM first, Gemini second, OpenRouter third. Only the configured approved model IDs are accepted. Provider quotas, rate limits and pricing may apply; verify the account's endpoint terms before enabling a provider.</span></div></div>
     {message && <div className={message.error ? 'error-banner' : 'notice-banner'}>{message.text}</div>}
     <div className="ai-provider-list">{catalog.map(provider => {
       const row = configs[provider.id];
