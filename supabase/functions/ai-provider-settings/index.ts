@@ -64,8 +64,7 @@ Deno.serve(async (req: Request) => {
   const provider = body.provider as Provider;
   if (!provider || !(provider in providers)) return respond({ error: "Choose a supported AI provider." }, 400);
   const config = providers[provider];
-  const baseUrl = provider === "custom" ? (body.baseUrl ?? "").trim().replace(/\/$/, "") : config.baseUrl;
-  if (provider === "custom" && !safeCustomUrl(baseUrl)) return respond({ error: "Custom endpoints must be public HTTPS URLs. Local and private network addresses are not allowed." }, 400);
+  const baseUrl = config.baseUrl;
 
   if (action === "save") {
     const apiKey = (body.apiKey ?? "").trim();
