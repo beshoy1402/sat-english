@@ -14,8 +14,8 @@ const formatTime = (seconds: number) => {
   return [h, m, s].map(value => String(value).padStart(2, '0')).join(':');
 };
 
-export default function LiveRecording({ client, profile, session, canRecord }: {
-  client: any; profile: Profile; session: Session; canRecord: boolean;
+export default function LiveRecording({ client, profile, session, canRecord, onRecordingChange }: {
+  client: any; profile: Profile; session: Session; canRecord: boolean; onRecordingChange?: (active: boolean) => void;
 }) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -56,6 +56,13 @@ export default function LiveRecording({ client, profile, session, canRecord }: {
     void audioContextRef.current?.close();
     audioContextRef.current = null;
   };
+
+  useEffect(() => {
+    if (!recording) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [recording]);
 
   const finishRecording = () => {
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
@@ -122,6 +129,7 @@ export default function LiveRecording({ client, profile, session, canRecord }: {
           setNotice('Recording stopped. Preview it before saving; it will remain a private draft.');
         } else if (!stopRequestedRef.current) setError('The browser did not produce a video file.');
         setRecording(false);
+        onRecordingChange?.(false);
         setSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000));
         releaseCapture();
         recorderRef.current = null;
@@ -131,11 +139,13 @@ export default function LiveRecording({ client, profile, session, canRecord }: {
       startedAtRef.current = Date.now();
       setSeconds(0);
       setRecording(true);
+      onRecordingChange?.(true);
     } catch (captureError) {
       display?.getTracks().forEach(track => track.stop());
       microphone?.getTracks().forEach(track => track.stop());
       await audioContextRef.current?.close().catch(() => undefined);
       displayRef.current = null; micRef.current = null; audioContextRef.current = null;
+      setRecording(false); onRecordingChange?.(false);
       setError(captureError instanceof Error ? captureError.message : 'Screen, tab or microphone permission was not granted.');
     }
   };
