@@ -352,6 +352,13 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     if (!client || !canManage || busy) return;
     setBusy(true); setError(''); setNotice('');
     try {
+      if (session.provider === 'zoom' && session.zoom_meeting_id && ['ended', 'cancelled'].includes(status)) {
+        const action = status === 'ended' ? 'end' : 'cancel';
+        const { error: zoomActionError } = await client.functions.invoke('zoom-meeting', {
+          body: { action, session_id: session.id }
+        });
+        if (zoomActionError) throw new Error('The Zoom meeting could not be ' + (status === 'ended' ? 'ended' : 'cancelled') + ': ' + zoomActionError.message);
+      }
       const { error: updateError } = await client.rpc('live_session_set_status', {
         p_session_id: session.id,
         p_status: status
