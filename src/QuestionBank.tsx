@@ -56,7 +56,7 @@ export default function QuestionBank({client}:{client:any}){
    if(raw.length>2500)throw new Error('Import is limited to 2,500 questions per file. Split larger files into smaller batches.');
    const existing=new Set(items.map(q=>normalize(String(q.prompt??''))));
    const seen=new Set<string>();
-   const mapped=raw.map((r,i)=>{const item=toImportRow(r,i+2,existing);const key=normalize(item.prompt);if(key&&seen.has(key)){item.duplicate=true;item.errors.push('Duplicate prompt within this file.');}if(key)seen.add(key);return item;});
+   const rowOffset=file.name.toLowerCase().endsWith('.csv')?2:1;const mapped=raw.map((r,i)=>{const item=toImportRow(r,i+rowOffset,existing);const key=normalize(item.prompt);if(key&&seen.has(key)){item.duplicate=true;item.errors.push('Duplicate prompt within this file.');}if(key)seen.add(key);return item;});
    setImportRows(mapped);setNotice(`Preview ready: ${mapped.length} rows, ${mapped.filter(r=>!r.errors.length).length} valid, ${mapped.filter(r=>r.errors.length).length} need attention.`);
   }catch(error){setNotice(error instanceof Error?error.message:'Could not read this import file.');}
  };
@@ -66,7 +66,7 @@ export default function QuestionBank({client}:{client:any}){
   setBusy(true);let imported=0;const failures:ImportFailure[]=[];
   for(let i=0;i<ready.length;i+=5){
    const batch=ready.slice(i,i+5);
-   const results=await Promise.all(batch.map(async q=>{try{const {error}=await client.rpc('staff_save_question_bank_item',{p_id:null,p_exam_program:q.exam_program,p_topic:q.topic,p_difficulty:q.difficulty,p_passage:q.passage,p_prompt:q.prompt,p_question_type:q.question_type,p_choices:q.choices,p_answer_key:q.answer_key||null,p_explanation:q.explanation,p_points:q.points});return error?{row:q.sourceRow,error:error.message,prompt:q.prompt}:{};}catch(e){return {row:q.sourceRow,error:e instanceof Error?e.message:'Unknown error',prompt:q.prompt};}}));
+   const results=await Promise.all(batch.map(async q=>{try{const {error}=await client.rpc('staff_save_question_bank_item',{p_id:null,p_exam_program:q.exam_program,p_topic:q.topic,p_difficulty:q.difficulty,p_passage:q.passage,p_prompt:q.prompt,p_question_type:q.question_type,p_choices:q.choices,p_answer_key:q.answer_key||null,p_explanation:q.explanation,p_points:q.points});return {row:q.sourceRow,error:error?.message??'',prompt:q.prompt};}catch(e){return {row:q.sourceRow,error:e instanceof Error?e.message:'Unknown error',prompt:q.prompt};}}));
    results.forEach(r=>{if(r.error)failures.push(`${r.prompt}: ${r.error}`);else imported++;});
   }
   const skipped=importRows.filter(r=>r.errors.length>0);setImportReport({fileName:importName,imported,skipped,failures});
