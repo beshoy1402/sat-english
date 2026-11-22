@@ -56,7 +56,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       const [sessionResult, courseResult, lessonResult] = await Promise.all([
         client.from('live_sessions').select('*, courses(title), lessons(title)').order('scheduled_at', { ascending: true }),
         staff ? client.from('courses').select('id,title,created_by').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
-        staff ? client.from('lessons').select('id,course_id,title').order('sort_order') : Promise.resolve({ data: [], error: null })
+        staff ? client.from('lessons').select('id,course_id,title').eq('is_published', true).order('sort_order') : Promise.resolve({ data: [], error: null })
       ]);
       if (sessionResult.error) throw new Error(sessionResult.error.message);
       if (courseResult.error) throw new Error(courseResult.error.message);
@@ -232,7 +232,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
           {staff && session.status === 'scheduled' && <button className="live-secondary" onClick={() => void changeStatus(session, 'lobby')} disabled={busy}>Open lobby</button>}
           {staff && ['scheduled','lobby'].includes(session.status) && <button className="live-primary" onClick={() => void changeStatus(session, 'live')} disabled={busy}>Start now</button>}
           {!staff && ['lobby','live'].includes(session.status) && <button className="live-primary" onClick={() => void joinRoom(session)} disabled={busy || activeSession?.id === session.id}>Join classroom</button>}
-          {staff && session.status === 'live' && <button className="live-primary" onClick={() => void joinRoom(session)} disabled={busy || activeSession?.id === session.id}>Enter room</button>}
+          {staff && ['lobby','live'].includes(session.status) && <button className="live-primary" onClick={() => void joinRoom(session)} disabled={busy || activeSession?.id === session.id}>Enter room</button>}
           {staff && ['lobby','live'].includes(session.status) && <button className="live-danger" onClick={() => void changeStatus(session, 'ended')} disabled={busy}>End lesson</button>}
           {staff && session.status === 'scheduled' && <button className="live-danger" onClick={() => void changeStatus(session, 'cancelled')} disabled={busy}>Cancel</button>}
         </div>
