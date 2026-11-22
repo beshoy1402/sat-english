@@ -310,3 +310,18 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Source inspection and read-only environment inventory are complete for this checkpoint.
 - A successful TypeScript build, browser/device tests, RLS adversarial tests, Realtime tests, storage upload/recovery tests and AI provider/refund tests have **not** been demonstrated.
 - The platform must not be called launch-ready until those tests pass and the production activation prerequisites are explicitly approved.
+
+
+## Provider-order correction — user-confirmed configuration (2026-11-22)
+
+**This section supersedes the earlier Gemini-primary provider notes in this document. The user's confirmed order is:**
+
+1. NVIDIA NIM — primary (priority 1), model `nvidia/nemotron-3.5-super-vl-120b-a12b`.
+2. Google Gemini — secondary (priority 2), model `gemini-3.8-flash`.
+3. OpenRouter — third fallback (priority 3), model `openrouter/free`.
+
+- Removed Groq from the application provider catalog and execution allowlist. Claude/Anthropic and ChatGPT/OpenAI API remain unsupported.
+- Restored NVIDIA NIM to the provider settings UI and server-side provider management allowlist; provider execution uses NVIDIA's OpenAI-compatible chat-completions endpoint.
+- Corrected source migration `20261122210000_restrict_ai_provider_catalog.sql` to disable providers outside NVIDIA/Gemini/OpenRouter and set the requested 1/2/3 priorities. It does not enable providers or replace keys.
+- Updated source safety checks to enforce the requested provider set and order.
+- All changes remain source-only on `feature/recorded-sessions-library`. The migration is not applied, Edge Functions are not deployed, and no production database or secrets were changed. Provider billing/quotas depend on the actual provider account and must be confirmed before treating any endpoint as free.
