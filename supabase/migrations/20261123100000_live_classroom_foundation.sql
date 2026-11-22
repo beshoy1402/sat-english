@@ -45,7 +45,6 @@ create table if not exists public.live_session_zoom_host_links (
 );
 alter table public.live_session_zoom_host_links enable row level security;
 revoke all on public.live_session_zoom_host_links from anon, authenticated;
-grant select, insert, update on public.live_session_zoom_host_links to authenticated;
 
 create table if not exists public.live_session_participants (
   id uuid primary key default gen_random_uuid(),
@@ -292,21 +291,7 @@ with check (
   )
 );
 
-drop policy if exists live_session_zoom_host_links_read_host on public.live_session_zoom_host_links;
-create policy live_session_zoom_host_links_read_host
-on public.live_session_zoom_host_links for select to authenticated
-using (host_profile_id = (select auth.uid()) or private.can_manage_live_session(session_id));
 
-drop policy if exists live_session_zoom_host_links_insert_host on public.live_session_zoom_host_links;
-create policy live_session_zoom_host_links_insert_host
-on public.live_session_zoom_host_links for insert to authenticated
-with check (host_profile_id = (select auth.uid()) and private.can_manage_live_session(session_id));
-
-drop policy if exists live_session_zoom_host_links_update_host on public.live_session_zoom_host_links;
-create policy live_session_zoom_host_links_update_host
-on public.live_session_zoom_host_links for update to authenticated
-using (host_profile_id = (select auth.uid()) and private.can_manage_live_session(session_id))
-with check (host_profile_id = (select auth.uid()) and private.can_manage_live_session(session_id));
 
 drop policy if exists live_sessions_update_manager on public.live_sessions;
 create policy live_sessions_update_manager
@@ -453,6 +438,60 @@ begin
   return v_participant;
 end;
 $function$;
+
+create or replace function public.live_session_store_zoom_meeting(
+  p_session_id uuid,
+  p_meeting_id text,
+  p_join_url text,
+  p_password text,
+  p_start_url text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if auth.uid() is null or not private.can_manage_live_session(p_session_id) then
+    raise exception 'You are not authorized to configure this Zoom lesson';
+  end if;
+
+  if not exists (
+    select 1 from public.live_sessions s
+    where s.id = p_session_id
+      and s.created_by = (select auth.uid())
+      and s.room_type = 'lesson'
+      and s.provider = 'zoom'
+  ) then
+    raise exception 'Only the teacher who created this Zoom lesson can configure it';
+  end if;
+
+  if coalesce(p_meeting_id, '') = ''
+    or p_join_url !~ '^https://([a-zA-Z0-9-]+\.)*zoom\.us/'
+    or p_start_url !~ '^https://([a-zA-Z0-9-]+\.)*zoom\.us/' then
+    raise exception 'Invalid Zoom meeting response';
+  end if;
+
+  update public.live_sessions
+  set zoom_meeting_id = p_meeting_id,
+      zoom_join_url = p_join_url,
+      zoom_password = nullif(p_password, ''),
+      updated_at = now()
+  where id = p_session_id;
+
+  insert into public.live_session_zoom_host_links(session_id, host_profile_id, start_url, updated_at)
+  values (p_session_id, auth.uid(), p_start_url, now())
+  on conflict (session_id)
+  do update set host_profile_id = excluded.host_profile_id,
+                start_url = excluded.start_url,
+                updated_at = now();
+
+  return true;
+end;
+$function$;
+
+revoke all on function public.live_session_store_zoom_meeting(uuid,text,text,text,text) from public, anon;
+grant execute on function public.live_session_store_zoom_meeting(uuid,text,text,text,text) to authenticated;
 
 create or replace function public.live_session_leave(p_session_id uuid)
 returns boolean
