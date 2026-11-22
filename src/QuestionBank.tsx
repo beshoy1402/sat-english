@@ -78,7 +78,15 @@ async function readPdfText(file:File):Promise<string> {
  const pages:string[]=[];
  for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){
   const page=await pdf.getPage(pageNo);const content=await page.getTextContent();
-  pages.push(content.items.map((item:any)=>typeof item.str==='string'?item.str:'').filter(Boolean).join(' '));
+  const lineGroups:{y:number;text:string}[]=[];
+  for(const item of content.items as any[]){
+   if(typeof item.str!=='string'||!item.str.trim())continue;
+   const y=Math.round(Number(item.transform?.[5]??0));
+   let group=lineGroups.find(entry=>Math.abs(entry.y-y)<=2);
+   if(!group){group={y,text:''};lineGroups.push(group);}
+   group.text+=item.str;
+  }
+  pages.push(lineGroups.sort((a,b)=>b.y-a.y).map(entry=>entry.text.trim()).filter(Boolean).join('\\n'));
  }
  const text=pages.join('\n');
  if(!text.trim())throw new Error('No selectable text was found. This PDF may be scanned or image-only; OCR and embedded-image extraction are not enabled yet.');
