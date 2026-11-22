@@ -29,7 +29,7 @@ assert.match(ai, /p\.is_enabled && p\.key_configured && isApprovedFreeProvider\(
 assert.match(ai, /AI is paused by the zero-cost safety policy/);
 assert.match(ai, /refundReservedPoints/);
 assert.match(ai, /if \(saveError\) \{\s*const refund = await refundReservedPoints\(\)/);
-assert.match(ai, /const refund = await refundReservedPoints\(\);\s*return respond\(\{ error: "All enabled AI providers failed\."/);
+assert.match(ai, /const refund = await refundReservedPoints\(\);\s*return respond\(\{ error: "All enabled AI providers failed\./);
 assert.match(ai, /if \(rateError\) return respond\(\{ error: "AI usage limits could not be checked safely/);
 assert.ok(ai.includes("const cleaned = content.replace(/"), "Worksheet JSON fence parsing must remain present.");
 assert.ok(providerSettings.includes("type ProviderId = 'gemini' | 'openrouter' | 'groq'"));
