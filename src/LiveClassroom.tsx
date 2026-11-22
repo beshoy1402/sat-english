@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarClock, CheckCircle2, Clock3, DoorOpen, Hand, LoaderCircle, LockKeyhole, MessageCircle, Plus, RefreshCw, Send, Users, Video, Volume2, VolumeX, X } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Clock3, DoorOpen, Hand, LoaderCircle, LockKeyhole, MessageCircle, Plus, RefreshCw, Send, UserX, Users, Video, Volume2, VolumeX, X } from 'lucide-react';
 import type { Profile } from './lib/supabase';
 import LiveMedia from './LiveMedia';
 import './live-classroom.css';
@@ -149,6 +149,19 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         .maybeSingle();
       if (!disposed && data) setMutedUntil(current => ({ ...current, [profile.id]: data.chat_muted_until }));
     });
+    channel.on('broadcast', { event: 'participant-removed' }, async ({ payload }: { payload: { profile_id?: string } }) => {
+      if (disposed || payload?.profile_id !== profile.id) return;
+      const { data } = await client.from('live_session_participants')
+        .select('removed_at')
+        .eq('session_id', activeSession.id)
+        .eq('profile_id', profile.id)
+        .maybeSingle();
+      if (!disposed && data?.removed_at) {
+        setError('The teacher removed you from this classroom. You cannot rejoin this session.');
+        setActiveSession(null);
+        setOnlineMembers([]);
+      }
+    });
     channel.subscribe(async (status: string) => {
       if (status === 'SUBSCRIBED') {
         const trackStatus = await channel.track({
@@ -255,6 +268,28 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       setNotice(nextMuted ? member.display_name + ' is muted in chat for 10 minutes.' : member.display_name + ' can chat again.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not update chat moderation.');
+    } finally { setBusy(false); }
+  };
+
+  const removeParticipant = async (member: PresenceMember) => {
+    if (!client || !activeSession || !staff || !member.profile_id || member.role !== 'student' || busy) return;
+    const name = member.display_name || 'This student';
+    if (!window.confirm('Remove ' + name + ' from this live classroom? They will not be able to rejoin this session.')) return;
+    setBusy(true); setError('');
+    try {
+      const { error: removeError } = await client.rpc('live_session_remove_participant', {
+        p_session_id: activeSession.id,
+        p_profile_id: member.profile_id
+      });
+      if (removeError) throw new Error(removeError.message);
+      await roomChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'participant-removed',
+        payload: { profile_id: member.profile_id }
+      });
+      setNotice(name + ' was removed from the classroom.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not remove the participant.');
     } finally { setBusy(false); }
   };
 
@@ -381,6 +416,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
           <small>{member.role || 'Participant'}</small>
           {member.hand_raised && <em className="live-hand-indicator"><Hand size={11}/> Hand raised</em>}
           {staff && member.role === 'student' && member.profile_id && <button className="live-chat-moderate" onClick={() => void toggleChatMute(member)} disabled={busy}>{isMuted ? <Volume2 size={12}/> : <VolumeX size={12}/>} {isMuted ? 'Unmute chat' : 'Mute 10m'}</button>}
+          {staff && member.role === 'student' && member.profile_id && <button className="live-chat-moderate live-remove-participant" onClick={() => void removeParticipant(member)} disabled={busy}><UserX size={12}/> Remove</button>}
         </div>;
       })}{!onlineMembers.length && <small>Connecting to the private classroom…</small>}</div>
       <LiveMedia client={client} sessionId={activeSession.id} profile={profile} members={onlineMembers}/>
