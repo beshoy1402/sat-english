@@ -439,6 +439,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       setNotice('Opening the Zoom host session.');
       await load();
     } catch (e) {
+      zoomWindow.close();
       setError(e instanceof Error ? e.message : 'Could not open Zoom as the host.');
     } finally { setBusy(false); }
   };
@@ -485,7 +486,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   return <section className="live-classroom">
     <header className="live-classroom-heading">
       <div><span className="live-classroom-eyebrow"><Video size={14}/> LIVE LEARNING</span><h2>Live classroom</h2>
-        <p>{staff ? 'Schedule lessons, open the classroom and manage live-session attendance.' : 'Join live lessons scheduled for your enrolled courses.'}</p></div>
+        <p>{staff ? 'Schedule lessons, choose website or Zoom delivery, and manage live-session attendance.' : 'Join teacher lessons or open a private study room with classmates.'}</p></div>
       <div className="live-classroom-actions">
         <button className="live-secondary" onClick={() => void load()} disabled={loading || busy}><RefreshCw size={14}/> Refresh</button>
         {staff && <button className="live-primary" onClick={() => setShowForm(value => !value)}><Plus size={15}/> Schedule lesson</button>}{!staff && profile.role === 'student' && <button className="live-primary" onClick={() => setShowStudyRoomForm(value => !value)}><Plus size={15}/> Start study room</button>}
