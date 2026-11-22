@@ -170,6 +170,16 @@ using (
       where sr.storage_path = objects.name
         and private.can_manage_session_recording(sr.course_id, sr.created_by, sr.live_session_id)
     )
+    -- Let an active uploader recover their own completed object even if the
+    -- metadata insert failed and there is not yet a session_recordings row.
+    or exists (
+      select 1
+      from public.profiles p
+      where p.id = (select auth.uid())
+        and p.is_active = true
+        and p.role in ('teacher','assistant')
+        and (storage.foldername(objects.name))[1] = p.id::text
+    )
     or exists (
       select 1
       from public.profiles p
