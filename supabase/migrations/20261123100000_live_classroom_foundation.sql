@@ -157,6 +157,14 @@ with check (
       and p.role in ('admin','teacher','assistant')
       and (p.role = 'admin' or c.created_by = p.id)
   )
+  and (
+    lesson_id is null
+    or exists (
+      select 1 from public.lessons l
+      where l.id = live_sessions.lesson_id
+        and l.course_id = live_sessions.course_id
+    )
+  )
 );
 
 drop policy if exists live_sessions_update_manager on public.live_sessions;
