@@ -882,6 +882,7 @@ declare
   v_actor_role public.app_role;
   v_target_role public.app_role;
   v_changed boolean := false;
+  v_rows integer := 0;
 begin
   if auth.uid() is null then
     raise exception 'Authentication is required';
@@ -913,7 +914,8 @@ begin
       on conflict (session_id, profile_id)
       do update set raised_at = now(), lowered_at = null, lowered_by = null
       where public.live_session_hand_raises.lowered_at is not null;
-      get diagnostics v_changed = row_count;
+      get diagnostics v_rows = row_count;
+      v_changed := v_rows > 0;
       if v_changed then
         insert into public.live_session_hand_raise_events(session_id, actor_profile_id, target_profile_id, action)
         values (p_session_id, auth.uid(), v_target, 'raised');
@@ -924,7 +926,8 @@ begin
       where session_id = p_session_id
         and profile_id = v_target
         and lowered_at is null;
-      get diagnostics v_changed = row_count;
+      get diagnostics v_rows = row_count;
+      v_changed := v_rows > 0;
       if v_changed then
         insert into public.live_session_hand_raise_events(session_id, actor_profile_id, target_profile_id, action)
         values (p_session_id, auth.uid(), v_target, 'lowered');
@@ -953,7 +956,8 @@ begin
     where session_id = p_session_id
       and profile_id = v_target
       and lowered_at is null;
-    get diagnostics v_changed = row_count;
+    get diagnostics v_rows = row_count;
+      v_changed := v_rows > 0;
     if v_changed then
       insert into public.live_session_hand_raise_events(session_id, actor_profile_id, target_profile_id, action)
       values (p_session_id, auth.uid(), v_target, 'lowered_by_teacher');
