@@ -67,7 +67,7 @@ export default function QuestionBank({client}:{client:any}){
   for(let i=0;i<ready.length;i+=5){
    const batch=ready.slice(i,i+5);
    const results=await Promise.all(batch.map(async q=>{try{const {error}=await client.rpc('staff_save_question_bank_item',{p_id:null,p_exam_program:q.exam_program,p_topic:q.topic,p_difficulty:q.difficulty,p_passage:q.passage,p_prompt:q.prompt,p_question_type:q.question_type,p_choices:q.choices,p_answer_key:q.answer_key||null,p_explanation:q.explanation,p_points:q.points});return {row:q.sourceRow,error:error?.message??'',prompt:q.prompt};}catch(e){return {row:q.sourceRow,error:e instanceof Error?e.message:'Unknown error',prompt:q.prompt};}}));
-   results.forEach(r=>{if(r.error)failures.push(`${r.prompt}: ${r.error}`);else imported++;});
+   results.forEach(r=>{if(r.error)failures.push({row:r.row,prompt:r.prompt,error:r.error});else imported++;});
   }
   const skipped=importRows.filter(r=>r.errors.length>0);setImportReport({fileName:importName,imported,skipped,failures});
   setNotice(`Import finished: ${imported} added, ${skipped.length} skipped during validation, ${failures.length} failed while saving.`);
@@ -76,7 +76,7 @@ export default function QuestionBank({client}:{client:any}){
  const downloadImportReport=()=>{
   if(!importReport)return;
   const cells=[['Source file','Row','Status','Question','Details'],...importReport.skipped.map(r=>[importReport.fileName,String(r.sourceRow),'Skipped',r.prompt,r.errors.join('; ')]),...importReport.failures.map(r=>[importReport.fileName,String(r.row),'Save failed',r.prompt,r.error])];
-  const csv=cells.map(row=>row.map(value=>{const s=String(value??'');return /[",\\r\\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\\r\\n');
+  const csv=cells.map(row=>row.map(value=>{const s=String(value??'');return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\r\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));const a=document.createElement('a');a.href=url;a.download='question-import-report.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
  };
  const reset=()=>{setForm({...empty});setEditing(null);};
