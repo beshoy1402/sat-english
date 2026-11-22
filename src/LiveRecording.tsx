@@ -36,6 +36,8 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
   const uploadPathRef = useRef<string | null>(null);
   const startedAtRef = useRef(0);
   const stopRequestedRef = useRef(false);
+  const discardRequestedRef = useRef(false);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     if (!recording) return;
@@ -43,12 +45,19 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
     return () => window.clearInterval(timer);
   }, [recording]);
 
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
   useEffect(() => () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    mountedRef.current = false;
+    discardRequestedRef.current = true;
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
     displayRef.current?.getTracks().forEach(track => track.stop());
     micRef.current?.getTracks().forEach(track => track.stop());
     void audioContextRef.current?.close();
-  }, [previewUrl]);
+  }, []);
 
   const releaseCapture = () => {
     displayRef.current?.getTracks().forEach(track => track.stop());
@@ -97,6 +106,11 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
         audio: true
       });
       microphone = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      if (!mountedRef.current) {
+        display.getTracks().forEach(track => track.stop());
+        microphone.getTracks().forEach(track => track.stop());
+        return;
+      }
       const videoTrack = display.getVideoTracks()[0];
       if (!videoTrack) throw new Error('The browser did not provide a screen or tab video track.');
 
@@ -119,6 +133,7 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
       chunksRef.current = [];
       recordedBytesRef.current = 0;
       stopRequestedRef.current = false;
+      discardRequestedRef.current = false;
       const recorder = new MediaRecorder(capture, { mimeType });
       recorderRef.current = recorder;
       recorder.ondataavailable = event => {
@@ -127,23 +142,29 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
           recordedBytesRef.current += event.data.size;
         }
         if (recordedBytesRef.current >= MAX_RECORDING_BYTES && recorder.state === 'recording') {
-          setError('The 500 MB recording limit was reached. The recording has been stopped; review and save the captured video.');
+          if (mountedRef.current) setError('The 500 MB capture threshold was reached. Review the file size; compress it if it exceeds the 500 MB upload limit.');
           recorder.stop();
         }
       };
-      recorder.onerror = () => setError('The browser reported a recording error. Stop or retry the capture.');
+      recorder.onerror = () => { if (mountedRef.current) setError('The browser reported a recording error. Stop or retry the capture.'); };
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType.split(';')[0] });
-        if (blob.size > 0) {
+        if (blob.size > 0 && !discardRequestedRef.current) {
           const extension = blob.type === 'video/mp4' ? 'mp4' : 'webm';
           const file = new File([blob], 'live-session-' + session.id + '.' + extension, { type: blob.type, lastModified: Date.now() });
-          setVideoFile(file);
-          setPreviewUrl(URL.createObjectURL(blob));
-          setNotice('Recording stopped. Preview it before saving; it will remain a private draft.');
-        } else if (!stopRequestedRef.current) setError('The browser did not produce a video file.');
-        setRecording(false);
-        onRecordingChange?.(false);
-        setSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000));
+          if (mountedRef.current) {
+            setVideoFile(file);
+            setPreviewUrl(URL.createObjectURL(blob));
+            setNotice('Recording stopped. Preview it before saving; it will remain a private draft.');
+          }
+        } else if (!stopRequestedRef.current && !discardRequestedRef.current && mountedRef.current) {
+          setError('The browser did not produce a video file.');
+        }
+        if (mountedRef.current) {
+          setRecording(false);
+          onRecordingChange?.(false);
+          setSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000));
+        }
         releaseCapture();
         recorderRef.current = null;
       };
@@ -158,12 +179,15 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
       microphone?.getTracks().forEach(track => track.stop());
       await audioContextRef.current?.close().catch(() => undefined);
       displayRef.current = null; micRef.current = null; audioContextRef.current = null;
-      setRecording(false); onRecordingChange?.(false);
-      setError(captureError instanceof Error ? captureError.message : 'Screen, tab or microphone permission was not granted.');
+      if (mountedRef.current) {
+        setRecording(false); onRecordingChange?.(false);
+        setError(captureError instanceof Error ? captureError.message : 'Screen, tab or microphone permission was not granted.');
+      }
     }
   };
 
   const discard = () => {
+    discardRequestedRef.current = true;
     if (recording) { stopRequestedRef.current = true; finishRecording(); }
     clearPendingUpload();
     if (previewUrl) URL.revokeObjectURL(previewUrl);
