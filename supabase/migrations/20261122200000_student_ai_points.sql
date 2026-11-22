@@ -101,6 +101,9 @@ declare v_balance integer;
 begin
   if private.current_user_role() <> 'admin' then raise exception 'Admin access required'; end if;
   if p_delta = 0 or abs(p_delta) > 100000 then raise exception 'Invalid point adjustment'; end if;
+  if not exists(select 1 from public.profiles p where p.id=p_student_profile_id and p.role='student' and p.is_active) then
+    raise exception 'Active student account required';
+  end if;
   insert into public.student_ai_point_accounts(student_profile_id) values(p_student_profile_id)
     on conflict (student_profile_id) do nothing;
   update public.student_ai_point_accounts
@@ -118,4 +121,5 @@ $$;
 
 grant execute on function public.student_ai_points_consume(uuid,integer,text,uuid) to service_role;
 grant execute on function public.student_ai_points_refund(uuid,integer,text,uuid) to service_role;
+revoke all on function public.staff_adjust_student_ai_points(uuid,integer,text) from public, anon;
 grant execute on function public.staff_adjust_student_ai_points(uuid,integer,text) to authenticated;
