@@ -307,3 +307,14 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - Navigation warning now remains active during both recording and upload. The 500 MB capture-threshold message now explains that a chunk may push the final file above the 500 MB storage limit and require compression.
 - GitHub Actions run [45003715994](https://github.com/beshoy1402/sat-english/actions/runs/45003715994) passed: policy checks, 10 question-import regression tests, TypeScript type-check and Vite build.
 - This is source/CI verification only. Real-browser capture, permission-denial, unmount, large-file and interrupted-upload tests remain outstanding. No migration, storage bucket setting, deployment or production change was performed.
+
+
+## Recorded Sessions access scoping and completed-upload recovery (2026-11-22)
+
+- Added source-only migration `20261123140000_scope_recorded_session_access.sql`. Administrators retain full access; active teachers/assistants can see and manage recordings they uploaded, for courses they own, or for website lessons they host. Developer accounts no longer receive blanket access to private recordings.
+- Recording insert requires course ownership or ownership of the linked website lesson. Non-admin staff cannot reassign the course, uploader, storage path or linked live session.
+- Storage read/delete policies now follow the same staff scope. Students continue to read only published recordings for a published course with active, in-date enrolment. Uploaders can list their own completed but unlinked object to recover a failed metadata save.
+- Recorded Sessions course picker now shows administrators all courses and other staff only courses they own, matching the upload policy. Live lesson recordings by an authorized lesson host remain supported.
+- Resumable upload helper checks the private bucket for the exact object path before starting a new TUS session. If the video upload completed but metadata persistence failed, retry reuses the existing object instead of attempting a duplicate upload; completed TUS URLs are cleared.
+- GitHub Actions run [45004178052](https://github.com/beshoy1402/sat-english/actions/runs/45004178052) passed: policy assertions, 10 import tests, TypeScript and Vite build.
+- Remaining: apply/test this migration only in a disposable Supabase development database after schema reconciliation, then run adversarial role tests (admin, course owner, lesson host, unrelated teacher, assistant, developer, enrolled/non-enrolled student). The migration is not applied to production.
