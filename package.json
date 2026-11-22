@@ -14,7 +14,8 @@
     "db:reset": "supabase db reset",
     "db:pull": "supabase db pull",
     "functions:serve": "supabase functions serve --env-file supabase/.env.local",
-    "test:policy": "node scripts/verify-project-safety.mjs"
+    "test:policy": "node scripts/verify-project-safety.mjs",
+    "test:imports": "node --test scripts/test-question-import.mjs"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
