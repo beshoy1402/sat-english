@@ -37,6 +37,8 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
       if (existing) return existing;
       if (peers.current.size >= 5) { setError('This prototype supports up to 6 participants including you.'); return null; }
       const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      pc.addTransceiver('audio', { direction: 'sendrecv' });
+      pc.addTransceiver('video', { direction: 'sendrecv' });
       peers.current.set(peerId, pc);
       localRef.current?.getTracks().forEach(track => pc.addTrack(track, localRef.current!));
       pc.onicecandidate = event => { if (event.candidate && !disposed) void send({ to: peerId, kind: 'ice', candidate: event.candidate.toJSON() }); };
