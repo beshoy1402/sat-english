@@ -122,10 +122,10 @@ assert.match(app, /active==='admissionRules'&&profile\.role==='admin'/);
 assert.match(app, /active==='admission'&&profile\.role==='student'/);
 
 // The responsive workspace refinement must retain its navigation, mobile and visual-system hooks.
-assert.match(styles, /\.workspace-hero\\s*\\{/);
-assert.match(styles, /\.side-nav button\\.active/);
+assert.match(styles, /\.workspace-hero\s*\{/);
+assert.match(styles, /\.side-nav button\.active/);
 assert.match(styles, /\.mobile-scrim/);
-assert.match(styles, /@media\\(max-width:760px\\)/);
+assert.match(styles, /@media\(max-width:760px\)/);
 assert.match(styles, /prefers-reduced-motion/);
 
 // Question-bank document imports must be bounded, previewed and explicit about OCR limits.
