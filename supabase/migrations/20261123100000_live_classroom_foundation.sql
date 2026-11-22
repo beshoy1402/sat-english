@@ -66,6 +66,38 @@ create table if not exists public.live_session_participants (
 create index if not exists live_session_participants_session_idx
   on public.live_session_participants(session_id, joined_at);
 
+-- Persistent hand state plus an immutable event trail. Presence alone is ephemeral.
+create table if not exists public.live_session_hand_raises (
+  session_id uuid not null references public.live_sessions(id) on delete cascade,
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  raised_at timestamptz not null default now(),
+  lowered_at timestamptz,
+  lowered_by uuid references public.profiles(id),
+  primary key (session_id, profile_id),
+  check ((lowered_at is null) = (lowered_by is null))
+);
+
+create index if not exists live_session_hand_raises_active_idx
+  on public.live_session_hand_raises(session_id, raised_at)
+  where lowered_at is null;
+
+create table if not exists public.live_session_hand_raise_events (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.live_sessions(id) on delete cascade,
+  actor_profile_id uuid not null references public.profiles(id),
+  target_profile_id uuid not null references public.profiles(id),
+  action text not null check (action in ('raised','lowered','lowered_by_teacher')),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists live_session_hand_raise_events_history_idx
+  on public.live_session_hand_raise_events(session_id, created_at desc);
+
+alter table public.live_session_hand_raises enable row level security;
+alter table public.live_session_hand_raise_events enable row level security;
+revoke all on public.live_session_hand_raises, public.live_session_hand_raise_events from anon, authenticated;
+grant select on public.live_session_hand_raises, public.live_session_hand_raise_events to authenticated;
+
 create table if not exists public.live_session_zoom_events (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.live_sessions(id) on delete cascade,
@@ -195,6 +227,16 @@ as $function$
         and lp.removed_at is not null
     );
 $function$;
+
+drop policy if exists live_session_hand_raises_read_participants on public.live_session_hand_raises;
+create policy live_session_hand_raises_read_participants
+on public.live_session_hand_raises for select to authenticated
+using (private.can_join_live_session(session_id));
+
+drop policy if exists live_session_hand_raise_events_read_participants on public.live_session_hand_raise_events;
+create policy live_session_hand_raise_events_read_participants
+on public.live_session_hand_raise_events for select to authenticated
+using (private.can_join_live_session(session_id));
 
 create or replace function private.can_manage_live_session(p_session_id uuid)
 returns boolean
@@ -823,12 +865,113 @@ begin
 end;
 $function$;
 
+
+-- Students manage their own raised hand; the host/staff may lower a student's hand.
+create or replace function public.live_session_set_hand_raise(
+  p_session_id uuid,
+  p_raised boolean,
+  p_profile_id uuid default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_target uuid := coalesce(p_profile_id, (select auth.uid()));
+  v_actor_role public.app_role;
+  v_target_role public.app_role;
+  v_changed boolean := false;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication is required';
+  end if;
+
+  select role into v_actor_role
+  from public.profiles
+  where id = (select auth.uid()) and is_active = true;
+  if not found then
+    raise exception 'An active account is required';
+  end if;
+
+  if v_target = (select auth.uid()) then
+    if p_raised then
+      if v_actor_role <> 'student' or not private.can_join_live_session(p_session_id) then
+        raise exception 'Only an enrolled student in an open room can raise a hand';
+      end if;
+      if not exists (
+        select 1 from public.live_session_participants lp
+        where lp.session_id = p_session_id
+          and lp.profile_id = (select auth.uid())
+          and lp.left_at is null and lp.removed_at is null
+      ) then
+        raise exception 'Join the classroom before raising your hand';
+      end if;
+
+      insert into public.live_session_hand_raises(session_id, profile_id, raised_at, lowered_at, lowered_by)
+      values (p_session_id, v_target, now(), null, null)
+      on conflict (session_id, profile_id)
+      do update set raised_at = now(), lowered_at = null, lowered_by = null
+      where public.live_session_hand_raises.lowered_at is not null;
+      get diagnostics v_changed = row_count;
+      if v_changed then
+        insert into public.live_session_hand_raise_events(session_id, actor_profile_id, target_profile_id, action)
+        values (p_session_id, auth.uid(), v_target, 'raised');
+      end if;
+    else
+      update public.live_session_hand_raises
+      set lowered_at = now(), lowered_by = auth.uid()
+      where session_id = p_session_id
+        and profile_id = v_target
+        and lowered_at is null;
+      get diagnostics v_changed = row_count;
+      if v_changed then
+        insert into public.live_session_hand_raise_events(session_id, actor_profile_id, target_profile_id, action)
+        values (p_session_id, auth.uid(), v_target, 'lowered');
+      end if;
+    end if;
+  else
+    if p_raised or not private.can_manage_live_session(p_session_id) then
+      raise exception 'Only the classroom host or assigned staff may lower another participant hand';
+    end if;
+    select role into v_target_role
+    from public.profiles
+    where id = v_target and is_active = true;
+    if not found or v_target_role <> 'student' then
+      raise exception 'Only an active student hand can be lowered by staff';
+    end if;
+    if not exists (
+      select 1 from public.live_session_participants lp
+      where lp.session_id = p_session_id
+        and lp.profile_id = v_target
+        and lp.left_at is null and lp.removed_at is null
+    ) then
+      raise exception 'The student is not an active classroom participant';
+    end if;
+    update public.live_session_hand_raises
+    set lowered_at = now(), lowered_by = auth.uid()
+    where session_id = p_session_id
+      and profile_id = v_target
+      and lowered_at is null;
+    get diagnostics v_changed = row_count;
+    if v_changed then
+      insert into public.live_session_hand_raise_events(session_id, actor_profile_id, target_profile_id, action)
+      values (p_session_id, auth.uid(), v_target, 'lowered_by_teacher');
+    end if;
+  end if;
+
+  return v_changed;
+end;
+$function$;
+
 revoke all on function public.live_session_send_message(uuid,text) from public, anon;
 revoke all on function public.live_session_set_chat_mute(uuid,uuid,boolean) from public, anon;
 revoke all on function public.live_session_remove_participant(uuid,uuid) from public, anon;
 grant execute on function public.live_session_send_message(uuid,text) to authenticated;
 grant execute on function public.live_session_set_chat_mute(uuid,uuid,boolean) to authenticated;
 grant execute on function public.live_session_remove_participant(uuid,uuid) to authenticated;
+revoke all on function public.live_session_set_hand_raise(uuid,boolean,uuid) from public, anon;
+grant execute on function public.live_session_set_hand_raise(uuid,boolean,uuid) to authenticated;
 
 revoke all on function public.live_session_set_status(uuid,text) from public, anon;
 revoke all on function public.live_session_join(uuid) from public, anon;
