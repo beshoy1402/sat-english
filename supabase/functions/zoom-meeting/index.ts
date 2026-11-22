@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import { withSupabase } from 'npm:@supabase/server@1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://sat-english-one.vercel.app',
@@ -10,7 +10,8 @@ const corsHeaders = {
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-Deno.serve(async (req: Request) => {
+export default {
+  fetch: withSupabase({ auth: 'user' }, async (req: Request, ctx) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
@@ -18,24 +19,18 @@ Deno.serve(async (req: Request) => {
     const authorization = req.headers.get('Authorization');
     if (!authorization?.startsWith('Bearer ')) return json({ error: 'Sign in is required' }, 401);
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
     const accountId = Deno.env.get('ZOOM_ACCOUNT_ID');
     const clientId = Deno.env.get('ZOOM_CLIENT_ID');
     const clientSecret = Deno.env.get('ZOOM_CLIENT_SECRET');
     const hostUserId = Deno.env.get('ZOOM_HOST_USER_ID');
-    if (!supabaseUrl || !anonKey || !accountId || !clientId || !clientSecret || !hostUserId) {
+    if (!accountId || !clientId || !clientSecret || !hostUserId) {
       return json({ error: 'Zoom integration is not configured. Ask the platform administrator.' }, 503);
     }
 
-    const supabase = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authorization } },
-      auth: { persistSession: false, autoRefreshToken: false }
-    });
-    const token = authorization.slice('Bearer '.length);
-    const { data: authData, error: authError } = await supabase.auth.getUser(token);
-    const user = authData.user;
-    if (authError || !user) return json({ error: 'Your sign-in session is invalid or expired' }, 401);
+    const supabase = ctx.supabase;
+    const userId = ctx.userClaims?.id;
+    if (!userId) return json({ error: 'Your sign-in session is invalid or expired' }, 401);
+    const user = { id: userId };
 
     const body = await req.json().catch(() => ({}));
     const sessionId = typeof body.session_id === 'string' ? body.session_id : '';
@@ -132,4 +127,5 @@ Deno.serve(async (req: Request) => {
   } catch {
     return json({ error: 'Unexpected Zoom integration error. Please try again or contact an administrator.' }, 500);
   }
-});
+  })
+};
