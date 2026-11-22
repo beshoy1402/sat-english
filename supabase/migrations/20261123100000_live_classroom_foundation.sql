@@ -33,6 +33,10 @@ create index if not exists live_sessions_course_schedule_idx
 create index if not exists live_sessions_status_schedule_idx
   on public.live_sessions(status, scheduled_at);
 
+create unique index if not exists live_sessions_zoom_meeting_id_unique_idx
+  on public.live_sessions(zoom_meeting_id)
+  where zoom_meeting_id is not null;
+
 create unique index if not exists live_sessions_one_active_study_room_per_host_idx
   on public.live_sessions(created_by)
   where room_type = 'study' and status in ('lobby','live');
