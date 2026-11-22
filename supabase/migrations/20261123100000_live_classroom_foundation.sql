@@ -88,6 +88,21 @@ as $function$
   );
 $function$;
 
+create or replace function private.can_join_live_session(p_session_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select private.can_access_live_session(p_session_id)
+    and exists (
+      select 1 from public.live_sessions s
+      where s.id = p_session_id
+        and s.status in ('lobby','live')
+    );
+$function$;
+
 create or replace function private.can_manage_live_session(p_session_id uuid)
 returns boolean
 language sql
@@ -116,8 +131,10 @@ $function$;
 
 revoke all on function private.can_access_live_session(uuid) from public, anon;
 revoke all on function private.can_manage_live_session(uuid) from public, anon;
+revoke all on function private.can_join_live_session(uuid) from public, anon;
 grant execute on function private.can_access_live_session(uuid) to authenticated;
 grant execute on function private.can_manage_live_session(uuid) to authenticated;
+grant execute on function private.can_join_live_session(uuid) to authenticated;
 
 drop policy if exists live_sessions_read_authorized on public.live_sessions;
 create policy live_sessions_read_authorized
@@ -156,7 +173,7 @@ create policy live_participants_join_self
 on public.live_session_participants for insert to authenticated
 with check (
   profile_id = (select auth.uid())
-  and private.can_access_live_session(session_id)
+  and private.can_join_live_session(session_id)
   and exists (
     select 1 from public.live_sessions s
     where s.id = live_session_participants.session_id
@@ -184,7 +201,7 @@ on realtime.messages for select to authenticated
 using (
   case
     when realtime.topic() ~ '^live-session:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-    then private.can_access_live_session(split_part(realtime.topic(), ':', 2)::uuid)
+    then private.can_join_live_session(split_part(realtime.topic(), ':', 2)::uuid)
     else false
   end
 );
