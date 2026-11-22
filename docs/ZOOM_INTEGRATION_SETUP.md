@@ -39,7 +39,7 @@ Set these in the SAT English Supabase project's **Edge Function Secrets** settin
 - `ZOOM_HOST_USER_ID`
 - `ZOOM_WEBHOOK_SECRET_TOKEN` — the webhook secret token shown in the Zoom Marketplace app's Feature > Event Subscriptions settings.
 
-The function also uses Supabase's built-in `SUPABASE_URL` and `SUPABASE_ANON_KEY` environment variables and the caller's Supabase Auth JWT. It does not need the service-role key.
+The teacher-facing function uses Supabase's `@supabase/server` user-auth wrapper and the caller's Supabase Auth JWT. Supabase supplies its publishable key and JWT verification configuration to the wrapper; no Supabase key is manually configured for this function.
 
 ## Configure Zoom attendance webhooks
 
@@ -56,7 +56,7 @@ Subscribe to these meeting events:
 - `meeting.participant_joined`
 - `meeting.participant_left`
 
-Copy the Zoom app's webhook secret token into the Supabase Edge Function secret `ZOOM_WEBHOOK_SECRET_TOKEN`. The webhook function does not use Supabase JWT authentication because Zoom cannot provide a user JWT; it verifies Zoom's HMAC-SHA256 signature over the original request body, checks the request timestamp and expected Zoom account ID, and supports Zoom's endpoint URL validation challenge. It uses the Supabase service-role key only inside the server-side function after signature verification. Never expose that key to browser code.
+Copy the Zoom app's webhook secret token into the Supabase Edge Function secret `ZOOM_WEBHOOK_SECRET_TOKEN`. The webhook function does not use Supabase JWT authentication because Zoom cannot provide a user JWT; it verifies Zoom's HMAC-SHA256 signature over the original request body, checks the request timestamp and expected Zoom account ID, and supports Zoom's endpoint URL validation challenge. It uses the Supabase server wrapper's privileged admin client only inside the server-side function after signature verification. That client is backed by the project's secret API key and bypasses RLS; never expose it or its key to browser code.
 
 Verified webhook events are deduplicated and stored with limited participant fields. When Zoom supplies an email address matching an active student account with current access to the session's course, the database updates that student's live-session attendance record. Zoom may omit email addresses for external or unauthenticated participants; those events are retained, but cannot be safely matched to a platform student automatically. The current code does not infer student identity from a display name.
 
