@@ -28,6 +28,7 @@ type LiveSession = {
 };
 type PresenceMember = { profile_id?: string; display_name?: string; role?: string; online_at?: string; hand_raised?: boolean; hand_raised_at?: string | null };
 type LiveMessage = { id: string; session_id: string; sender_profile_id: string; sender_display_name: string; body: string; created_at: string };
+type HandRaiseEvent = { id: string; actor_profile_id: string; target_profile_id: string; action: 'raised' | 'lowered' | 'lowered_by_teacher'; created_at: string };
 
 const staffRoles = ['admin', 'teacher', 'assistant'];
 const formatDate = (value: string) => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -60,6 +61,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   const [activeSession, setActiveSession] = useState<LiveSession | null>(null);
   const [onlineMembers, setOnlineMembers] = useState<PresenceMember[]>([]);
   const [raisedHands, setRaisedHands] = useState<Record<string, string>>({});
+  const [handRaiseEvents, setHandRaiseEvents] = useState<HandRaiseEvent[]>([]);
   const [chatMessages, setChatMessages] = useState<LiveMessage[]>([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
@@ -117,6 +119,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     setRecordingActive(false); setRecordingStartedByMe(false);
     setMutedUntil({});
     setRaisedHands({});
+    setHandRaiseEvents([]);
     setChatDraft('');
     const channel = client.channel('live-session:' + activeSession.id, {
       config: { private: true, presence: { key: profile.id } }
@@ -125,7 +128,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     let disposed = false;
 
     void (async () => {
-      const [messageResult, participantResult, handRaiseResult] = await Promise.all([
+      const [messageResult, participantResult, handRaiseResult, handEventResult] = await Promise.all([
         client.from('live_session_messages')
           .select('id,session_id,sender_profile_id,sender_display_name,body,created_at')
           .eq('session_id', activeSession.id)
@@ -138,7 +141,12 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         client.from('live_session_hand_raises')
           .select('profile_id,raised_at')
           .eq('session_id', activeSession.id)
-          .is('lowered_at', null)
+          .is('lowered_at', null),
+        client.from('live_session_hand_raise_events')
+          .select('id,actor_profile_id,target_profile_id,action,created_at')
+          .eq('session_id', activeSession.id)
+          .order('created_at', { ascending: false })
+          .limit(20)
       ]);
       if (disposed) return;
       if (messageResult.error) setError('Classroom chat is unavailable until its database migration is applied.');
@@ -158,6 +166,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         (handRaiseResult.data ?? []).forEach((row: { profile_id: string; raised_at: string }) => { next[row.profile_id] = row.raised_at; });
         setRaisedHands(next);
       }
+      if (!handEventResult.error) setHandRaiseEvents((handEventResult.data ?? []) as HandRaiseEvent[]);
     })();
 
     channel.on('presence', { event: 'sync' }, () => {
@@ -179,6 +188,12 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         else delete next[targetId];
         return next;
       });
+      const { data: events } = await client.from('live_session_hand_raise_events')
+        .select('id,actor_profile_id,target_profile_id,action,created_at')
+        .eq('session_id', activeSession.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (!disposed && events) setHandRaiseEvents(events as HandRaiseEvent[]);
     });
     channel.on('broadcast', { event: 'recording-state' }, ({ payload }: { payload?: { active?: boolean } }) => {
       if (!disposed && typeof payload?.active === 'boolean') setRecordingActive(payload.active);
@@ -566,7 +581,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         p_session_id: activeSession.id
       });
       if (leaveError) throw new Error(leaveError.message);
-      setActiveSession(null); setOnlineMembers([]); setRaisedHands({});
+      setActiveSession(null); setOnlineMembers([]); setRaisedHands({}); setHandRaiseEvents([]);
       setNotice('You left the classroom. Your attendance record was saved.');
       await load();
     } catch (e) {
@@ -613,6 +628,15 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     {activeSession && <section className="live-room-panel">
       <div className="live-room-top"><div><span className="live-room-kicker">SECURE CLASSROOM LOBBY</span><h3>{activeSession.title}</h3><p>{activeSession.courses?.title || 'Course'} · {statusLabel[activeSession.status]}</p>{recordingActive && <span className='live-recording-indicator'><i/> TEACHER RECORDING</span>}</div><div className="live-room-top-actions">{!staff && <button className={ownHandRaised ? 'live-secondary live-hand-raised' : 'live-secondary'} onClick={() => void toggleHandRaise()} disabled={handRaiseBusy}><Hand size={14}/>{ownHandRaised ? 'Lower hand' : 'Raise hand'}</button>}<button className="live-secondary" onClick={() => void leaveRoom()} disabled={busy || recordingStartedByMe}><DoorOpen size={14}/> Leave room</button></div></div>
       <div className="live-room-notice"><Users size={17}/><div><b>{onlineMembers.length} online</b><span>Presence is shared only inside this private session channel.</span></div></div>
+      {staff && <div className="live-hand-history">
+        <b>Hand raise history</b>
+        {handRaiseEvents.length ? handRaiseEvents.slice(0,8).map(event => {
+          const actor = event.actor_profile_id === profile.id ? 'You' : onlineMembers.find(member => member.profile_id === event.actor_profile_id)?.display_name || 'Staff member';
+          const target = onlineMembers.find(member => member.profile_id === event.target_profile_id)?.display_name || (event.target_profile_id === profile.id ? 'you' : 'student');
+          const action = event.action === 'raised' ? 'raised a hand' : event.action === 'lowered_by_teacher' ? 'lowered the hand of' : 'lowered their hand';
+          return <small key={event.id}>{actor} {action}{event.action === 'lowered_by_teacher' ? ' ' + target : ''} · {formatDate(event.created_at)}</small>;
+        }) : <small>No hand-raise events yet.</small>}
+      </div>}
       <div className="live-presence-list">{onlineMembers.map((member, index) => {
         const until = member.profile_id ? mutedUntil[member.profile_id] : null;
         const isMuted = Boolean(until && new Date(until).getTime() > Date.now());
