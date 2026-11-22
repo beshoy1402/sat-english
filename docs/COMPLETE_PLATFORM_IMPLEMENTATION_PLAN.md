@@ -121,8 +121,8 @@ Session states: scheduled, lobby, live, ended, cancelled. Store timestamps and t
 - Camera and microphone permission prompts with device status.
 - Mute/unmute, camera on/off, leave room and connection status.
 - Teacher screen sharing and presentation mode.
-- Participant list, hand raise and teacher moderation.
-- In-room text chat with clear sender/time labels.
+- Participant list, hand raise and teacher moderation, including server-enforced temporary chat mute.
+- In-room text chat with clear sender/time labels, persisted session history and server-side send limits.
 - Lesson description, attached resources and shared question/poll area.
 - Teacher controls for admitting/removing participants and muting participants.
 - Accessible keyboard controls, readable status messages and mobile layout.
@@ -145,7 +145,8 @@ Design and review the following source-controlled schema/policy changes before a
 - Realtime private-channel authorization tied to the live session's lesson/course membership.
 - Staff controls restricted to authorized course staff; students restricted to their active course access.
 - Parent accounts remain read-only and cannot join a live room by default.
-- Rate limits and validation for chat, signaling and hand-raise events.
+- Server-validated chat sends with per-user rate limits, 1,000-character message limit, and a 10-minute teacher chat-mute control with moderation audit events.
+- Hand raise is currently ephemeral Realtime presence; persistent hand-raise history and teacher lowering another participant's hand remain future work.
 - Recording metadata linked to the live session while retaining the private storage access model.
 
 No live-classroom schema or policy change is to be applied to production without explicit approval. Do not deploy an Edge Function for this milestone unless a concrete server-side requirement is established and approved.
@@ -164,7 +165,8 @@ Support both accepted recording methods:
 - Two or more authorized clients can join, exchange signaling and cleanly leave.
 - Camera/microphone permission denial does not crash the room.
 - Reconnect does not create duplicate participants or duplicate attendance.
-- Chat/signaling is restricted to the authorized private topic.
+- Chat/signaling is restricted to the authorized private topic; chat rows are readable only by active room participants and authorized session managers.
+- Muted users cannot send chat through the server RPC; chat sends are limited to one message per two seconds and 30 per minute per participant.
 - Recording starts/stops only after explicit teacher action and permission.
 - A finished recording is stored privately, linked to the right lesson and remains draft until published.
 - Test mobile, desktop, slow network and unsupported browser behavior.
@@ -191,13 +193,16 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Session lifecycle values: scheduled, lobby, live, ended and cancelled.
 - RLS limits session visibility to active course staff and students with current active course access. Session management is limited to an administrator or staff member who created the session / owns the course.
 - Private Realtime topics use `live-session:<UUID>` for presence and `live-session-media:<UUID>` for media signaling. Receive/send policies authorize active course members only while the lobby is open or the session is live.
-- `src/LiveClassroom.tsx` and `src/live-classroom.css`: staff scheduling, optional published-lesson association, open-lobby/start/end/cancel controls, teacher/student room entry, attendance, and private Realtime presence roster.
+- `src/LiveClassroom.tsx` and `src/live-classroom.css`: staff scheduling, optional published-lesson association, open-lobby/start/end/cancel controls, teacher/student room entry, attendance, private Realtime presence, classroom chat, hand raise and teacher chat-mute controls.
 - Session lifecycle audit columns record the staff profiles that started, ended or cancelled a session.
+- `live_session_messages` stores plain-text chat with a 1,000-character bound; the `live_session_send_message` RPC verifies room membership, active attendance and mute state, and enforces per-user rate limits.
+- `live_session_moderation_events` records teacher chat-mute/unmute actions. `live_session_set_chat_mute` limits this action to active student participants and applies a 10-minute mute.
+- Hand raise is shared through private Realtime presence. Chat notification broadcasts contain only a message ID; each receiver fetches the persisted message through RLS before rendering it.
 - Staff and student navigation now includes **Live classroom**.
 
 **Current media prototype:** `src/LiveMedia.tsx` adds browser camera/microphone capture, peer-to-peer WebRTC audio/video, participant video tiles, mute/camera controls and screen sharing. It uses a separate private `live-session-media:<UUID>` signaling topic, STUN discovery only, and a six-participant cap. Media transceivers are prepared before device permission is granted so later track attachment can use the negotiated audio/video sections.
 
-**Still not included:** TURN relay, SFU/scalable classrooms, in-room chat, hand raise/moderation, recording, automated rate limits and full browser/network acceptance tests. STUN-only connectivity is not guaranteed on restrictive networks. This is an unverified prototype, not a production-ready video classroom. The migration has not been applied to any Supabase project.
+**Still not included:** TURN relay, SFU/scalable classrooms, teacher removal/kick controls, recording, automated browser/network acceptance tests and verified multi-device connectivity. Hand raise currently uses ephemeral private presence; classroom chat is persisted in the source schema with server-side rate limits and teacher chat-mute RPCs. STUN-only connectivity is not guaranteed on restrictive networks. This is an unverified prototype, not a production-ready video classroom. The migration has not been applied to any Supabase project.
 
 ## 6. Current implementation status
 
@@ -214,7 +219,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Latest question-bank parser hardening rejects unterminated quoted fields, empty headings and duplicate headings; preview displays original source row numbers.
 
 ### Not yet verified or activated
-- Live Classroom scheduling/lobby, WebRTC audio/video and screen-sharing source are committed to the feature branch but have not been built, runtime-tested or applied to Supabase. Chat, moderation, TURN/SFU, live recording and end-to-end tests remain outstanding. The Vercel check still reports the previously encountered free deployment-rate limit; it is not a successful build result.
+- Live Classroom scheduling/lobby, WebRTC audio/video, screen sharing, persisted chat, hand raise and teacher chat-mute source are committed to the feature branch but have not been built, runtime-tested or applied to Supabase. Participant removal, TURN/SFU, live recording and end-to-end tests remain outstanding. The Vercel check still reports the previously encountered free deployment-rate limit; it is not a successful build result.
 - The latest branch changes have not been verified by a successful build/runtime test.
 - Vercel deployment attempts were blocked by the free daily deployment API limit; do not upgrade the plan to bypass it.
 - AI points migration and AI learning Edge Function changes are source-only and not deployed.
@@ -225,7 +230,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 ## 7. Delivery order from here
 
-1. **Integrated Live Classroom:** scheduling, secure lobby, attendance, private Realtime presence and a six-person WebRTC audio/video + screen-share prototype are in source; next complete chat, moderation, reconnection and end-to-end security/media tests.
+1. **Integrated Live Classroom:** scheduling, secure lobby, attendance, private Realtime presence, six-person WebRTC audio/video + screen-share prototype, persisted chat, hand raise and teacher chat-mute controls are in source; next complete participant removal, reconnection and end-to-end security/media tests.
 2. **Live Recording:** explicit browser capture, draft upload, lesson linkage and permission/size/error handling.
 3. **Question Import Expansion:** XLSX, DOCX and PDF extraction, image handling, editable preview and safe batch retry/rollback.
 4. **Practice and Exam Completion:** validate end-to-end student workflows, timer/autosave and score/report accuracy.
@@ -243,3 +248,5 @@ The first Live Classroom code slice is now committed to the working feature bran
 - **2026-11-23 (continued):** Added a six-person WebRTC audio/video and screen-sharing prototype using private Realtime signaling and STUN-only ICE discovery. No deployment or database application.
 
 - **Security follow-up:** the media signaling topic uses the same open-session authorization check for both sending and receiving; ended/cancelled/scheduled sessions cannot use the signaling topic.
+
+- **2026-11-23 (continued):** Added persisted live-session chat with server-side membership/mute checks, per-user rate limits, private-channel ID notifications, ephemeral hand raise, and audited teacher chat mute/unmute controls. Extended the existing un-applied classroom migration source; no production database changes.
