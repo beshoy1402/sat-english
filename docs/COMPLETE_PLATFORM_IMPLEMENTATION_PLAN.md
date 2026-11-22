@@ -289,3 +289,24 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Zoom cloud recording import, embedded Zoom recording and server-side recording are not part of this implementation.
 - New source migration: `supabase/migrations/20261123120000_link_live_recordings.sql`. It adds the nullable live-session foreign key and index only; it does not create or alter the existing private bucket or recording policies.
 - No migration applied, no storage configuration changed and no deployment performed. Browser compatibility, recording interruption behavior, file-size handling, upload recovery and private-storage authorization still require runtime tests.
+
+
+## 9. Read-only environment audit and current work checkpoint
+
+### Branch source correction
+- **2026-11-22:** Corrected `src/LiveRecording.tsx` so its session type includes the `provider` field used to exclude Zoom sessions. Removed unused icon imports under the repository's strict `noUnusedLocals` TypeScript setting.
+- Replaced repeated summation of every recorded media chunk with an incremental byte counter, avoiding quadratic work as a recording grows.
+- This is a source-only correction on `feature/recorded-sessions-library`. It has not yet been validated by a local TypeScript build or browser recording test.
+
+### Connected Supabase environment — read only
+- The connected SAT English project reports `ACTIVE_HEALTHY`; the read-only inventory returned 41 public tables and all 41 had RLS enabled.
+- The database reports 47 applied migrations, with the latest applied migration `20261121222000 add_nvidia_nim_provider`.
+- The feature branch contains later source migrations that are not present in the applied migration history, including active-profile role hardening, recording policy hardening, homework attachments, assistant scope/live support, AI points, live classroom and live-recording linkage. These must remain unapplied until separately approved.
+- Security Advisor currently reports: one RLS-enabled table without a direct policy (`question_bank_items`, which is currently accessed through staff RPCs); 16 authenticated-callable `SECURITY DEFINER` functions; and leaked-password protection disabled. These are audit findings, not proof that every flagged RPC is exploitable. Review each function's authorization checks and the Auth setting before any activation decision.
+- Performance Advisor reports repeated per-row auth-function evaluation in several policies, multiple permissive policies on three tables, and unused-index notices. Do not drop indexes based only on an unused-index notice from a low-traffic project.
+- No production database changes, migrations, Edge Function deployments, secrets, storage settings, Auth settings or Vercel deployments were changed during this audit.
+
+### Verification state
+- Source inspection and read-only environment inventory are complete for this checkpoint.
+- A successful TypeScript build, browser/device tests, RLS adversarial tests, Realtime tests, storage upload/recovery tests and AI provider/refund tests have **not** been demonstrated.
+- The platform must not be called launch-ready until those tests pass and the production activation prerequisites are explicitly approved.
