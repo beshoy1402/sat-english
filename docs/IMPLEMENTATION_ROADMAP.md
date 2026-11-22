@@ -102,6 +102,10 @@ Display each component, formula, assumptions, missing requirements and result. L
 
 Continue planned live classroom, attendance, polls, shared question solving, teacher-uploaded recordings, session recordings, lesson attachments, access permissions and recorded-session library.
 
+Student-led study rooms: students may open a private website room for classmates in a course they currently access. The room creator is host, can start/end and moderate the room, and each student may have one active room with a maximum of six participants. Student rooms do not create Zoom meetings.
+
+Teacher-led live lessons: teachers choose the delivery mode per session — native website WebRTC room or Zoom. Zoom uses a server-side administrator-configured Server-to-Server OAuth app and the Zoom Meetings API. Students see only the join URL; the teacher's privileged start URL is stored separately and refreshed server-side. Zoom app credentials belong only in Supabase Edge Function secrets. Current integration opens Zoom externally (desktop client/browser), not embedded Meeting SDK. Zoom webhook attendance sync remains future work.
+
 ## Gamification
 
 Configurable XP, achievements, streaks, weekly challenges, class leaderboards and milestone certificates. Admin/authorized teachers control whether these features are enabled.
@@ -185,3 +189,5 @@ For the maintained, full product scope, implementation stages, acceptance criter
 - Added teacher removal of active student participants. The server records the action, closes attendance, and blocks the removed student from rejoining the same live session.
 
 - Master plan status corrected: teacher removal is now in source; remaining classroom gaps include reconnection validation, TURN/SFU, recording and end-to-end tests.
+
+- Added source-only student-created study rooms and teacher-selected Zoom/website delivery. Student rooms are course-scoped, one active room per host, and capped at six participants by the database join RPC. Zoom API integration source creates scheduled meetings server-side and separates teacher host URLs from student join URLs. No credentials, migration, or deployment have been applied.
