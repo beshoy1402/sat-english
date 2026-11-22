@@ -194,3 +194,5 @@ For the maintained, full product scope, implementation stages, acceptance criter
 
 - Teacher Zoom delivery now includes server-side create/refresh, start, end and cancel actions. Required Zoom scopes include create/read/end/delete meeting permissions. Webhook attendance sync and per-teacher Zoom OAuth remain future work.
 - See `docs/ZOOM_INTEGRATION_SETUP.md` for the source-only configuration and security guide.
+
+- Current Live Classroom source includes student-created study rooms and teacher-selected website/Zoom delivery. Zoom API Edge Function and database migration are source-only; no secrets configured or production deployment performed. Build/runtime tests and Zoom webhook attendance remain outstanding.
