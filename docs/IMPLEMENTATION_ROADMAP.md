@@ -181,7 +181,7 @@ For the maintained, full product scope, implementation stages, acceptance criter
 - Realtime broadcast send and receive authorization both require the session lobby/live state.
 
 - Added persistent classroom chat with database-enforced membership checks, 1,000-character bound, send rate limits and 10-minute teacher chat mute/unmute controls with audit events.
-- Added student hand raise through private Realtime presence. Persistent hand-raise history and teacher lowering another participant's hand remain outstanding.
+- Replaced ephemeral presence-only hand raises with persisted RLS-protected state and an event trail. Students can raise/lower their own hand; the host/assigned staff can lower a student's hand. Staff can review recent events. Leaving or removal automatically lowers the hand.
 - Chat notifications broadcast only a persisted message ID; receiving clients re-fetch the message through table RLS before displaying it.
 
 - Before activating the live room, verify Supabase Realtime's project-level **Allow public access** setting is disabled. The setting has not been checked or changed.
@@ -226,7 +226,7 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - Added a versioned rule registry migration with admin-only draft/publish/supersede permissions and student read access to verified rules only.
 - Added the admin Admission Rules area and student calculator lookup, input-scale validation, score breakdown and source display.
 - No university/faculty formulas have been guessed or preloaded; official rules must be verified individually before publication.
-- Migration `20261123130000_admission_rule_registry.sql` remains unapplied. CI/typecheck for the latest commit is pending.
+- Migration `20261123130000_admission_rule_registry.sql` remains unapplied. Admission rules are versioned and published history is immutable in source. SQL execution/runtime verification remains pending.
 
 
 ## Build verification checkpoint (2026-11-22)
@@ -243,4 +243,18 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - DOCX: extracts raw text through Mammoth; PDF: extracts selectable text through PDF.js and reconstructs line groups.
 - Numbered document question blocks with A)–D) options, Answer: and optional Explanation: are mapped into the existing validated preview/import flow.
 - Limits: 25 MB per file, 2,500 questions, 80 PDF pages. Scanned PDFs and embedded image/diagram OCR are not supported. First-sheet only; preview is not editable; rollback/retry by import batch is still outstanding.
-- Build and TypeScript verification passed for commit `602f83235ff19e0f0f6f4c9fdcaa9422a0f4b1db`. Static safety assertions for the parser are now added and awaiting their own CI run.
+- Build, TypeScript and static policy verification passed on the later branch commits; the latest run must still be checked after the most recent hand-raise and migration edits. Parser fixture tests and database migration execution remain pending.
+
+
+## Persistent hand-raise workflow (2026-11-22)
+
+- Added current hand state and immutable raise/lower events to the Live Classroom migration.
+- Added a server-authorized RPC for student self-service and host/staff lowering of active student hands.
+- Added RLS-scoped reads, persisted UI state, private broadcast refresh, staff history display and automatic lowering on leave/removal.
+- Source-only; local SQL execution, multi-user browser testing and authorization tests remain outstanding.
+
+## Migration history is not reconciled
+
+- The hosted Supabase project reports 47 applied migration versions, while the feature branch has 51 migration files and none of the remote applied version IDs have matching files in the branch.
+- Recover the exact applied migration source or build/review an authoritative baseline from a schema snapshot before running a local reset and database tests.
+- Do not use production migration repair or deployment to work around this. No production change was made.
