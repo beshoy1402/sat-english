@@ -7,8 +7,11 @@ const normalize=(v:string)=>v.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 function parseCsv(source:string):Record<string,string>[]{
  const rows:string[][]=[];let row:string[]=[],cell='',quoted=false;
  for(let i=0;i<source.length;i++){const c=source[i];if(quoted){if(c==='"'&&source[i+1]==='"'){cell+='"';i++;}else if(c==='"')quoted=false;else cell+=c;}else if(c==='"')quoted=true;else if(c===','){row.push(cell);cell='';}else if(c==='\n'||c==='\r'){if(c==='\r'&&source[i+1]==='\n')i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell='';}else cell+=c;}
+ if(quoted)throw new Error('CSV contains an unterminated quoted field.');
  row.push(cell);if(row.some(v=>v.trim()))rows.push(row);if(!rows.length)return [];
  const headers=rows.shift()!.map(v=>v.trim().toLowerCase().replace(/[\s-]+/g,'_'));
+ if(headers.some(h=>!h))throw new Error('CSV contains an empty column heading.');
+ if(new Set(headers).size!==headers.length)throw new Error('CSV contains duplicate column headings. Rename each column so every heading is unique.');
  return rows.map(values=>Object.fromEntries(headers.map((h,i)=>[h,values[i]??''])));
 }
 function toImportRow(raw:Record<string,any>,sourceRow:number,existing:Set<string>):ImportRow{
