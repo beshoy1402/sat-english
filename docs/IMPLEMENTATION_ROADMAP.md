@@ -265,3 +265,12 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - The question bank remains RPC-only with direct table grants revoked for anon/authenticated.
 - Non-admin staff can edit/delete only items they created; exam assembly is limited to the exam creator or administrator and draft exams only.
 - Source migration only. Database execution and negative RLS/RPC authorization tests remain blocked pending migration-history reconciliation.
+
+
+## Workspace frontend refresh (2026-11-22)
+
+- Refreshed the authenticated portal with a consistent navy/indigo design system, improved sidebar hierarchy, active navigation state, sticky top bar, clearer dashboard cards, refined content panels, and updated modal/form styling.
+- Improved responsive behavior: the sidebar becomes a slide-in mobile drawer with a scrim; the workspace hero and quick-access area reflow for narrow screens; dashboard metrics and profile summaries use mobile-friendly grids.
+- Added accessible navigation labeling, aria-current for the active page, and expanded/controls semantics for the mobile navigation button.
+- GitHub Actions run [45001122041](https://github.com/beshoy1402/sat-english/actions/runs/45001122041) passed for the visual-system refresh commit 3f38d7c3ff147948ba0ec3743077d1dc22ad3cc6.
+- The accessibility markup follow-up is committed separately and awaits its own CI result. No deployment was performed; visual QA on real browsers/devices remains required.
