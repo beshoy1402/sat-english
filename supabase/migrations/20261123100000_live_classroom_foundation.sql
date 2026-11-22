@@ -71,10 +71,10 @@ create index if not exists live_session_moderation_history_idx
 alter table public.live_session_messages enable row level security;
 alter table public.live_session_moderation_events enable row level security;
 
+revoke all on public.live_session_messages from anon, authenticated;
 grant select on public.live_session_messages to authenticated;
-revoke insert, update, delete on public.live_session_messages from authenticated;
+revoke all on public.live_session_moderation_events from anon, authenticated;
 grant select on public.live_session_moderation_events to authenticated;
-revoke insert, update, delete on public.live_session_moderation_events from authenticated;
 
 drop policy if exists live_session_messages_read_participants on public.live_session_messages;
 create policy live_session_messages_read_participants
