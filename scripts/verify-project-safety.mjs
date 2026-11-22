@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
@@ -12,6 +12,8 @@ const [ai, recordings, supabaseClient, providerSettings, providerManagement, del
   read('../src/App.tsx'),
   read('../src/HomeworkCenter.tsx'),
   read('../supabase/migrations/20261121162000_homework_teacher_attachments.sql'),
+  read('../src/AdmissionCalculator.tsx'),
+  read('../supabase/migrations/20261123130000_admission_rule_registry.sql'),
 ]);
 
 // AI must use the approved NVIDIA-first provider/model/endpoint allowlist.
@@ -79,5 +81,23 @@ assert.match(homeworkMigration, /add column if not exists attachment_paths text\
 assert.match(homeworkMigration, /homework_assignment_attachment_upload/);
 assert.match(homeworkMigration, /homework_assignment_attachment_read/);
 assert.match(homeworkMigration, /l\.parent_profile_id = \(select auth\.uid\(\)\)/);
+
+// Admission rules must be versioned, source-attributed and server-authorized.
+assert.match(admissionMigration, /alter table public\.admission_rule_versions enable row level security/);
+assert.match(admissionMigration, /admission_rules_admin_insert/);
+assert.match(admissionMigration, /admission_rules_admin_update/);
+assert.match(admissionMigration, /created_by = \(select auth\.uid\(\)\)/);
+assert.match(admissionMigration, /status = 'verified'/);
+assert.match(admissionMigration, /p\.role = 'student'/);
+assert.match(admissionMigration, /verified_by = \(select auth\.uid\(\)\)/);
+assert.match(admissionMigration, /admission_verified_requires_source/);
+assert.match(admission, /\.eq\('status','verified'\)/);
+assert.match(admission, /status==='verified'/);
+assert.match(admission, /window\.confirm\('Confirm that you personally checked this exact university/);
+assert.match(admission, /status:'draft'/);
+assert.match(admission, /No verified rule for this selection/);
+assert.match(admission, /matching\.source_url/);
+assert.match(app, /active==='admissionRules'&&profile\.role==='admin'/);
+assert.match(app, /active==='admission'&&profile\.role==='student'/);
 
 console.log('Project safety checks passed.');
