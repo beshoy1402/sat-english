@@ -85,6 +85,7 @@ create index if not exists live_session_zoom_events_session_time_idx
   on public.live_session_zoom_events(session_id, occurred_at desc);
 alter table public.live_session_zoom_events enable row level security;
 revoke all on public.live_session_zoom_events from anon, authenticated;
+grant all on public.live_session_zoom_events to service_role;
 
 create table if not exists public.live_session_messages (
   id uuid primary key default gen_random_uuid(),
