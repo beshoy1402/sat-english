@@ -4,7 +4,7 @@ import type { Profile } from './lib/supabase';
 import { uploadWithTus } from './RecordedSessions';
 import './live-recording.css';
 
-type Session = { id: string; course_id: string; title: string; scheduled_at: string; status: string };
+type Session = { id: string; course_id: string; title: string; scheduled_at: string; status: string; provider: 'website' | 'zoom' };
 
 const MAX_RECORDING_BYTES = 500 * 1024 * 1024;
 const formatTime = (seconds: number) => {
@@ -32,6 +32,7 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
   const micRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const recordedBytesRef = useRef(0);
   const uploadPathRef = useRef<string | null>(null);
   const startedAtRef = useRef(0);
   const stopRequestedRef = useRef(false);
@@ -108,13 +109,16 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
       micRef.current = microphone;
       audioContextRef.current = audioContext;
       chunksRef.current = [];
+      recordedBytesRef.current = 0;
       stopRequestedRef.current = false;
       const recorder = new MediaRecorder(capture, { mimeType });
       recorderRef.current = recorder;
       recorder.ondataavailable = event => {
-        if (event.data.size) chunksRef.current.push(event.data);
-        const size = chunksRef.current.reduce((total, chunk) => total + (chunk instanceof Blob ? chunk.size : 0), 0);
-        if (size >= MAX_RECORDING_BYTES && recorder.state === 'recording') {
+        if (event.data.size) {
+          chunksRef.current.push(event.data);
+          recordedBytesRef.current += event.data.size;
+        }
+        if (recordedBytesRef.current >= MAX_RECORDING_BYTES && recorder.state === 'recording') {
           setError('The 500 MB recording limit was reached. The recording has been stopped; review and save the captured video.');
           recorder.stop();
         }
