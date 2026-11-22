@@ -187,11 +187,12 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Server-side RPCs own session state transitions and attendance timestamps; authenticated clients cannot directly rewrite session status or participant join/leave timestamps.
 - Attendance rows are readable only by the participant and authorized session managers; other enrolled students see presence only within the private room.
 - The scheduling UI lists only courses the current staff member can manage under the present course-ownership model.
-- The database validates that an optional linked lesson belongs to the selected course.
+- The database validates that an optional linked lesson belongs to the selected course and is published.
 - Session lifecycle values: scheduled, lobby, live, ended and cancelled.
 - RLS limits session visibility to active course staff and students with current active course access. Session management is limited to an administrator or staff member who created the session / owns the course.
-- Private Realtime topics use the exact `live-session:<UUID>` format. Receive/send policies authorize only active participants for sessions whose lobby is open or live.
-- `src/LiveClassroom.tsx` and `src/live-classroom.css`: staff scheduling, optional lesson association, open-lobby/start/end/cancel controls, student join/leave, and private Realtime presence roster.
+- Private Realtime topics use `live-session:<UUID>` for presence and `live-session-media:<UUID>` for media signaling. Receive/send policies authorize active course members only while the lobby is open or the session is live.
+- `src/LiveClassroom.tsx` and `src/live-classroom.css`: staff scheduling, optional published-lesson association, open-lobby/start/end/cancel controls, teacher/student room entry, attendance, and private Realtime presence roster.
+- Session lifecycle audit columns record the staff profiles that started, ended or cancelled a session.
 - Staff and student navigation now includes **Live classroom**.
 
 **Current media prototype:** `src/LiveMedia.tsx` adds browser camera/microphone capture, peer-to-peer WebRTC audio/video, participant video tiles, mute/camera controls and screen sharing. It uses a separate private `live-session-media:<UUID>` signaling topic, STUN discovery only, and a six-participant cap. Media transceivers are prepared before device permission is granted so later track attachment can use the negotiated audio/video sections.
@@ -240,3 +241,5 @@ The first Live Classroom code slice is now committed to the working feature bran
 - **2026-11-23:** Added source-only live classroom scheduling, session lifecycle, attendance and private Realtime presence. Added staff/student navigation. Hardened state changes and attendance timestamps behind server-side RPCs, restricted attendance visibility to self/managers, filtered staff course choices to manageable courses, and validated lesson/course linkage. No migration applied and no deployment.
 
 - **2026-11-23 (continued):** Added a six-person WebRTC audio/video and screen-sharing prototype using private Realtime signaling and STUN-only ICE discovery. No deployment or database application.
+
+- **Security follow-up:** the media signaling topic uses the same open-session authorization check for both sending and receiving; ended/cancelled/scheduled sessions cannot use the signaling topic.
