@@ -49,11 +49,11 @@ export default function QuestionBank({client}:{client:any}){
   setNotice('');setImportRows([]);setImportName(file.name);
   try{
    const source=await file.text();let raw:Record<string,any>[];
-   if(file.name.toLowerCase().endsWith('.csv'))raw=parseCsv(source.replace(/^\\uFEFF/,''));
+   if(file.name.toLowerCase().endsWith('.csv'))raw=parseCsv(source.replace(/^\uFEFF/,''));
    else if(file.name.toLowerCase().endsWith('.json')){const parsed=JSON.parse(source);raw=Array.isArray(parsed)?parsed:parsed.questions;if(!Array.isArray(raw))throw new Error('JSON must be an array or an object containing a questions array.');}
    else throw new Error('Choose a .csv or .json file. PDF, DOCX and XLSX are not supported in this import step.');
-   if(file.name.toLowerCase().endsWith('.csv')&&!Object.keys(raw[0]).some(key=>['prompt','question','question_text'].includes(key)))throw new Error('CSV header must include a question column named prompt, question or question_text.');
    if(!raw.length)throw new Error('The file contains no question rows.');
+   if(file.name.toLowerCase().endsWith('.csv')&&!Object.keys(raw[0]).some(key=>['prompt','question','question_text'].includes(key)))throw new Error('CSV header must include a question column named prompt, question or question_text.');
    if(raw.length>2500)throw new Error('Import is limited to 2,500 questions per file. Split larger files into smaller batches.');
    const existing=new Set(items.map(q=>normalize(String(q.prompt??''))));
    const seen=new Set<string>();
