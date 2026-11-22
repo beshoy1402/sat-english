@@ -15,12 +15,16 @@ function parseCsv(source:string):Record<string,string>[]{
  return rows.map(values=>Object.fromEntries(headers.map((h,i)=>[h,values[i]??''])));
 }
 function toImportRow(raw:Record<string,any>,sourceRow:number,existing:Set<string>):ImportRow{
- const choicesRaw=raw.choices??raw.options??[];
- const choices=Array.isArray(choicesRaw)?choicesRaw.map(v=>typeof v==='string'?v:String(v?.text??v?.label??'' )).filter(Boolean):String(choicesRaw).split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
+ const choicesRaw=raw.choices??raw.options;
+ const structuredChoices=['a','b','c','d'].map(letter=>raw['choice_'+letter]??raw['option_'+letter]??raw['choice'+letter.toUpperCase()]??raw['option'+letter.toUpperCase()]??raw['choice_'+(letter.charCodeAt(0)-96)]??raw['option_'+(letter.charCodeAt(0)-96)]).filter(v=>v!==undefined&&v!==null&&String(v).trim()!=='');
+ const choices=Array.isArray(choicesRaw)?choicesRaw.map(v=>typeof v==='string'?v:String(v?.text??v?.label??'')).filter(Boolean):choicesRaw!==undefined?String(choicesRaw).split(/\r?\n/).map(v=>v.trim()).filter(Boolean):structuredChoices.map(v=>String(v).trim());
  const prompt=String(raw.prompt??raw.question??raw.question_text??'').trim();
  const type=String(raw.question_type??raw.type??'multiple_choice').toLowerCase().replace(/[ -]/g,'_');
  const answer=String(raw.answer_key??raw.answer??raw.correct_answer??'').trim();
- const row:ImportRow={sourceRow,exam_program:String(raw.exam_program??raw.program??'SAT English').trim(),topic:String(raw.topic??raw.skill??raw.domain??'General').trim(),difficulty:String(raw.difficulty??'medium').toLowerCase(),passage:String(raw.passage??raw.reading_passage??'').trim(),prompt,question_type:type,choices,answer_key:answer,explanation:String(raw.explanation??raw.rationale??'').trim(),points:Number(raw.points??1),errors:[],duplicate:false};
+ const answerLetter=answer.match(/^([A-D])(?:[).:]|$)/i);
+ const answerIndex=answerLetter?answerLetter[1].toUpperCase().charCodeAt(0)-65:-1;
+ const normalizedAnswer=answerIndex>=0?(choices[answerIndex]??answer):answer;
+ const row:ImportRow={sourceRow,exam_program:String(raw.exam_program??raw.program??'SAT English').trim(),topic:String(raw.topic??raw.skill??raw.domain??'General').trim(),difficulty:String(raw.difficulty??'medium').toLowerCase(),passage:String(raw.passage??raw.reading_passage??'').trim(),prompt,question_type:type,choices,answer_key:normalizedAnswer,explanation:String(raw.explanation??raw.rationale??'').trim(),points:Number(raw.points??1),errors:[],duplicate:false};
  if(!prompt)row.errors.push('Question prompt is required.');
  if(!['multiple_choice','short_answer','essay'].includes(type))row.errors.push('Unsupported question type.');
  if(!['easy','medium','hard'].includes(row.difficulty))row.errors.push('Difficulty must be easy, medium or hard.');
