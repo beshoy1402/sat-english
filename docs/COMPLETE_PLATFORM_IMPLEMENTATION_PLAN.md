@@ -16,7 +16,7 @@
 - Keep production stable and unchanged while development is in progress.
 - Do not claim a feature is complete until code, schema prerequisites, permissions and actual runtime behavior have been verified.
 - Preserve responsive desktop, tablet and mobile experiences and the existing platform design system.
-- Do not use Claude or OpenAI models. The configured AI preference is Gemini primary, OpenRouter and Groq fallback; Qwen is disabled for now.
+- Do not use Claude or ChatGPT/OpenAI API. The user-confirmed AI provider order is NVIDIA NIM primary, Gemini secondary, and OpenRouter third fallback. Groq and Qwen are excluded.
 
 ## 2. Product and role model
 
