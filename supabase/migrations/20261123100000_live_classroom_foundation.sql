@@ -330,7 +330,7 @@ on realtime.messages for insert to authenticated
 with check (
   case
     when realtime.topic() ~ '^live-session(-media)?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-    then private.can_access_live_session(split_part(realtime.topic(), ':', 2)::uuid)
+    then private.can_join_live_session(split_part(realtime.topic(), ':', 2)::uuid)
     else false
   end
 );
