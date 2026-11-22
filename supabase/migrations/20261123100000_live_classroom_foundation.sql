@@ -10,7 +10,7 @@ create table if not exists public.live_sessions (
   zoom_meeting_id text,
   zoom_join_url text,
   zoom_password text,
-  title not null check (char_length(btrim(title)) between 2 and 180),
+  title text not null check (char_length(btrim(title)) between 2 and 180),
   description text not null default '',
   scheduled_at timestamptz not null,
   started_at timestamptz,
@@ -467,6 +467,8 @@ begin
   end if;
 
   if coalesce(p_meeting_id, '') = ''
+    or coalesce(p_join_url, '') = ''
+    or coalesce(p_start_url, '') = ''
     or p_join_url !~ '^https://([a-zA-Z0-9-]+\.)*zoom\.us/'
     or p_start_url !~ '^https://([a-zA-Z0-9-]+\.)*zoom\.us/' then
     raise exception 'Invalid Zoom meeting response';
