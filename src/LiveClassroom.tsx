@@ -267,7 +267,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   };
 
   const toggleChatMute = async (member: PresenceMember) => {
-    if (!client || !activeSession || !staff || !member.profile_id || member.role !== 'student') return;
+    if (!client || !activeSession || !canModerateActiveSession || !member.profile_id || member.role !== 'student') return;
     const currentUntil = mutedUntil[member.profile_id];
     const currentlyMuted = Boolean(currentUntil && new Date(currentUntil).getTime() > Date.now());
     const nextMuted = !currentlyMuted;
@@ -292,7 +292,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   };
 
   const removeParticipant = async (member: PresenceMember) => {
-    if (!client || !activeSession || !staff || !member.profile_id || member.role !== 'student' || busy) return;
+    if (!client || !activeSession || !canModerateActiveSession || !member.profile_id || member.role !== 'student' || busy) return;
     const name = member.display_name || 'This student';
     if (!window.confirm('Remove ' + name + ' from this live classroom? They will not be able to rejoin this session.')) return;
     setBusy(true); setError('');
