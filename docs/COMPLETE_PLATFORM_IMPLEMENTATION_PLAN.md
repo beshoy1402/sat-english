@@ -414,3 +414,14 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Added a before-unload warning while recording or uploading and clarified the capture-size threshold warning where the final encoded chunk can exceed the storage cap.
 - Verified in GitHub Actions run [45003715994](https://github.com/beshoy1402/sat-english/actions/runs/45003715994): policy checks, 10 import tests, TypeScript and Vite build passed.
 - Browser-level media capture, permission-denial, navigation, upload interruption and storage authorization tests are still required. No production settings, bucket, migration, Edge Function or deployment was changed.
+
+
+## Recorded Sessions authorization and retry recovery — source only (2026-11-22)
+
+- Added migration `20261123140000_scope_recorded_session_access.sql` to replace broad staff-wide recording visibility with ownership-scoped access. Administrators retain global access; active teachers/assistants can access recordings they uploaded, recordings in courses they own, or recordings from website lessons they host. Developer accounts receive no blanket private-media access.
+- Added server-side insert restrictions for course ownership or linked website lesson ownership, plus an identity guard preventing non-admin staff from changing a recording's course, uploader, object path or linked lesson.
+- Updated metadata and Storage SELECT/DELETE policies to apply the same scope. Student playback remains limited to published recordings, published courses and active enrolments within their date window. Own-folder listing is retained so uploaders can recover completed objects without a metadata row.
+- Filtered the manual upload course picker to administrator-wide or staff-owned courses, while live lesson recording remains authorized by the linked lesson host rule.
+- Improved TUS retry behavior by checking for the exact private object before creating a new upload. A completed upload whose metadata insert failed is reused on retry; the completed TUS session URL is cleared after finalization.
+- Verified with GitHub Actions run [45004178052](https://github.com/beshoy1402/sat-english/actions/runs/45004178052): policy checks, 10 import regression tests, TypeScript and Vite build all passed.
+- Not yet verified against a disposable live database or real browser sessions. Required next checks: migration application in isolated development, role-by-role RLS/Storage tests, live lesson host access, interrupted TUS recovery, and deletion consistency. No migration was applied to production and no deployment occurred.
