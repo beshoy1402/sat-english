@@ -199,3 +199,14 @@ For the maintained, full product scope, implementation stages, acceptance criter
 
 
 - **2026-11-22 — Live recording source implementation:** Added teacher-only explicit browser capture for active website lessons, REC/timer indicator, stop/preview/discard, TUS upload to private storage, and automatic draft metadata linked to course + live session. Zoom sessions and student study rooms are excluded. New source-only migration adds the optional live-session reference. No deployment, migration application, or production configuration change.
+
+
+## Current audit checkpoint (2026-11-22)
+
+- Fixed a strict-TypeScript issue in `src/LiveRecording.tsx`: the component now types the session delivery provider it reads, and unused icon imports were removed because `noUnusedLocals` is enabled.
+- Changed recording byte accounting from repeated full-array reductions to an incremental counter.
+- Read-only Supabase inventory: project is healthy; 41 public tables were returned and all have RLS enabled; 47 migrations are applied, latest is `20261121222000 add_nvidia_nim_provider`.
+- The database has not received the later branch-only migrations for active-profile hardening, recording policy hardening, homework attachments, assistant scope/live support, AI points, live classroom or live-recording linkage.
+- Security Advisor findings to resolve/review before launch: one RLS-enabled table without direct policies (`question_bank_items`, accessed through staff RPCs), 16 authenticated-callable SECURITY DEFINER RPCs, and disabled leaked-password protection. Performance findings include per-row auth-function evaluation, multiple permissive policies on three tables, and unused-index notices.
+- These are audit observations; no production settings or data were changed. The SECURITY DEFINER functions must be individually reviewed for authorization and execution grants rather than blindly revoked.
+- No local build or runtime test has yet been recorded for this correction. No deployment, migration, Edge Function or secret change was performed.
