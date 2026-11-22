@@ -227,3 +227,11 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - Added the admin Admission Rules area and student calculator lookup, input-scale validation, score breakdown and source display.
 - No university/faculty formulas have been guessed or preloaded; official rules must be verified individually before publication.
 - Migration `20261123130000_admission_rule_registry.sql` remains unapplied. CI/typecheck for the latest commit is pending.
+
+
+## Build verification checkpoint (2026-11-22)
+
+- GitHub Actions run [44995760523](https://github.com/beshoy1402/sat-english/actions/runs/44995760523) passed on commit `1cd88c054d334f2594b419d2fd51da91900a67f9`.
+- Dependency install, project safety checks, TypeScript type-check and Vite build succeeded.
+- This is not browser/E2E verification and does not apply migrations or activate provider, Zoom, Realtime, or storage configuration.
+- Production remains unchanged.
