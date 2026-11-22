@@ -160,7 +160,7 @@ Configurable XP, achievements, streaks, weekly challenges, class leaderboards an
 
 
 - Added a downloadable CSV error report for the latest Question Bank import. It records source file, source row, skipped validation reasons, and database save failures; CSV and JSON source row numbering is preserved. This remains a browser-side workflow using the existing save RPC and does not add import-batch rollback or persistent staging.
-- Implemented an initial browser-side bulk import workflow for CSV and structured JSON question files in the Question Bank. It previews rows, validates required prompts, supported question types, difficulty, points and exact multiple-choice answer matching, and flags prompt duplicates against the existing bank and within the file. Staff explicitly confirm before valid rows are saved through the existing question-save RPC; writes are grouped in small concurrent batches and failed rows are reported. This first slice supports CSV/JSON only; PDF, DOCX and XLSX extraction, image extraction, downloadable error files, and batch rollback remain future work. No database migration, Edge Function deployment or production deployment was made.
+- Implemented an initial browser-side bulk import workflow for CSV and structured JSON question files in the Question Bank. It previews rows, validates required prompts, supported question types, difficulty, points and exact multiple-choice answer matching, and flags prompt duplicates against the existing bank and within the file. Staff explicitly confirm before valid rows are saved through the existing question-save RPC; writes are grouped in small concurrent batches and failed rows are reported. This was the initial CSV/JSON-only slice; the later 2026-11-22 import expansion adds XLSX, DOCX and text-based PDF extraction. Image extraction/OCR and batch rollback remain future work. No database migration, Edge Function deployment or production deployment was made.
 
 - Hardened CSV import parsing to reject unterminated quoted fields, empty headings and duplicate headings. The preview now displays the original source row number, matching the downloadable report. Source-only change; no deployment or database changes.
 
@@ -235,3 +235,12 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - Dependency install, project safety checks, TypeScript type-check and Vite build succeeded.
 - This is not browser/E2E verification and does not apply migrations or activate provider, Zoom, Realtime, or storage configuration.
 - Production remains unchanged.
+
+
+## Question-bank document import expansion (2026-11-22)
+
+- XLSX: reads the first worksheet and maps its heading row to question fields.
+- DOCX: extracts raw text through Mammoth; PDF: extracts selectable text through PDF.js and reconstructs line groups.
+- Numbered document question blocks with A)–D) options, Answer: and optional Explanation: are mapped into the existing validated preview/import flow.
+- Limits: 25 MB per file, 2,500 questions, 80 PDF pages. Scanned PDFs and embedded image/diagram OCR are not supported. First-sheet only; preview is not editable; rollback/retry by import batch is still outstanding.
+- Build and TypeScript verification passed for commit `602f83235ff19e0f0f6f4c9fdcaa9422a0f4b1db`. Static safety assertions for the parser are now added and awaiting their own CI run.
