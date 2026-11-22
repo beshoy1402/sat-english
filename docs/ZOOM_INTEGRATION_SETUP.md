@@ -82,4 +82,4 @@ This endpoint is source-only. Do not add the Zoom event subscription, configure 
 - Runtime tests against a real Zoom developer account.
 - Zoom cloud recording synchronization into the Recorded Sessions Library.
 
-Do not describe Zoom attendance as automatically tracked until webhook synchronization is implemented and tested.
+Do not describe Zoom attendance as active in production until the webhook is deployed, configured and runtime-tested.
