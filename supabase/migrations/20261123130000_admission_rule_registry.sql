@@ -5,6 +5,7 @@ create table if not exists public.admission_rule_versions (
   university text not null check (length(trim(university)) between 2 and 180),
   faculty text not null check (length(trim(faculty)) between 2 and 180),
   admission_year integer not null check (admission_year between 2020 and 2100),
+  version integer not null default 1 check (version > 0),
   status text not null default 'draft' check (status in ('draft','verified','superseded')),
   source_url text not null default '' check (source_url = '' or source_url ~ '^https://'),
   source_title text not null default '',
@@ -53,6 +54,87 @@ create table if not exists public.admission_rule_versions (
 );
 create index if not exists admission_rule_lookup_idx
   on public.admission_rule_versions (lower(university), lower(faculty), admission_year, status);
+
+create unique index if not exists admission_rule_version_unique_idx
+  on public.admission_rule_versions (lower(university), lower(faculty), admission_year, version);
+
+create unique index if not exists admission_rule_one_current_verified_idx
+  on public.admission_rule_versions (lower(university), lower(faculty), admission_year)
+  where status = 'verified';
+
+-- Assign monotonically increasing versions and make published history immutable.
+create or replace function public.guard_admission_rule_version()
+returns trigger
+language plpgsql
+set search_path = ''
+as $function$
+declare
+  v_lock_key text;
+begin
+  v_lock_key := lower(btrim(new.university)) || '|' ||
+                lower(btrim(new.faculty)) || '|' || new.admission_year::text;
+
+  if tg_op = 'INSERT' then
+    if new.status <> 'draft' then
+      raise exception 'Admission rules must be created as drafts';
+    end if;
+    perform pg_advisory_xact_lock(hashtextextended(v_lock_key, 0));
+    select coalesce(max(r.version), 0) + 1
+      into new.version
+      from public.admission_rule_versions r
+      where lower(r.university) = lower(btrim(new.university))
+        and lower(r.faculty) = lower(btrim(new.faculty))
+        and r.admission_year = new.admission_year;
+    return new;
+  end if;
+
+  if lower(btrim(new.university)) <> lower(btrim(old.university))
+    or lower(btrim(new.faculty)) <> lower(btrim(old.faculty))
+    or new.admission_year <> old.admission_year
+    or new.version <> old.version
+    or new.created_by <> old.created_by
+    or new.created_at <> old.created_at then
+    raise exception 'Admission rule identity and version fields are immutable';
+  end if;
+
+  if old.status = 'superseded' then
+    raise exception 'Superseded admission rule versions are immutable';
+  elsif old.status = 'verified' then
+    if new.status <> 'superseded'
+      or (to_jsonb(new) - 'status' - 'updated_at')
+         is distinct from
+         (to_jsonb(old) - 'status' - 'updated_at') then
+      raise exception 'Published admission rules cannot be edited; create a new draft version';
+    end if;
+    new.updated_at := now();
+    return new;
+  end if;
+
+  if new.status not in ('draft', 'verified') then
+    raise exception 'Draft rules may only remain drafts or be verified';
+  end if;
+
+  if new.status = 'verified' then
+    perform pg_advisory_xact_lock(hashtextextended(v_lock_key, 0));
+    update public.admission_rule_versions r
+      set status = 'superseded', updated_at = now()
+      where lower(r.university) = lower(btrim(new.university))
+        and lower(r.faculty) = lower(btrim(new.faculty))
+        and r.admission_year = new.admission_year
+        and r.status = 'verified'
+        and r.id <> new.id;
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$function$;
+
+drop trigger if exists admission_rule_version_guard on public.admission_rule_versions;
+create trigger admission_rule_version_guard
+before insert or update or delete on public.admission_rule_versions
+for each row execute function public.guard_admission_rule_version();
+
 
 alter table public.admission_rule_versions enable row level security;
 revoke all on public.admission_rule_versions from anon, authenticated;
