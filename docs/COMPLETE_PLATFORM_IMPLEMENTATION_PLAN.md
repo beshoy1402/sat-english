@@ -161,7 +161,7 @@ Design and review the following source-controlled schema/policy changes before a
 - Verified Zoom webhook events are stored in a private, RLS-enabled table with direct client grants revoked. Participant join/leave events map to student attendance only through a matching auth email and current active course access.
 - Parent accounts remain read-only and cannot join a live room by default.
 - Server-validated chat sends with per-user rate limits, 1,000-character message limit, and a 10-minute teacher chat-mute control with moderation audit events.
-- Hand raise is currently ephemeral Realtime presence; persistent hand-raise history and teacher lowering another participant's hand remain future work.
+- Hand raises now use a private, server-authorized database state plus an immutable event trail. Students can raise/lower their own hands; the classroom host/assigned staff can lower an active student's hand. Staff can review recent history. Leaving or being removed automatically lowers an active hand.
 - Recording metadata linked to the live session while retaining the private storage access model.
 
 No live-classroom schema or policy change is to be applied to production without explicit approval. Do not deploy an Edge Function for this milestone unless a concrete server-side requirement is established and approved.
@@ -218,12 +218,12 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Session lifecycle audit columns record the staff profiles that started, ended or cancelled a session.
 - `live_session_messages` stores plain-text chat with a 1,000-character bound; the `live_session_send_message` RPC verifies room membership, active attendance and mute state, and enforces per-user rate limits.
 - `live_session_moderation_events` records teacher chat-mute/unmute actions. `live_session_set_chat_mute` limits this action to active student participants and applies a 10-minute mute.
-- Hand raise is shared through private Realtime presence. Chat notification broadcasts contain only a message ID; each receiver fetches the persisted message through RLS before rendering it.
+- Hand raise state and history are persisted in RLS-protected tables and changed only through an authorization-checked RPC. Private Realtime broadcasts carry only the affected profile ID; each receiver reloads the state through RLS. Chat notification broadcasts contain only a message ID; each receiver fetches the persisted message through RLS before rendering it.
 - Staff and student navigation now includes **Live classroom**.
 
 **Current media prototype:** `src/LiveMedia.tsx` adds browser camera/microphone capture, peer-to-peer WebRTC audio/video, participant video tiles, mute/camera controls and screen sharing. It uses a separate private `live-session-media:<UUID>` signaling topic, STUN discovery only, and a six-participant cap. Media transceivers are prepared before device permission is granted so later track attachment can use the negotiated audio/video sections.
 
-**Still not included:** TURN relay, SFU/scalable classrooms, Zoom webhook runtime verification and activation, per-teacher Zoom account OAuth connections, embedded Zoom Meeting SDK, automated browser/network acceptance tests and verified multi-device connectivity. Live recording is now source-implemented but still needs runtime verification. Hand raise currently uses ephemeral private presence; classroom chat is persisted in the source schema with server-side rate limits and teacher chat-mute RPCs. STUN-only connectivity is not guaranteed on restrictive networks. This is an unverified prototype, not a production-ready video classroom. The migration has not been applied to any Supabase project.
+**Still not included:** TURN relay, SFU/scalable classrooms, Zoom webhook runtime verification and activation, per-teacher Zoom account OAuth connections, embedded Zoom Meeting SDK, automated browser/network acceptance tests and verified multi-device connectivity. Live recording is now source-implemented but still needs runtime verification. Hand raise now uses persisted state and an event history, with server-side student self-service and staff lowering; classroom chat is persisted in the source schema with server-side rate limits and teacher chat-mute RPCs. STUN-only connectivity is not guaranteed on restrictive networks. This is an unverified prototype, not a production-ready video classroom. The migration has not been applied to any Supabase project.
 
 ## 6. Current implementation status
 
@@ -240,7 +240,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Latest question-bank parser hardening rejects unterminated quoted fields, empty headings and duplicate headings; preview displays original source row numbers.
 
 ### Not yet verified or activated
-- Live Classroom scheduling/lobby, WebRTC audio/video, screen sharing, persisted chat, hand raise, teacher chat-mute, audited participant removal, student study-room source and Zoom delivery integration source are committed to the feature branch but have not been built, runtime-tested or applied to Supabase. TURN/SFU and end-to-end tests remain outstanding; live recording is now implemented in source but still requires browser/runtime verification. The Vercel check still reports the previously encountered free deployment-rate limit; it is not a successful build result.
+- Live Classroom scheduling/lobby, WebRTC audio/video, screen sharing, persisted chat, persistent hand-raise state/history, teacher hand lowering, chat-mute, audited participant removal, student study-room source and Zoom delivery integration source are committed to the feature branch but have not been browser/network runtime-tested or applied to Supabase. TURN/SFU and end-to-end tests remain outstanding; live recording is now implemented in source but still requires browser/runtime verification. The Vercel check still reports the previously encountered free deployment-rate limit; it is not a successful build result.
 - GitHub Actions verification for commit `1cd88c054d334f2594b419d2fd51da91900a67f9` completed successfully: dependency installation, project safety policy checks, TypeScript type-check and Vite production build. This is a source/build verification only, not a browser, database-migration, media, AI-provider or end-to-end runtime test.
 - Vercel deployment attempts were blocked by the free daily deployment API limit; do not upgrade the plan to bypass it.
 - AI points migration and AI learning Edge Function changes are source-only and not deployed.
@@ -270,7 +270,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 - **Security follow-up:** the media signaling topic uses the same open-session authorization check for both sending and receiving; ended/cancelled/scheduled sessions cannot use the signaling topic.
 
-- **2026-11-23 (continued):** Added persisted live-session chat with server-side membership/mute checks, per-user rate limits, private-channel ID notifications, ephemeral hand raise, and audited teacher chat mute/unmute controls. Extended the existing un-applied classroom migration source; no production database changes.
+- **2026-11-23 (continued):** Added persisted live-session chat with server-side membership/mute checks, per-user rate limits, private-channel ID notifications, persistent hand-raise state/history, student self-service, teacher/staff hand lowering, and audited teacher chat mute/unmute controls. Extended the existing un-applied classroom migration source; no production database changes.
 
 - **Activation prerequisite:** the current Supabase Realtime project setting `Allow public access` has not been verified or changed. Confirm it is disabled before activating private classroom topics; do not infer this from the SQL policies alone.
 
@@ -303,8 +303,9 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 ### Connected Supabase environment — read only
 - The connected SAT English project reports `ACTIVE_HEALTHY`; the read-only inventory returned 41 public tables and all 41 had RLS enabled.
-- The database reports 47 applied migrations, with the latest applied migration `20261121222000 add_nvidia_nim_provider`.
-- The feature branch contains later source migrations that are not present in the applied migration history, including active-profile role hardening, recording policy hardening, homework attachments, assistant scope/live support, AI points, live classroom and live-recording linkage. These must remain unapplied until separately approved.
+- The hosted database reports 47 applied migrations, latest `20261121222000 add_nvidia_nim_provider`. The current feature branch contains 51 migration files, but none of the 47 applied migration version IDs have matching files in the branch. The histories are not reproducible from this branch as checked out.
+- The feature branch has 51 source migration files that are not applied to the hosted database. This includes feature work for role hardening, recording policies, homework attachments, assistant scope/live support, AI points, provider restrictions, Live Classroom, live-recording linkage and admission rules.
+- **Blocking prerequisite:** recover the exact source for the 47 already-applied migrations (or create and review a schema baseline/squash strategy from an authoritative schema snapshot), reconcile the migration history, and only then run a clean local Supabase reset plus pgTAP/RLS tests. Do not use `migration repair`, `db push`, or apply anything to production to paper over the mismatch.
 - Security Advisor currently reports: one RLS-enabled table without a direct policy (`question_bank_items`, which is currently accessed through staff RPCs); 16 authenticated-callable `SECURITY DEFINER` functions; and leaked-password protection disabled. These are audit findings, not proof that every flagged RPC is exploitable. Review each function's authorization checks and the Auth setting before any activation decision.
 - Performance Advisor reports repeated per-row auth-function evaluation in several policies, multiple permissive policies on three tables, and unused-index notices. Do not drop indexes based only on an unused-index notice from a low-traffic project.
 - No production database changes, migrations, Edge Function deployments, secrets, storage settings, Auth settings or Vercel deployments were changed during this audit.
@@ -337,7 +338,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 - The Admission Calculator now loads the exact matching verified version, validates input scales, shows component contributions and source information, and refuses to calculate when no matching verified rule exists.
 - Added an administrator-only Admission Rules area to create draft rules, verify/publish after checking the official source, and supersede old versions.
 - No university formulas were invented or preloaded. The supported formula type is a configurable weighted sum; more complex official rule structures must be implemented explicitly rather than approximated.
-- New migration: `supabase/migrations/20261123130000_admission_rule_registry.sql`. It is source-only and has not been applied to any hosted database. CI/typecheck verification is pending for the latest commits; no deployment or production changes.
+- New migration: `supabase/migrations/20261123130000_admission_rule_registry.sql`. It is source-only and has not been applied to any hosted database. The registry now assigns monotonic versions per university/faculty/year, allows only one current verified version, automatically supersedes the previous verified version when a new draft is published, and prevents edits/deletion of published history. CI passed for the source/UI changes; SQL execution remains unverified.
 
 
 ## Verification update — admission registry and branch build (2026-11-22)
@@ -358,3 +359,19 @@ The first Live Classroom code slice is now committed to the working feature bran
 - This is not image/diagram OCR, does not support multi-sheet XLSX mapping, and does not make the preview editable. Complex documents must be reviewed carefully; use CSV/JSON for precise control.
 - Added dependencies: `read-excel-file`, `mammoth`, and `pdfjs-dist`. Build/policy verification for the import parser passed on commit `602f83235ff19e0f0f6f4c9fdcaa9422a0f4b1db`; additional static import assertions have been added in the next CI run.
 - No database migration, deployment or production change was made.
+
+
+## Persistent hand raise implementation — source only (2026-11-22)
+
+- Added `live_session_hand_raises` for current state and `live_session_hand_raise_events` for an immutable audit trail.
+- Added `live_session_set_hand_raise` RPC. Active students may raise/lower their own hand; the authorized classroom host/assigned staff may lower a student's hand. Direct table writes are revoked and reads are scoped to users authorized for the session.
+- Classroom UI loads persisted state, refreshes it on private Realtime notifications, shows a staff history panel, and exposes a Lower hand control to moderators.
+- Leaving or being removed from the room automatically lowers the participant's hand and records the action.
+- Migration remains source-only. It has not been executed against a local database or applied to the hosted project; browser, multi-user and role-boundary tests remain required.
+
+## Migration-history reconciliation blocker — read-only audit (2026-11-22)
+
+- The connected Supabase project reports 47 applied migrations, latest `20261121222000`.
+- The checked-out feature branch contains 51 migration files, and none of the applied remote version IDs have corresponding source files in this branch.
+- This prevents a trustworthy clean local database reset from the current repository state and means database migration/E2E testing cannot be claimed.
+- Recover the original applied migration source or generate a reviewed, authoritative baseline/squash from a schema snapshot before attempting local migration tests. Do not repair migration history or apply migrations to production as a shortcut.
