@@ -144,7 +144,7 @@ Session states: scheduled, lobby, live, ended, cancelled. Store timestamps and t
 - The Zoom function validates the caller's Supabase user JWT, active staff profile, session ownership and selected provider before creating or refreshing a Zoom meeting. The function returns the host start URL only to the authorized teacher. Student clients receive the participant join URL only.
 - Required Zoom app permissions must include the granular meeting create/read/end/delete scopes (`meeting:write:meeting:admin`, `meeting:read:meeting:admin`, `meeting:update:status:admin` and `meeting:delete:meeting:admin`). Zoom account licensing, host scheduling permissions and account-level policies may limit availability; verify these on the connected Zoom account before launch.
 - Current Zoom integration opens the official Zoom meeting in the Zoom desktop client or browser; it does not embed the Zoom Meeting SDK inside the website. Zoom participant attendance synchronization through webhooks is a separate follow-up.
-- Use reconnect handling, stale-peer cleanup, bounded message payloads and explicit teardown of media tracks/channels.
+- Use reconnect handling, stale-peer cleanup, bounded message payloads and explicit teardown of media tracks/channels. Attendance rows are refreshed by a 30-second authenticated heartbeat; a join attempt expires participants whose heartbeat is older than two minutes before enforcing the six-person capacity limit.
 
 ### 4.4 Data and security prerequisites
 Design and review the following source-controlled schema/policy changes before any production application:
