@@ -405,13 +405,16 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       return;
     }
     if (!client || busy) return;
+    const zoomWindow = window.open('about:blank', '_blank');
+    if (!zoomWindow) { setError('Your browser blocked the Zoom window. Allow pop-ups and try again.'); return; }
     setBusy(true); setError('');
     try {
       const { data, error: hostError } = await client.functions.invoke('zoom-meeting', {
         body: { action: session.zoom_meeting_id ? 'host' : 'create', session_id: session.id }
       });
       if (hostError || !data?.start_url) throw new Error(hostError?.message || data?.error || 'The Zoom host link is unavailable.');
-      window.open(data.start_url, '_blank', 'noopener,noreferrer');
+      zoomWindow.opener = null;
+      zoomWindow.location.href = data.start_url;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not open Zoom as the host.');
     } finally { setBusy(false); }
@@ -495,8 +498,8 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
           <b>{member.display_name || 'Participant'}{member.profile_id === profile.id ? ' (You)' : ''}</b>
           <small>{member.role || 'Participant'}</small>
           {member.hand_raised && <em className="live-hand-indicator"><Hand size={11}/> Hand raised</em>}
-          {canModerateActiveSession && member.role === 'student' && member.profile_id && <button className="live-chat-moderate" onClick={() => void toggleChatMute(member)} disabled={busy}>{isMuted ? <Volume2 size={12}/> : <VolumeX size={12}/>} {isMuted ? 'Unmute chat' : 'Mute 10m'}</button>}
-          {canModerateActiveSession && member.role === 'student' && member.profile_id && <button className="live-chat-moderate live-remove-participant" onClick={() => void removeParticipant(member)} disabled={busy}><UserX size={12}/> Remove</button>}
+          {canModerateActiveSession && member.role === 'student' && member.profile_id && member.profile_id !== profile.id && <button className="live-chat-moderate" onClick={() => void toggleChatMute(member)} disabled={busy}>{isMuted ? <Volume2 size={12}/> : <VolumeX size={12}/>} {isMuted ? 'Unmute chat' : 'Mute 10m'}</button>}
+          {canModerateActiveSession && member.role === 'student' && member.profile_id && member.profile_id !== profile.id && <button className="live-chat-moderate live-remove-participant" onClick={() => void removeParticipant(member)} disabled={busy}><UserX size={12}/> Remove</button>}
         </div>;
       })}{!onlineMembers.length && <small>Connecting to the private classroom…</small>}</div>
       <LiveMedia client={client} sessionId={activeSession.id} profile={profile} members={onlineMembers}/>
@@ -520,7 +523,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     </section>}
 
     {loading ? <div className="live-empty"><LoaderCircle className="live-spin" size={22}/> Loading live lessons…</div> :
-      sessions.length === 0 ? <div className="live-empty"><CalendarClock size={30}/><b>No live lessons scheduled</b><span>{staff ? 'Schedule the first live lesson for one of your courses.' : 'Your teachers will publish upcoming live lessons here.'}</span></div> :
+      sessions.length === 0 ? <div className="live-empty"><CalendarClock size={30}/><b>No live lessons scheduled</b><span>{staff ? 'Schedule the first live lesson for one of your courses.' : 'Start a study room with classmates or join a teacher-led lesson.'}</span></div> :
       <div className="live-session-list">{sessions.map(session => <article className="live-session-card" key={session.id}>
         <div className="live-session-icon"><Video size={20}/></div>
         <div className="live-session-main"><div className="live-session-title"><h3>{session.title}</h3><span className={'live-status live-status-' + session.status}>{statusLabel[session.status]}</span></div>
