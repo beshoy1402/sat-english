@@ -24,6 +24,7 @@ const GroupCenter=lazy(()=>import('./GroupCenter'));
 const QuestionBank=lazy(()=>import('./QuestionBank'));
 const TeachingAI=lazy(()=>import('./TeachingAI'));
 const RecordedSessions=lazy(()=>import('./RecordedSessions'));
+const AdmissionCalculator=lazy(()=>import('./AdmissionCalculator'));
 
 const roles:Record<AppRole,string>={admin:'Administrator',teacher:'Teacher',assistant:'Assistant',developer:'Developer',designer:'Designer',student:'Student',parent:'Parent'};
 const staffNav:[string,string,any][] = [
@@ -39,7 +40,7 @@ const nav:Record<AppRole,[string,string,any][]> = {
  admin:staffNav,teacher:staffNav,assistant:assistantNav,
  developer:[['overview','Overview',LayoutDashboard],['staff','Team accounts',ShieldCheck],['developer','Developer workspace',Code2],['github','GitHub pull requests',GitPullRequest],['aiProviders','AI providers',BrainCircuit],['designReview','Design review',Palette],['notifications','Notifications',Bell],['analytics','System health',Activity],['settings','Settings',Settings]],
  designer:[['overview','Overview',LayoutDashboard],['designer','Design studio',Palette],['notifications','Notifications',Bell],['announcements','Content preview',Eye],['settings','Settings',Settings]],
- student:[['overview','My learning',LayoutDashboard],['aiTutor','AI English tutor',BrainCircuit],['studyPlan','Study plan',Target],['messages','Messages',MessageCircle],['groups','My groups',Users],['courses','My courses',BookOpen],['lessons','Lessons',BookOpen],['recordings','Recorded sessions',Video],['assignments','Homework',ClipboardList],['exams','Practice & exams',Target],['resources','Study library',FileText],['grades','Grades',FileText],['gradeHistory','Grade change history',History],['calendar','My calendar',CalendarDays],['notifications','Notifications',Bell],['announcements','Announcements',Bell]],
+ student:[['overview','My learning',LayoutDashboard],['aiTutor','AI English tutor',BrainCircuit],['studyPlan','Study plan',Target],['messages','Messages',MessageCircle],['groups','My groups',Users],['courses','My courses',BookOpen],['lessons','Lessons',BookOpen],['recordings','Recorded sessions',Video],['assignments','Homework',ClipboardList],['exams','Practice & exams',Target],['resources','Study library',FileText],['grades','Grades',FileText],['gradeHistory','Grade change history',History],['calendar','My calendar',CalendarDays],['notifications','Notifications',Bell],['announcements','Announcements',Bell],['admission','University admission calculator',GraduationCap]],
  parent:[['overview','Family overview',LayoutDashboard],['courses','Learning progress',BookOpen],['assignments','Homework monitoring',ClipboardList],['studyPlan','Study plan',Target],['messages','Messages',MessageCircle],['groups','Class groups',Users],['grades','Grades',FileText],['gradeHistory','Grade change history',History],['attendance','Attendance',CalendarDays],['calendar','Calendar',CalendarDays],['notifications','Notifications',Bell],['announcements','Announcements',Bell]]
 };
 const table:Record<string,string>={gradebook:'grade_entries',grades:'grade_entries',gradeHistory:'grade_entry_history',courses:'courses',lessons:'lessons',assignments:'assignments',submissions:'submissions',exams:'exams',questions:'questions',attendance:'attendance_sessions',courseAccess:'course_access',resources:'learning_resources',calendar:'calendar_events',announcements:'announcements',audit:'audit_events'};
@@ -127,6 +128,7 @@ export default function App(){
  {active==='exams'&&(isStaff||profile.role==='student')&&<ExamCenter client={supabase} profile={profile}/>}
  {active==='questions'&&isStaff&&<QuestionBank client={supabase}/>}
  {active==='teachingAI'&&isStaff&&<TeachingAI client={supabase}/>}
+ {active==='admission'&&profile.role==='student'&&<AdmissionCalculator/>}
  {active==='aiTutor'&&profile.role==='student'&&<AITutor client={supabase} profile={profile} onOpenMessages={()=>setActive('messages')}/>}
  {active==='studyPlan'&&(profile.role==='student'||profile.role==='parent')&&<StudyPlanCenter client={supabase} profile={profile}/>}
  {active==='github'&&profile.role==='developer'&&<GitHubPullRequests client={supabase}/>}
