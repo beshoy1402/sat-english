@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson, liveClassroom, liveMigration, liveCss, questionBankMigration, styles, recordingScopeMigration] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson, liveClassroom, liveMigration, liveCss, questionBankMigration, styles, recordingScopeMigration, realtimeScopeMigration] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
@@ -22,6 +22,7 @@ const [ai, recordings, supabaseClient, providerSettings, providerManagement, del
   read('../supabase/migrations/20261120233000_flexible_question_bank.sql'),
   read('../src/styles.css'),
   read('../supabase/migrations/20261123140000_scope_recorded_session_access.sql'),
+  read('../supabase/migrations/20261123150000_require_live_participant_for_realtime.sql'),
 ]);
 
 // AI must use the approved NVIDIA-first provider/model/endpoint allowlist.
@@ -184,6 +185,20 @@ assert.match(questionBankMigration, /for update/);
 assert.match(questionBankMigration, /v_exam\.status::text <> 'draft'/);
 assert.match(questionBankMigration, /You can only add question-bank items to exams you created/);
 
+
+// Live Realtime access must require an active attendance row, not merely course eligibility.
+assert.ok(realtimeScopeMigration.includes('create or replace function private.can_use_live_session_channel'));
+assert.ok(realtimeScopeMigration.includes('private.can_join_live_session(p_session_id)'));
+assert.ok(realtimeScopeMigration.includes('lp.profile_id = (select auth.uid())'));
+assert.ok(realtimeScopeMigration.includes('lp.left_at is null'));
+assert.ok(realtimeScopeMigration.includes('lp.removed_at is null'));
+assert.ok(realtimeScopeMigration.includes('live_session_realtime_receive'));
+assert.ok(realtimeScopeMigration.includes('live_session_realtime_send'));
+assert.ok(realtimeScopeMigration.includes('private.can_use_live_session_channel(split_part(realtime.topic(),'));
+assert.ok(realtimeScopeMigration.includes('live_session_hand_raise_events_read_participants'));
+assert.match(liveClassroom, /Your classroom attendance ended\. Rejoin the room to continue\./);
+assert.match(liveClassroom, /participantError/);
+assert.match(liveClassroom, /setActiveSession\(null\)/);
 
 // Live hand raises persist in the database, are permission-checked by an RPC, and retain an event trail.
 assert.match(liveMigration, /create table if not exists public\.live_session_hand_raises/);
