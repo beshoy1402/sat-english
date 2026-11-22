@@ -5,7 +5,12 @@ create table if not exists public.live_sessions (
   id uuid primary key default gen_random_uuid(),
   course_id uuid not null references public.courses(id) on delete cascade,
   lesson_id uuid references public.lessons(id) on delete set null,
-  title text not null check (char_length(btrim(title)) between 2 and 180),
+  room_type text not null default 'lesson' check (room_type in ('lesson','study')),
+  provider text not null default 'website' check (provider in ('website','zoom')),
+  zoom_meeting_id text,
+  zoom_join_url text,
+  zoom_password text,
+  title not null check (char_length(btrim(title)) between 2 and 180),
   description text not null default '',
   scheduled_at timestamptz not null,
   started_at timestamptz,
@@ -27,6 +32,20 @@ create index if not exists live_sessions_course_schedule_idx
   on public.live_sessions(course_id, scheduled_at desc);
 create index if not exists live_sessions_status_schedule_idx
   on public.live_sessions(status, scheduled_at);
+
+create unique index if not exists live_sessions_one_active_study_room_per_host_idx
+  on public.live_sessions(created_by)
+  where room_type = 'study' and status in ('lobby','live');
+
+create table if not exists public.live_session_zoom_host_links (
+  session_id uuid primary key references public.live_sessions(id) on delete cascade,
+  host_profile_id uuid not null references public.profiles(id) on delete cascade,
+  start_url text not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.live_session_zoom_host_links enable row level security;
+revoke all on public.live_session_zoom_host_links from anon, authenticated;
+grant select, insert, update on public.live_session_zoom_host_links to authenticated;
 
 create table if not exists public.live_session_participants (
   id uuid primary key default gen_random_uuid(),
@@ -167,13 +186,22 @@ as $function$
       on p.id = (select auth.uid())
      and p.is_active = true
     where s.id = p_session_id
-      and p.role in ('admin','teacher','assistant')
       and (
-        p.role = 'admin'
-        or s.created_by = p.id
-        or exists (
-          select 1 from public.courses c
-          where c.id = s.course_id and c.created_by = p.id
+        (
+          p.role in ('admin','teacher','assistant')
+          and (
+            p.role = 'admin'
+            or s.created_by = p.id
+            or exists (
+              select 1 from public.courses c
+              where c.id = s.course_id and c.created_by = p.id
+            )
+          )
+        )
+        or (
+          p.role = 'student'
+          and s.room_type = 'study'
+          and s.created_by = p.id
         )
       )
   );
@@ -218,7 +246,8 @@ drop policy if exists live_sessions_insert_course_staff on public.live_sessions;
 create policy live_sessions_insert_course_staff
 on public.live_sessions for insert to authenticated
 with check (
-  created_by = (select auth.uid())
+  room_type = 'lesson'
+  and created_by = (select auth.uid())
   and exists (
     select 1
     from public.profiles p
@@ -238,6 +267,46 @@ with check (
     )
   )
 );
+
+drop policy if exists live_sessions_insert_student_study_room on public.live_sessions;
+create policy live_sessions_insert_student_study_room
+on public.live_sessions for insert to authenticated
+with check (
+  room_type = 'study'
+  and provider = 'website'
+  and lesson_id is null
+  and status = 'lobby'
+  and created_by = (select auth.uid())
+  and exists (
+    select 1 from public.profiles p
+    join public.course_access ca on ca.student_profile_id = p.id
+    join public.courses c on c.id = ca.course_id
+    where p.id = (select auth.uid())
+      and p.role = 'student'
+      and p.is_active = true
+      and ca.course_id = live_sessions.course_id
+      and ca.status = 'active'
+      and c.status = 'published'
+      and (ca.starts_at is null or ca.starts_at <= now())
+      and (ca.expires_at is null or ca.expires_at > now())
+  )
+);
+
+drop policy if exists live_session_zoom_host_links_read_host on public.live_session_zoom_host_links;
+create policy live_session_zoom_host_links_read_host
+on public.live_session_zoom_host_links for select to authenticated
+using (host_profile_id = (select auth.uid()) or private.can_manage_live_session(session_id));
+
+drop policy if exists live_session_zoom_host_links_insert_host on public.live_session_zoom_host_links;
+create policy live_session_zoom_host_links_insert_host
+on public.live_session_zoom_host_links for insert to authenticated
+with check (host_profile_id = (select auth.uid()) and private.can_manage_live_session(session_id));
+
+drop policy if exists live_session_zoom_host_links_update_host on public.live_session_zoom_host_links;
+create policy live_session_zoom_host_links_update_host
+on public.live_session_zoom_host_links for update to authenticated
+using (host_profile_id = (select auth.uid()) and private.can_manage_live_session(session_id))
+with check (host_profile_id = (select auth.uid()) and private.can_manage_live_session(session_id));
 
 drop policy if exists live_sessions_update_manager on public.live_sessions;
 create policy live_sessions_update_manager
@@ -343,9 +412,31 @@ set search_path = ''
 as $function$
 declare
   v_participant public.live_session_participants;
+  v_session public.live_sessions;
+  v_active_count integer;
 begin
   if not private.can_join_live_session(p_session_id) then
     raise exception 'This live classroom is not open to your account';
+  end if;
+
+  select * into v_session
+  from public.live_sessions
+  where id = p_session_id
+  for update;
+
+  if not found then
+    raise exception 'Live classroom not found';
+  end if;
+
+  select count(*) into v_active_count
+  from public.live_session_participants
+  where session_id = p_session_id
+    and left_at is null
+    and removed_at is null
+    and profile_id <> auth.uid();
+
+  if v_active_count >= 6 then
+    raise exception 'This small live room has reached its 6-participant limit';
   end if;
 
   insert into public.live_session_participants(session_id, profile_id, joined_at, last_seen_at)
