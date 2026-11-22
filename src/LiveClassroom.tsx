@@ -243,7 +243,22 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         });
         if (trackStatus !== 'ok') setError('Connected to the room, but live presence could not start (' + trackStatus + ').');
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        setError('Private room connection failed. Refresh and verify that the live-classroom database migration has been applied in the test environment.');
+        const { data: participant, error: participantError } = await client
+          .from('live_session_participants')
+          .select('left_at,removed_at')
+          .eq('session_id', activeSession.id)
+          .eq('profile_id', profile.id)
+          .maybeSingle();
+        if (disposed) return;
+        if (!participantError && (!participant || participant.left_at || participant.removed_at)) {
+          setError(participant?.removed_at
+            ? 'The teacher removed you from this classroom. You cannot rejoin this session.'
+            : 'Your classroom attendance ended. Rejoin the room to continue.');
+          setActiveSession(null);
+          setOnlineMembers([]);
+        } else {
+          setError('Private room connection failed. Refresh and verify that the live-classroom database migration has been applied in the test environment.');
+        }
       }
     });
     return () => {
@@ -266,7 +281,22 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       if (disposed) return;
       if (heartbeatError && !reportedFailure) {
         reportedFailure = true;
-        setError('Your attendance connection could not refresh. If the room stops responding, leave and rejoin.');
+        const { data: participant, error: participantError } = await client
+          .from('live_session_participants')
+          .select('left_at,removed_at')
+          .eq('session_id', activeSession.id)
+          .eq('profile_id', profile.id)
+          .maybeSingle();
+        if (disposed) return;
+        if (!participantError && (!participant || participant.left_at || participant.removed_at)) {
+          setError(participant?.removed_at
+            ? 'The teacher removed you from this classroom. You cannot rejoin this session.'
+            : 'Your classroom attendance ended. Rejoin the room to continue.');
+          setActiveSession(null);
+          setOnlineMembers([]);
+        } else {
+          setError('Your attendance connection could not refresh. If the room stops responding, leave and rejoin.');
+        }
       } else if (!heartbeatError && reportedFailure) {
         reportedFailure = false;
         setNotice('Your classroom attendance connection has recovered.');
