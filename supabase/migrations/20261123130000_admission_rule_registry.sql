@@ -71,6 +71,13 @@ as $function$
 declare
   v_lock_key text;
 begin
+  if tg_op = 'DELETE' then
+    if old.status <> 'draft' then
+      raise exception 'Published admission rule history cannot be deleted';
+    end if;
+    return old;
+  end if;
+
   v_lock_key := lower(btrim(new.university)) || '|' ||
                 lower(btrim(new.faculty)) || '|' || new.admission_year::text;
 
@@ -135,6 +142,7 @@ create trigger admission_rule_version_guard
 before insert or update or delete on public.admission_rule_versions
 for each row execute function public.guard_admission_rule_version();
 
+revoke all on function public.guard_admission_rule_version() from public, anon, authenticated;
 
 alter table public.admission_rule_versions enable row level security;
 revoke all on public.admission_rule_versions from anon, authenticated;
