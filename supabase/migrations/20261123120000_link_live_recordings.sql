@@ -44,7 +44,7 @@ begin
       and s.course_id = new.course_id
       and s.room_type = 'lesson'
       and s.provider = 'website'
-      and s.created_by = (select auth.uid())
+      and (s.created_by = (select auth.uid()) or v_role = 'admin')
       and s.status in ('live','ended')
   ) then
     raise exception 'The recording must belong to your website-delivered lesson and matching course';
