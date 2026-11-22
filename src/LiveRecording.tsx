@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Clock3, LoaderCircle, MonitorUp, Pause, Play, Square, UploadCloud, X } from 'lucide-react';
+import { CheckCircle2, Clock3, LoaderCircle, MonitorUp, Square, UploadCloud, X } from 'lucide-react';
 import type { Profile } from './lib/supabase';
 import { uploadWithTus } from './RecordedSessions';
 import './live-recording.css';
