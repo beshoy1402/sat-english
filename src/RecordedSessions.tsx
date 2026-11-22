@@ -117,6 +117,28 @@ export async function uploadWithTus(
     return uploadUrl;
   };
 
+  if (!Number.isSafeInteger(file.size) || file.size <= 0) {
+    throw new Error('Choose a non-empty file before starting an upload.');
+  }
+
+  // A TUS endpoint may retire its upload URL immediately after finalization.
+  // Check the private object first so a retry after metadata failure does not
+  // attempt to upload the same completed object path a second time.
+  const lastSlash = objectPath.lastIndexOf('/');
+  const folder = lastSlash >= 0 ? objectPath.slice(0, lastSlash) : '';
+  const filename = lastSlash >= 0 ? objectPath.slice(lastSlash + 1) : objectPath;
+  const { data: existingObjects, error: listError } = await client.storage
+    .from(bucket)
+    .list(folder, { search: filename, limit: 100 });
+  if (listError) {
+    throw new Error('Could not check whether this recording was already uploaded. Retry after checking your connection and access.');
+  }
+  if ((existingObjects ?? []).some((object: { name: string }) => object.name === filename)) {
+    clearStoredUploadUrl();
+    onProgress(100);
+    return;
+  }
+
   let uploadUrl = readStoredUploadUrl();
   let offset = 0;
   if (uploadUrl && !isTrustedUploadUrl(uploadUrl)) {
@@ -196,8 +218,9 @@ export async function uploadWithTus(
     }
   }
 
-  // Keep the completed upload URL until its database row is saved. If the page reloads
-  // between upload completion and metadata insertion, the next attempt can reuse it.
+  // The object is finalized now. Remove the one-shot TUS URL; a retry after a
+  // failed metadata write detects the completed private object via Storage.list.
+  clearStoredUploadUrl();
   onProgress(100);
 }
 
