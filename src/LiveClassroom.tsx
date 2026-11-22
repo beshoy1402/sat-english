@@ -61,15 +61,19 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       if (courseResult.error) throw new Error(courseResult.error.message);
       if (lessonResult.error) throw new Error(lessonResult.error.message);
       setSessions((sessionResult.data ?? []) as LiveSession[]);
-      setCourses(courseResult.data ?? []);
+      const courseRows = (courseResult.data ?? []) as Course[];
+      const manageableCourses = profile.role === 'admin'
+        ? courseRows
+        : courseRows.filter(course => course.created_by === profile.id);
+      setCourses(manageableCourses);
       setLessons(lessonResult.data ?? []);
-      if (!courseId && courseResult.data?.length) setCourseId(courseResult.data[0].id);
+      if (!courseId && manageableCourses.length) setCourseId(manageableCourses[0].id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load live classroom sessions.');
     } finally {
       setLoading(false);
     }
-  }, [client, staff, courseId]);
+  }, [client, staff, profile.id, profile.role, courseId]);
 
   useEffect(() => { void load(); }, [load]);
 
