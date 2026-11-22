@@ -404,3 +404,13 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Added 10 executable Node regression tests and made CI run them before TypeScript and production-build checks.
 - Verified by GitHub Actions run [45003319433](https://github.com/beshoy1402/sat-english/actions/runs/45003319433): policy checks, 10/10 import tests, TypeScript and Vite build all passed.
 - Remaining work includes browser-level import and save tests, realistic document fixtures, OCR/diagram handling, retryable batch imports and full exam assembly tests. This change is source-only; no database migration, Edge Function deployment, secrets/config change or Vercel deployment was performed.
+
+
+## Live recording lifecycle and retry hardening — source only (2026-11-22)
+
+- Added idempotent metadata-save recovery after a resumable upload: existing storage-path rows are reused only when creator, course and linked live session all match; mismatched ownership/linkage is rejected.
+- Discarding a failed recording clears its TUS resume key and upload-path reference, preventing a later capture from accidentally reusing the previous file's object path.
+- Hardened component teardown for navigation during browser permission prompts and active recording. Unmount now stops media tracks/recorder, suppresses late preview creation, and avoids state updates after unmount; Strict Mode remounts restore the mounted guard correctly.
+- Added a before-unload warning while recording or uploading and clarified the capture-size threshold warning where the final encoded chunk can exceed the storage cap.
+- Verified in GitHub Actions run [45003715994](https://github.com/beshoy1402/sat-english/actions/runs/45003715994): policy checks, 10 import tests, TypeScript and Vite build passed.
+- Browser-level media capture, permission-denial, navigation, upload interruption and storage authorization tests are still required. No production settings, bucket, migration, Edge Function or deployment was changed.
