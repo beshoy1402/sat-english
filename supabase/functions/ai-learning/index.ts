@@ -12,8 +12,8 @@ const respond = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
 const defaultModels: Record<string, string> = {
+  nvidia: "nvidia/nemotron-3.5-super-vl-120b-a12b",
   gemini: "gemini-3.8-flash",
-  groq: "openai/gpt-oss-120b",
   openrouter: "openrouter/free",
 };
 
@@ -162,15 +162,15 @@ Deno.serve(async (req: Request) => {
     try {
       const parsed = new URL(provider.base_url);
       const path = parsed.pathname.endsWith("/") ? parsed.pathname.slice(0, -1) : parsed.pathname;
+      if (provider.provider === "nvidia") {
+        return parsed.origin === "https://integrate.api.nvidia.com"
+          && path === "/v1"
+          && provider.model === "nvidia/nemotron-3.5-super-vl-120b-a12b";
+      }
       if (provider.provider === "gemini") {
         return parsed.origin === "https://generativelanguage.googleapis.com"
           && path === "/v1beta"
           && provider.model === "gemini-3.8-flash";
-      }
-      if (provider.provider === "groq") {
-        return parsed.origin === "https://api.groq.com"
-          && path === "/openai/v1"
-          && provider.model === "openai/gpt-oss-120b";
       }
       if (provider.provider === "openrouter") {
         return parsed.origin === "https://openrouter.ai"
@@ -186,7 +186,7 @@ Deno.serve(async (req: Request) => {
     .filter(p => p.is_enabled && p.key_configured && isApprovedFreeProvider(p))
     .sort((a,b)=>a.priority-b.priority);
   if (!enabled.length) return respond({
-    error: "AI is paused by the zero-cost safety policy. Configure Gemini 3.8 Flash on a Google AI Studio Free Tier project with billing disabled, OpenRouter Free, or the approved Groq GPT-OSS 120B free tier."
+    error: "AI is paused by the provider safety policy. Configure NVIDIA NIM Nemotron 3.5 Super VL 120B, Gemini 3.8 Flash, or OpenRouter Free."
   }, 503);
 
   const pointCost = action === "tutor" ? 5 : action === "study_plan" ? 15 : 0;
