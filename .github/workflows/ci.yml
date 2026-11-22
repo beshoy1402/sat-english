@@ -23,6 +23,8 @@ jobs:
         run: npm install
       - name: Verify zero-cost and recovery policies
         run: npm run test:policy
+      - name: Test question import parsing and validation
+        run: npm run test:imports
       - name: Type-check
         run: npm run typecheck
       - name: Build
