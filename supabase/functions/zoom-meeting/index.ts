@@ -99,20 +99,14 @@ Deno.serve(async (req: Request) => {
     const meeting = await meetingResponse.json();
     if (!meeting.id || !meeting.join_url || !meeting.start_url) return json({ error: 'Zoom returned incomplete meeting details' }, 502);
 
-    const { error: updateError } = await supabase.from('live_sessions').update({
-      zoom_meeting_id: String(meeting.id),
-      zoom_join_url: meeting.join_url,
-      zoom_password: meeting.password || null
-    }).eq('id', sessionId);
-    if (updateError) return json({ error: 'The Zoom meeting was created but could not be linked to the lesson. Contact an administrator before creating another meeting.' }, 500);
-
-    const { error: hostLinkError } = await supabase.from('live_session_zoom_host_links').upsert({
-      session_id: sessionId,
-      host_profile_id: user.id,
-      start_url: meeting.start_url,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'session_id' });
-    if (hostLinkError) return json({ error: 'The Zoom meeting was created, but its private host link could not be saved.' }, 500);
+    const { error: storeError } = await supabase.rpc('live_session_store_zoom_meeting', {
+      p_session_id: sessionId,
+      p_meeting_id: String(meeting.id),
+      p_join_url: meeting.join_url,
+      p_password: meeting.password || null,
+      p_start_url: meeting.start_url
+    });
+    if (storeError) return json({ error: 'Zoom returned a meeting, but the protected session link could not be saved. Contact an administrator before retrying.' }, 500);
 
     return json({ meeting_id: String(meeting.id), join_url: meeting.join_url, start_url: meeting.start_url, password: meeting.password || null });
   } catch {
