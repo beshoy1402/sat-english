@@ -545,6 +545,8 @@ create trigger live_session_zoom_attendance_sync
   after insert on public.live_session_zoom_events
   for each row execute function private.sync_zoom_attendance_event();
 
+revoke all on function private.sync_zoom_attendance_event() from public, anon, authenticated;
+
 create or replace function public.live_session_store_zoom_meeting(
   p_session_id uuid,
   p_meeting_id text,
