@@ -143,6 +143,8 @@ Configurable XP, achievements, streaks, weekly challenges, class leaderboards an
 
 ## Current implementation slice
 
+- Added the initial student-facing Egyptian university admission calculator interface with GPA, SAT I, Egyptian admission SAT II, university, faculty and admission-year inputs. The component defines a versioned rule shape but intentionally does not calculate a score until an official formula for the exact university/faculty/year is verified and configured. No database migration or production deployment was made.
+
 - Added source-controlled migration for student AI point accounts, transaction ledger, server-side consume/refund functions and Admin adjustment RPC.
 - Updated the AI learning Edge Function to charge 5 points for tutor responses and 15 for study-plan generation, reject insufficient balances and refund failed provider attempts.
 - Updated the student AI Tutor to emphasize answer checking, precise error explanations and improvement guidance, and to show the point balance.
