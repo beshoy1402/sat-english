@@ -172,3 +172,6 @@ For the maintained, full product scope, implementation stages, acceptance criter
 - Migration not applied; build and runtime tests pending; no production deployment.
 
 - Added `src/LiveMedia.tsx`: WebRTC audio/video, participant tiles, camera/microphone controls and screen sharing. Private signaling uses a separate session-scoped topic; STUN-only and six-participant cap are explicit limitations. Runtime/build tests pending.
+
+- Live session records now store the staff actor for start/end/cancel actions; optional linked lessons must be published and belong to the selected course.
+- Realtime broadcast send and receive authorization both require the session lobby/live state.
