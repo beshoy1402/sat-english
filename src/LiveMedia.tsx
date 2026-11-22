@@ -19,6 +19,9 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
   const peers = useRef(new Map<string, RTCPeerConnection>());
   const pendingIce = useRef(new Map<string, RTCIceCandidateInit[]>());
   const membersRef = useRef(members);
+  const makePeerRef = useRef<((peerId: string) => RTCPeerConnection | null) | null>(null);
+  const offerPeerRef = useRef<((peerId: string) => Promise<void>) | null>(null);
+  const subscribedRef = useRef(false);
   useEffect(() => { membersRef.current = members; }, [members]);
 
   useEffect(() => {
@@ -53,6 +56,8 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
       try { const offer = await pc.createOffer(); await pc.setLocalDescription(offer); await send({ to: peerId, kind: 'offer', description: pc.localDescription?.toJSON() }); }
       catch { setError('Could not negotiate a peer connection.'); }
     };
+    makePeerRef.current = makePeer;
+    offerPeerRef.current = offerPeer;
     channel.on('broadcast', { event: 'webrtc-signal' }, async ({ payload }: { payload: Signal }) => {
       if (!payload || payload.to !== profile.id || payload.from === profile.id) return;
       if (!membersRef.current.some(member => member.profile_id === payload.from)) return;
@@ -77,30 +82,26 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
     });
     channel.subscribe((status: string) => {
       if (status === 'SUBSCRIBED') {
+        subscribedRef.current = true;
         const peersNow = [...new Set(membersRef.current.map(member => member.profile_id).filter((id): id is string => Boolean(id) && id !== profile.id))];
         if (peersNow.length > 5) setError('This prototype supports up to 6 participants.');
         peersNow.slice(0, 5).forEach(peerId => { makePeer(peerId); if (profile.id.localeCompare(peerId) < 0) void offerPeer(peerId); });
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setError('Private media signaling failed. Check the live classroom migration and Realtime policies.');
     });
     return () => {
-      disposed = true; channelRef.current = null;
+      disposed = true; subscribedRef.current = false; makePeerRef.current = null; offerPeerRef.current = null; channelRef.current = null;
       peers.current.forEach(pc => pc.close()); peers.current.clear(); pendingIce.current.clear();
       setRemoteStreams({}); void client.removeChannel(channel);
     };
   }, [client, sessionId, profile.id]);
 
   useEffect(() => {
+    if (!subscribedRef.current) return;
     const peersNow = [...new Set(members.map(member => member.profile_id).filter((id): id is string => Boolean(id) && id !== profile.id))];
+    if (peersNow.length > 5) setError('This prototype supports up to 6 participants.');
     peersNow.slice(0, 5).forEach(peerId => {
-      if (peers.current.has(peerId)) return;
-      if (peers.current.size >= 5) return;
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      peers.current.set(peerId, pc);
-      localRef.current?.getTracks().forEach(track => pc.addTrack(track, localRef.current!));
-      pc.onicecandidate = event => { if (event.candidate) void channelRef.current?.send({ type: 'broadcast', event: 'webrtc-signal', payload: { from: profile.id, to: peerId, kind: 'ice', candidate: event.candidate.toJSON() } }); };
-      pc.ontrack = event => setRemoteStreams(current => ({ ...current, [peerId]: event.streams[0] || new MediaStream([event.track]) }));
-      pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed') setError('Peer connection failed. Try again or use the approved meeting fallback.'); };
-      if (profile.id.localeCompare(peerId) < 0) void (async () => { try { const offer = await pc.createOffer(); await pc.setLocalDescription(offer); await channelRef.current?.send({ type: 'broadcast', event: 'webrtc-signal', payload: { from: profile.id, to: peerId, kind: 'offer', description: pc.localDescription?.toJSON() } }); } catch { setError('Could not start a peer connection.'); } })();
+      makePeerRef.current?.(peerId);
+      if (profile.id.localeCompare(peerId) < 0) void offerPeerRef.current?.(peerId);
     });
   }, [members, profile.id]);
 
@@ -112,7 +113,7 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
       localRef.current = stream; setLocalStream(stream);
       stream.getAudioTracks().forEach(track => { track.enabled = micOn; });
       stream.getVideoTracks().forEach(track => { track.enabled = cameraOn; });
-      for (const pc of peers.current.values()) { for (const track of stream.getTracks()) { const sender = pc.getSenders().find(item => item.track?.kind === track.kind); if (sender) await sender.replaceTrack(track); else pc.addTrack(track, stream); } }
+      for (const pc of peers.current.values()) { for (const track of stream.getTracks()) { const transceiver = pc.getTransceivers().find(item => item.sender.track?.kind === track.kind || item.receiver.track.kind === track.kind); if (transceiver) await transceiver.sender.replaceTrack(track); else pc.addTrack(track, stream); } }
     } catch (e) { setError(e instanceof Error ? e.message : 'Camera or microphone permission was denied.'); }
     finally { setBusy(false); }
   };
