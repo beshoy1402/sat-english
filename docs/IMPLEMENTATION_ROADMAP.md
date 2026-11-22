@@ -190,7 +190,7 @@ For the maintained, full product scope, implementation stages, acceptance criter
 
 - Master plan status corrected: teacher removal is now in source; remaining classroom gaps include reconnection validation, TURN/SFU, recording and end-to-end tests.
 
-- Added source-only student-created study rooms and teacher-selected Zoom/website delivery. Student rooms are course-scoped, one active room per host, and capped at six participants by the database join RPC. Zoom API integration source creates scheduled meetings server-side and separates teacher host URLs from student join URLs. No credentials, migration, or deployment have been applied.
+- Added source-only student-created study rooms and teacher-selected Zoom/website delivery. Added a 30-second authenticated attendance heartbeat and a two-minute stale-participant expiry check before capacity enforcement. Student rooms are course-scoped, one active room per host, and capped at six participants by the database join RPC. Zoom API integration source creates scheduled meetings server-side and separates teacher host URLs from student join URLs. No credentials, migration, or deployment have been applied.
 
 - Teacher Zoom delivery now includes server-side create/refresh, start, end and cancel actions. Required Zoom scopes include create/read/end/delete meeting permissions. Webhook attendance sync and per-teacher Zoom OAuth remain future work.
 - See `docs/ZOOM_INTEGRATION_SETUP.md` for the source-only configuration and security guide.
