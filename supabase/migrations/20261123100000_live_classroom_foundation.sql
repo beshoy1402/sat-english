@@ -56,6 +56,9 @@ create table if not exists public.live_session_messages (
 create index if not exists live_session_messages_history_idx
   on public.live_session_messages(session_id, created_at desc);
 
+create index if not exists live_session_messages_sender_rate_idx
+  on public.live_session_messages(session_id, sender_profile_id, created_at desc);
+
 create table if not exists public.live_session_moderation_events (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.live_sessions(id) on delete cascade,
