@@ -34,3 +34,7 @@ sql_paths = ["./seed.sql"]
 
 [functions.zoom-meeting]
 verify_jwt = true
+
+# Zoom calls this endpoint directly; the function verifies Zoom's HMAC signature itself.
+[functions.zoom-webhook]
+verify_jwt = false
