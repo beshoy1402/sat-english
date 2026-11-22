@@ -136,7 +136,11 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       });
       if (updateError) throw new Error(updateError.message);
       setNotice(status === 'lobby' ? 'The classroom lobby is open.' : status === 'live' ? 'The live lesson has started.' : status === 'ended' ? 'The lesson has ended.' : 'The session was cancelled.');
-      if (activeSession?.id === session.id && ['ended', 'cancelled'].includes(status)) setActiveSession(null);
+      if (activeSession?.id === session.id && ['ended', 'cancelled'].includes(status)) {
+        await client.rpc('live_session_leave', { p_session_id: session.id });
+        setActiveSession(null);
+        setOnlineMembers([]);
+      }
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not update the session.');
