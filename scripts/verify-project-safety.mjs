@@ -113,8 +113,8 @@ assert.match(questionBank, /Import is limited to 2,500 questions per file/);
 assert.match(questionBank, /Duplicate prompt within this file/);
 assert.match(questionBank, /Import valid rows/);
 assert.match(questionBank, /staff_save_question_bank_item/);
-assert.match(packageJson, /"mammoth": "\\^1\.13\.0"/);
-assert.match(packageJson, /"pdfjs-dist": "\\^6\.5\.438"/);
-assert.match(packageJson, /"read-excel-file": "\\^9\.3\.20"/);
+assert.ok(packageJson.includes('"mammoth": "^1.13.0"'));
+assert.ok(packageJson.includes('"pdfjs-dist": "^6.5.438"'));
+assert.ok(packageJson.includes('"read-excel-file": "^9.3.20"'));
 
 console.log('Project safety checks passed.');
