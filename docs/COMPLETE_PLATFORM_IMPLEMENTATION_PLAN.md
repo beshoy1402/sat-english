@@ -247,7 +247,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 ## 7. Delivery order from here
 
-1. **Integrated Live Classroom:** scheduling, secure lobby, attendance, private Realtime presence, six-person WebRTC audio/video + screen-share prototype, persisted chat, hand raise, teacher chat mute and audited student removal are in source; next complete reconnect behavior and end-to-end security/media tests.
+1. **Integrated Live Classroom:** scheduling, secure lobby, attendance, private Realtime presence, six-person WebRTC audio/video + screen-share prototype, persisted chat, hand raise, teacher chat mute, audited student removal, student-created study rooms and teacher-selected Zoom/website delivery are in source; next verify the database and media flows, configure the school Zoom account, and add Zoom webhook attendance.
 2. **Live Recording:** explicit browser capture, draft upload, lesson linkage and permission/size/error handling.
 3. **Question Import Expansion:** XLSX, DOCX and PDF extraction, image handling, editable preview and safe batch retry/rollback.
 4. **Practice and Exam Completion:** validate end-to-end student workflows, timer/autosave and score/report accuracy.
