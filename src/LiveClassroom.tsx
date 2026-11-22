@@ -422,8 +422,15 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         body: { action: session.zoom_meeting_id ? 'host' : 'create', session_id: session.id }
       });
       if (hostError || !data?.start_url) throw new Error(hostError?.message || data?.error || 'The Zoom host link is unavailable.');
+      const { error: statusError } = await client.rpc('live_session_set_status', {
+        p_session_id: session.id,
+        p_status: 'live'
+      });
+      if (statusError) throw new Error('Zoom is ready, but the lesson status could not be updated: ' + statusError.message);
       zoomWindow.opener = null;
       zoomWindow.location.href = data.start_url;
+      setNotice('Opening the Zoom host session.');
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not open Zoom as the host.');
     } finally { setBusy(false); }
@@ -549,6 +556,8 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
           {session.provider === 'website' && (staff || (session.room_type === 'study' && session.created_by === profile.id)) && ['lobby','live'].includes(session.status) && <button className="live-primary" onClick={() => void joinRoom(session)} disabled={busy || activeSession?.id === session.id}>Enter room</button>}
           {session.provider === 'website' && (staff || (session.room_type === 'study' && session.created_by === profile.id)) && ['lobby','live'].includes(session.status) && <button className="live-danger" onClick={() => void changeStatus(session, 'ended')} disabled={busy}>End room</button>}
           {session.provider === 'website' && staff && session.status === 'scheduled' && <button className="live-danger" onClick={() => void changeStatus(session, 'cancelled')} disabled={busy}>Cancel</button>}
+          {session.provider === 'zoom' && staff && session.created_by === profile.id && session.status === 'scheduled' && <button className="live-danger" onClick={() => void changeStatus(session, 'cancelled')} disabled={busy}>Cancel</button>}
+          {session.provider === 'zoom' && staff && session.created_by === profile.id && ['lobby','live'].includes(session.status) && <button className="live-danger" onClick={() => void changeStatus(session, 'ended')} disabled={busy}>End lesson</button>}
         </div>
       </article>)}</div>
     }
