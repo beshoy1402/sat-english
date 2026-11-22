@@ -9,3 +9,7 @@
 @media(max-width:600px){.live-room-top-actions{width:100%}.live-room-top-actions button{flex:1}.live-chat-heading{align-items:flex-start;flex-direction:column}.live-chat-compose button{padding:9px}.live-chat-message{max-width:96%}.live-presence-list>div{flex-wrap:wrap}}
 
 .live-remove-participant{color:#f3a0a0;border-color:#8e3d3d66}.live-remove-participant:hover{background:#8e3d3d18}
+
+.live-hand-history{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:11px 13px;border:1px solid var(--line,#30394c);border-radius:10px;background:#080d18a8}
+.live-hand-history>b{font-size:10px;color:var(--text,#e8edf7);margin-bottom:2px}
+.live-hand-history>small{font-size:9px;line-height:1.45;color:var(--muted,#aab4c6);overflow-wrap:anywhere}
