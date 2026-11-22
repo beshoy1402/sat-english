@@ -13,6 +13,9 @@ create table if not exists public.live_sessions (
   status text not null default 'scheduled'
     check (status in ('scheduled','lobby','live','ended','cancelled')),
   created_by uuid not null references public.profiles(id),
+  started_by uuid references public.profiles(id),
+  ended_by uuid references public.profiles(id),
+  cancelled_by uuid references public.profiles(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (ended_at is null or started_at is not null),
@@ -163,6 +166,7 @@ with check (
       select 1 from public.lessons l
       where l.id = live_sessions.lesson_id
         and l.course_id = live_sessions.course_id
+        and l.is_published = true
     )
   )
 );
@@ -251,7 +255,10 @@ begin
   update public.live_sessions
   set status = p_status,
       started_at = case when p_status = 'live' then coalesce(started_at, now()) else started_at end,
+      started_by = case when p_status = 'live' then coalesce(started_by, auth.uid()) else started_by end,
       ended_at = case when p_status = 'ended' then now() else ended_at end,
+      ended_by = case when p_status = 'ended' then auth.uid() else ended_by end,
+      cancelled_by = case when p_status = 'cancelled' then auth.uid() else cancelled_by end,
       updated_at = now()
   where id = p_session_id
   returning * into v_session;
