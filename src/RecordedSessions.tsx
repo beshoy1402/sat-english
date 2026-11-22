@@ -6,6 +6,7 @@ import './RecordedSessions.css';
 type Recording = {
   id: string;
   course_id: string;
+  live_session_id?: string | null;
   title: string;
   description: string;
   storage_path: string;
@@ -27,7 +28,7 @@ const formatSize = (bytes: number) => bytes >= 1024 ** 3 ? (bytes / 1024 ** 3).t
 const formatDate = (value: string | null) => value ? new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Date not specified';
 
 
-async function uploadWithTus(
+export async function uploadWithTus(
   client: any,
   bucket: string,
   objectPath: string,
