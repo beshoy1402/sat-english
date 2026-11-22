@@ -1,40 +1,10 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import {BookOpen,Edit3,Plus,RefreshCw,Search,Trash2,UploadCloud} from 'lucide-react';
 import './question-bank.css';
+import { normalizePrompt as normalize, parseCsv, toImportRow } from './question-import.mjs';
+import type { ImportRow } from './question-import.mjs';
 type Row=Record<string,any>;
 type ImportRow={sourceRow:number;exam_program:string;topic:string;difficulty:string;passage:string;prompt:string;question_type:string;choices:string[];answer_key:string;explanation:string;points:number;errors:string[];duplicate:boolean};
-const normalize=(v:string)=>v.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-function parseCsv(source:string):Record<string,string>[]{
- const rows:string[][]=[];let row:string[]=[],cell='',quoted=false;
- for(let i=0;i<source.length;i++){const c=source[i];if(quoted){if(c==='"'&&source[i+1]==='"'){cell+='"';i++;}else if(c==='"')quoted=false;else cell+=c;}else if(c==='"')quoted=true;else if(c===','){row.push(cell);cell='';}else if(c==='\n'||c==='\r'){if(c==='\r'&&source[i+1]==='\n')i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell='';}else cell+=c;}
- if(quoted)throw new Error('CSV contains an unterminated quoted field.');
- row.push(cell);if(row.some(v=>v.trim()))rows.push(row);if(!rows.length)return [];
- const headers=rows.shift()!.map(v=>v.trim().toLowerCase().replace(/[\s-]+/g,'_'));
- if(headers.some(h=>!h))throw new Error('CSV contains an empty column heading.');
- if(new Set(headers).size!==headers.length)throw new Error('CSV contains duplicate column headings. Rename each column so every heading is unique.');
- return rows.map(values=>Object.fromEntries(headers.map((h,i)=>[h,values[i]??''])));
-}
-function toImportRow(raw:Record<string,any>,sourceRow:number,existing:Set<string>):ImportRow{
- const choicesRaw=raw.choices??raw.options;
- const structuredChoices=['a','b','c','d'].map(letter=>raw['choice_'+letter]??raw['option_'+letter]??raw['choice'+letter.toUpperCase()]??raw['option'+letter.toUpperCase()]??raw['choice_'+(letter.charCodeAt(0)-96)]??raw['option_'+(letter.charCodeAt(0)-96)]).filter(v=>v!==undefined&&v!==null&&String(v).trim()!=='');
- const listedChoices=Array.isArray(choicesRaw)?choicesRaw.map(v=>typeof v==='string'?v:String(v?.text??v?.label??'')).filter(Boolean):choicesRaw!==undefined?String(choicesRaw).split(/\r?\n/).map(v=>v.trim()).filter(Boolean):[];
- const choices=listedChoices.length?listedChoices:structuredChoices.map(v=>String(v).trim());
- const prompt=String(raw.prompt??raw.question??raw.question_text??'').trim();
- const type=String(raw.question_type??raw.type??'multiple_choice').toLowerCase().replace(/[ -]/g,'_');
- const answer=String(raw.answer_key??raw.answer??raw.correct_answer??'').trim();
- const answerLetter=answer.match(/^([A-D])(?:[).:]|$)/i);
- const answerIndex=answerLetter?answerLetter[1].toUpperCase().charCodeAt(0)-65:-1;
- const normalizedAnswer=answerIndex>=0?(choices[answerIndex]??answer):answer;
- const row:ImportRow={sourceRow,exam_program:String(raw.exam_program??raw.program??'SAT English').trim(),topic:String(raw.topic??raw.skill??raw.domain??'General').trim(),difficulty:String(raw.difficulty??'medium').toLowerCase(),passage:String(raw.passage??raw.reading_passage??'').trim(),prompt,question_type:type,choices,answer_key:normalizedAnswer,explanation:String(raw.explanation??raw.rationale??'').trim(),points:Number(raw.points??1),errors:[],duplicate:false};
- if(!prompt)row.errors.push('Question prompt is required.');
- if(!['multiple_choice','short_answer','essay'].includes(type))row.errors.push('Unsupported question type.');
- if(!['easy','medium','hard'].includes(row.difficulty))row.errors.push('Difficulty must be easy, medium or hard.');
- if(type==='multiple_choice'&&(choices.length<2||!answer||!choices.includes(answer)))row.errors.push('Multiple-choice answer must exactly match one of at least two choices.');
- if(!Number.isFinite(row.points)||row.points<=0||row.points>100)row.errors.push('Points must be between 0 and 100.');
- const key=normalize(prompt);row.duplicate=!!key&&existing.has(key);if(row.duplicate)row.errors.push('Possible duplicate of an existing question.');
- return row;
-}
-
 
 function parseDocumentQuestions(source:string):Record<string,any>[] {
  const lines=source.replace(/\r/g,'').split('\n').map(v=>v.trim()).filter(Boolean);
