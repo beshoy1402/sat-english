@@ -39,7 +39,7 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json().catch(() => ({}));
     const sessionId = typeof body.session_id === 'string' ? body.session_id : '';
-    const action = body.action === 'host' ? 'host' : 'create';
+    const action = ['host', 'end', 'cancel'].includes(body.action) ? body.action : 'create';
     if (!sessionId) return json({ error: 'A live session ID is required' }, 400);
 
     const { data: profile, error: profileError } = await supabase
@@ -57,7 +57,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Only the staff member who scheduled this Zoom lesson can manage its host link' }, 403);
     }
 
-    if (action === 'host' && !session.zoom_meeting_id) return json({ error: 'Create the Zoom meeting before starting it.' }, 409);
+    if (['host', 'end', 'cancel'].includes(action) && !session.zoom_meeting_id) return json({ error: 'Create the Zoom meeting before using this action.' }, 409);
 
     const basic = btoa(clientId + ':' + clientSecret);
     const tokenResponse = await fetch('https://zoom.us/oauth/token?grant_type=account_credentials&account_id=' + encodeURIComponent(accountId), {
@@ -70,6 +70,26 @@ Deno.serve(async (req: Request) => {
     if (!zoomToken) return json({ error: 'Zoom did not return an access token' }, 502);
 
     const apiHeaders = { Authorization: 'Bearer ' + zoomToken, 'Content-Type': 'application/json' };
+
+    if (action === 'end') {
+      const endResponse = await fetch('https://api.zoom.us/v2/meetings/' + encodeURIComponent(session.zoom_meeting_id) + '/status', {
+        method: 'PUT',
+        headers: apiHeaders,
+        body: JSON.stringify({ action: 'end' })
+      });
+      if (!endResponse.ok) return json({ error: 'Zoom could not end the meeting. Verify the Zoom meeting is still active and the meeting:update:status:admin scope is enabled.' }, 502);
+      return json({ ended: true });
+    }
+
+    if (action === 'cancel') {
+      const cancelResponse = await fetch('https://api.zoom.us/v2/meetings/' + encodeURIComponent(session.zoom_meeting_id), {
+        method: 'DELETE',
+        headers: apiHeaders
+      });
+      if (!cancelResponse.ok && cancelResponse.status !== 404) return json({ error: 'Zoom could not cancel the scheduled meeting. Verify the meeting:delete:meeting:admin scope.' }, 502);
+      return json({ cancelled: true });
+    }
+
     let meetingResponse: Response;
     if (session.zoom_meeting_id) {
       meetingResponse = await fetch('https://api.zoom.us/v2/meetings/' + encodeURIComponent(session.zoom_meeting_id), { headers: apiHeaders });
