@@ -558,7 +558,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         </div>;
       })}{!onlineMembers.length && <small>Connecting to the private classroom…</small>}</div>
       <LiveMedia client={client} sessionId={activeSession.id} profile={profile} members={onlineMembers}/>
-      {activeSession.room_type === 'lesson' && activeSession.provider === 'website' && staff && (profile.role === 'admin' || activeSession.created_by === profile.id) && <LiveRecording client={client} profile={profile} session={activeSession} canRecord={activeSession.status === 'live'} onRecordingChange={setRecordingActive}/>}
+      {activeSession.room_type === 'lesson' && activeSession.provider === 'website' && ['admin','teacher'].includes(profile.role) && (profile.role === 'admin' || activeSession.created_by === profile.id) && <LiveRecording client={client} profile={profile} session={activeSession} canRecord={activeSession.status === 'live'} onRecordingChange={setRecordingActive}/>}
       <section className="live-chat-panel">
         <div className="live-chat-heading"><div><MessageCircle size={15}/><b>Classroom chat</b></div><span>Saved messages · 1,000 characters max</span></div>
         <div className="live-chat-messages" aria-live="polite">
