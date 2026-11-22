@@ -130,7 +130,7 @@ export default function App(){
  {active==='exams'&&(isStaff||profile.role==='student')&&<ExamCenter client={supabase} profile={profile}/>}
  {active==='questions'&&isStaff&&<QuestionBank client={supabase}/>}
  {active==='teachingAI'&&isStaff&&<TeachingAI client={supabase}/>}
- {active==='admission'&&profile.role==='student'&&<AdmissionCalculator client={supabase} profile={profile}/>}\n {active==='admissionRules'&&profile.role==='admin'&&<AdmissionCalculator client={supabase} profile={profile}/ >}
+ {active==='admission'&&profile.role==='student'&&<AdmissionCalculator client={supabase} profile={profile}/>}\n {active==='admissionRules'&&profile.role==='admin'&&<AdmissionCalculator client={supabase} profile={profile}/>}
  {active==='aiTutor'&&profile.role==='student'&&<AITutor client={supabase} profile={profile} onOpenMessages={()=>setActive('messages')}/>}
  {active==='aiPoints'&&profile.role==='admin'&&<AIPointsAdmin client={supabase}/>}
  {active==='studyPlan'&&(profile.role==='student'||profile.role==='parent')&&<StudyPlanCenter client={supabase} profile={profile}/>}
