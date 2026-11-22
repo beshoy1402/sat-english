@@ -59,6 +59,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   const [scheduledAt, setScheduledAt] = useState(localDateTime);
   const [activeSession, setActiveSession] = useState<LiveSession | null>(null);
   const [onlineMembers, setOnlineMembers] = useState<PresenceMember[]>([]);
+  const [raisedHands, setRaisedHands] = useState<Record<string, string>>({});
   const [chatMessages, setChatMessages] = useState<LiveMessage[]>([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
@@ -115,6 +116,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     setChatMessages([]);
     setRecordingActive(false); setRecordingStartedByMe(false);
     setMutedUntil({});
+    setRaisedHands({});
     setChatDraft('');
     const channel = client.channel('live-session:' + activeSession.id, {
       config: { private: true, presence: { key: profile.id } }
@@ -123,7 +125,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     let disposed = false;
 
     void (async () => {
-      const [messageResult, participantResult] = await Promise.all([
+      const [messageResult, participantResult, handRaiseResult] = await Promise.all([
         client.from('live_session_messages')
           .select('id,session_id,sender_profile_id,sender_display_name,body,created_at')
           .eq('session_id', activeSession.id)
@@ -132,7 +134,11 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         client.from('live_session_participants')
           .select('profile_id,chat_muted_until')
           .eq('session_id', activeSession.id)
-          .is('left_at', null)
+          .is('left_at', null),
+        client.from('live_session_hand_raises')
+          .select('profile_id,raised_at')
+          .eq('session_id', activeSession.id)
+          .is('lowered_at', null)
       ]);
       if (disposed) return;
       if (messageResult.error) setError('Classroom chat is unavailable until its database migration is applied.');
@@ -146,12 +152,33 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         (participantResult.data ?? []).forEach((row: { profile_id: string; chat_muted_until: string | null }) => { next[row.profile_id] = row.chat_muted_until; });
         setMutedUntil(next);
       }
+      if (handRaiseResult.error) setError('Persistent hand-raise history is unavailable until the live-classroom migration is applied.');
+      else {
+        const next: Record<string, string> = {};
+        (handRaiseResult.data ?? []).forEach((row: { profile_id: string; raised_at: string }) => { next[row.profile_id] = row.raised_at; });
+        setRaisedHands(next);
+      }
     })();
 
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState() as Record<string, PresenceMember[]>;
       const members = Object.entries(state).flatMap(([profileId, entries]) => entries.map(member => ({ ...member, profile_id: profileId })));
       setOnlineMembers(members);
+    });
+    channel.on('broadcast', { event: 'hand-raise-changed' }, async ({ payload }: { payload?: { profile_id?: string } }) => {
+      const targetId = payload?.profile_id;
+      if (disposed || typeof targetId !== 'string') return;
+      const { data, error: handError } = await client.from('live_session_hand_raises')
+        .select('profile_id,raised_at,lowered_at')
+        .eq('session_id', activeSession.id)
+        .eq('profile_id', targetId)
+        .maybeSingle();
+      if (!disposed && !handError) setRaisedHands(current => {
+        const next = { ...current };
+        if (data && !data.lowered_at) next[targetId] = data.raised_at;
+        else delete next[targetId];
+        return next;
+      });
     });
     channel.on('broadcast', { event: 'recording-state' }, ({ payload }: { payload?: { active?: boolean } }) => {
       if (!disposed && typeof payload?.active === 'boolean') setRecordingActive(payload.active);
@@ -281,23 +308,59 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
   };
 
   const toggleHandRaise = async () => {
-    if (!activeSession || !roomChannelRef.current || handRaiseBusy) return;
-    const raised = Boolean(onlineMembers.find(member => member.profile_id === profile.id)?.hand_raised);
-    const next = !raised;
+    if (!activeSession || !client || !roomChannelRef.current || handRaiseBusy) return;
+    const next = !Boolean(raisedHands[profile.id]);
     setHandRaiseBusy(true);
+    setError('');
     try {
-      const result = await roomChannelRef.current.track({
-        profile_id: profile.id,
-        display_name: profile.display_name,
-        role: profile.role,
-        online_at: new Date().toISOString(),
-        hand_raised: next,
-        hand_raised_at: next ? new Date().toISOString() : null
+      const { data, error: raiseError } = await client.rpc('live_session_set_hand_raise', {
+        p_session_id: activeSession.id,
+        p_raised: next,
+        p_profile_id: null
       });
-      if (result !== 'ok') throw new Error('Could not update your hand-raise status.');
+      if (raiseError) throw new Error(raiseError.message);
+      if (data) setRaisedHands(current => {
+        const updated = { ...current };
+        if (next) updated[profile.id] = new Date().toISOString();
+        else delete updated[profile.id];
+        return updated;
+      });
+      const broadcastStatus = await roomChannelRef.current.send({
+        type: 'broadcast',
+        event: 'hand-raise-changed',
+        payload: { profile_id: profile.id }
+      });
+      if (broadcastStatus !== 'ok') setNotice('Your hand status was saved. Other participants may need to refresh.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not update hand raise.');
     } finally { setHandRaiseBusy(false); }
+  };
+
+  const lowerParticipantHand = async (member: PresenceMember) => {
+    if (!client || !activeSession || !canModerateActiveSession || !member.profile_id || member.role !== 'student' || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const { data, error: lowerError } = await client.rpc('live_session_set_hand_raise', {
+        p_session_id: activeSession.id,
+        p_raised: false,
+        p_profile_id: member.profile_id
+      });
+      if (lowerError) throw new Error(lowerError.message);
+      if (data) setRaisedHands(current => {
+        const next = { ...current };
+        delete next[member.profile_id!];
+        return next;
+      });
+      const broadcastStatus = await roomChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'hand-raise-changed',
+        payload: { profile_id: member.profile_id }
+      });
+      if (broadcastStatus !== 'ok') setNotice('The hand was lowered. Other participants may need to refresh.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not lower the student hand.');
+    } finally { setBusy(false); }
   };
 
   const toggleChatMute = async (member: PresenceMember) => {
@@ -503,7 +566,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         p_session_id: activeSession.id
       });
       if (leaveError) throw new Error(leaveError.message);
-      setActiveSession(null); setOnlineMembers([]);
+      setActiveSession(null); setOnlineMembers([]); setRaisedHands({});
       setNotice('You left the classroom. Your attendance record was saved.');
       await load();
     } catch (e) {
@@ -511,7 +574,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     } finally { setBusy(false); }
   };
 
-  const ownHandRaised = Boolean(onlineMembers.find(member => member.profile_id === profile.id)?.hand_raised);
+  const ownHandRaised = Boolean(raisedHands[profile.id]);
   const activeSessionHost = Boolean(activeSession && activeSession.created_by === profile.id);
   const canModerateActiveSession = staff || (activeSession?.room_type === 'study' && activeSessionHost);
 
@@ -557,7 +620,8 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
           <span>{(member.display_name || 'Participant').slice(0,1).toUpperCase()}</span>
           <b>{member.display_name || 'Participant'}{member.profile_id === profile.id ? ' (You)' : ''}</b>
           <small>{member.role || 'Participant'}</small>
-          {member.hand_raised && <em className="live-hand-indicator"><Hand size={11}/> Hand raised</em>}
+          {member.profile_id && raisedHands[member.profile_id] && <em className="live-hand-indicator"><Hand size={11}/> Hand raised</em>}
+          {canModerateActiveSession && member.role === 'student' && member.profile_id && member.profile_id !== profile.id && raisedHands[member.profile_id] && <button className="live-chat-moderate" onClick={() => void lowerParticipantHand(member)} disabled={busy || handRaiseBusy}><Hand size={12}/> Lower hand</button>}
           {canModerateActiveSession && member.role === 'student' && member.profile_id && member.profile_id !== profile.id && <button className="live-chat-moderate" onClick={() => void toggleChatMute(member)} disabled={busy}>{isMuted ? <Volume2 size={12}/> : <VolumeX size={12}/>} {isMuted ? 'Unmute chat' : 'Mute 10m'}</button>}
           {canModerateActiveSession && member.role === 'student' && member.profile_id && member.profile_id !== profile.id && <button className="live-chat-moderate live-remove-participant" onClick={() => void removeParticipant(member)} disabled={busy}><UserX size={12}/> Remove</button>}
         </div>;
