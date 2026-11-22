@@ -128,10 +128,6 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
 
   const changeStatus = async (session: LiveSession, status: LiveSession['status']) => {
     if (!client || !staff || busy) return;
-    const now = new Date().toISOString();
-    const patch: Record<string, string | null> = { status, updated_at: now };
-    if (status === 'live') patch.started_at = session.started_at || now;
-    if (status === 'ended') { patch.started_at = session.started_at || now; patch.ended_at = now; }
     setBusy(true); setError(''); setNotice('');
     try {
       const { error: updateError } = await client.rpc('live_session_set_status', {
