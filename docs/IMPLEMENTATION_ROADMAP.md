@@ -210,3 +210,12 @@ For the maintained, full product scope, implementation stages, acceptance criter
 - Security Advisor findings to resolve/review before launch: one RLS-enabled table without direct policies (`question_bank_items`, accessed through staff RPCs), 16 authenticated-callable SECURITY DEFINER RPCs, and disabled leaked-password protection. Performance findings include per-row auth-function evaluation, multiple permissive policies on three tables, and unused-index notices.
 - These are audit observations; no production settings or data were changed. The SECURITY DEFINER functions must be individually reviewed for authorization and execution grants rather than blindly revoked.
 - No local build or runtime test has yet been recorded for this correction. No deployment, migration, Edge Function or secret change was performed.
+
+
+### AI provider order — corrected per user confirmation (2026-11-22)
+
+1. NVIDIA NIM — primary, priority 1.
+2. Gemini — secondary, priority 2.
+3. OpenRouter — third fallback, priority 3.
+
+Groq has been removed from the application catalog and execution allowlist. Claude and ChatGPT/OpenAI API are not included. The UI, provider-management Edge Function, AI-learning allowlist, source migration and CI policy checks have been aligned. Migration and Edge Function deployment are still pending approval; production has not been changed. Verify provider account pricing/quotas before activation.
