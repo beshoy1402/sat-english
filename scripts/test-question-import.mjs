@@ -3,26 +3,26 @@ import assert from 'node:assert/strict';
 import { normalizePrompt, parseCsv, toImportRow } from '../src/question-import.mjs';
 
 test('CSV parser handles quoted commas, escaped quotes, and multiline fields', () => {
-  const rows = parseCsv('prompt,choices,answer_key\\r\\n"What, exactly?", "A. \"\"quoted\"\"\\nB. second",B');
+  const rows = parseCsv('prompt,choices,answer_key\r\n"What, exactly?","A. ""quoted""\nB. second",B');
   assert.equal(rows.length, 1);
   assert.equal(rows[0].prompt, 'What, exactly?');
-  assert.equal(rows[0].choices, 'A. "quoted"\\nB. second');
+  assert.equal(rows[0].choices, 'A. "quoted"\nB. second');
   assert.equal(rows[0].__sourceRow, 2);
 });
 
 test('CSV parser strips BOM and preserves blank trailing cells', () => {
-  const rows = parseCsv('\\uFEFFprompt,answer_key,explanation\\nQuestion,A,');
+  const rows = parseCsv('\uFEFFprompt,answer_key,explanation\nQuestion,A,');
   assert.deepEqual(rows[0], { prompt: 'Question', answer_key: 'A', explanation: '', __sourceRow: 2 });
 });
 
 test('CSV parser rejects malformed quoted fields', () => {
-  assert.throws(() => parseCsv('prompt,answer\\n"unfinished,A'), /unterminated quoted field/);
-  assert.throws(() => parseCsv('prompt,answer\\n"ok"x,A'), /unexpected characters/);
+  assert.throws(() => parseCsv('prompt,answer\n"unfinished,A'), /unterminated quoted field/);
+  assert.throws(() => parseCsv('prompt,answer\n"ok"x,A'), /unexpected characters/);
 });
 
 test('CSV parser rejects empty and duplicate headers', () => {
-  assert.throws(() => parseCsv('prompt,,answer\\nQ,,A'), /empty column heading/);
-  assert.throws(() => parseCsv('prompt,Prompt\\nQ,Q'), /duplicate column headings/);
+  assert.throws(() => parseCsv('prompt,,answer\nQ,,A'), /empty column heading/);
+  assert.throws(() => parseCsv('prompt,Prompt\nQ,Q'), /duplicate column headings/);
 });
 
 test('spreadsheet option columns map A-D and letter answer to option text', () => {
