@@ -287,3 +287,13 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - Added static regression assertions for responsive UI hooks and the import parsing safeguards.
 - GitHub Actions run [45001655711](https://github.com/beshoy1402/sat-english/actions/runs/45001655711) passed: dependency install, policy checks, TypeScript type-check and Vite production build.
 - This is CI/build verification only. Real-device visual QA, browser interaction tests, PDF/XLSX fixture tests and end-to-end workflows remain outstanding. No deployment or production change was performed.
+
+
+## Question-import parser extraction and executable tests (2026-11-22)
+
+- Extracted CSV parsing and row normalization into a pure ESM module so import behavior can be exercised independently of the React UI.
+- CSV parsing now handles a UTF-8 BOM, quoted commas, escaped quotes, multiline cells and blank trailing cells; malformed quoted fields and empty/duplicate headings are rejected.
+- Shared normalization now validates question type, difficulty, program/topic, point range, duplicate prompts, unique answer choices and the 2–6 option limit for multiple-choice rows. A–F answer keys are converted to the corresponding option text; structured spreadsheet option columns remain supported.
+- Added 10 executable Node regression tests and wired them into GitHub Actions before TypeScript/build verification.
+- GitHub Actions run [45003319433](https://github.com/beshoy1402/sat-english/actions/runs/45003319433) passed: policy checks, all 10 import tests, TypeScript type-check and Vite production build.
+- Remaining: browser file-picker/preview/save testing, representative real-world CSV/XLSX/DOCX/PDF fixtures, OCR for scanned PDFs, import batch rollback/retry and end-to-end exam assembly. No deployment, migration or production change was performed.
