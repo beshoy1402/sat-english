@@ -112,7 +112,7 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
       localRef.current = stream; setLocalStream(stream);
       stream.getAudioTracks().forEach(track => { track.enabled = micOn; });
       stream.getVideoTracks().forEach(track => { track.enabled = cameraOn; });
-      peers.current.forEach(pc => stream.getTracks().forEach(track => { if (!pc.getSenders().some(sender => sender.track?.kind === track.kind)) pc.addTrack(track, stream); }));
+      for (const pc of peers.current.values()) { for (const track of stream.getTracks()) { const sender = pc.getSenders().find(item => item.track?.kind === track.kind); if (sender) await sender.replaceTrack(track); else pc.addTrack(track, stream); } }
     } catch (e) { setError(e instanceof Error ? e.message : 'Camera or microphone permission was denied.'); }
     finally { setBusy(false); }
   };
@@ -137,7 +137,7 @@ export default function LiveMedia({ client, sessionId, profile, members }: { cli
     } catch (e) { setError(e instanceof Error ? e.message : 'Screen sharing could not start.'); }
     finally { setBusy(false); }
   };
-  const stopMedia = () => { screenRef.current?.getTracks().forEach(track => track.stop()); localRef.current?.getTracks().forEach(track => track.stop()); screenRef.current = null; localRef.current = null; setScreenStream(null); setLocalStream(null); peers.current.forEach(pc => pc.close()); peers.current.clear(); setRemoteStreams({}); };
+  const stopMedia = () => { screenRef.current?.getTracks().forEach(track => track.stop()); localRef.current?.getTracks().forEach(track => track.stop()); for (const pc of peers.current.values()) { for (const sender of pc.getSenders()) { if (sender.track && (sender.track.kind === 'audio' || sender.track.kind === 'video')) void sender.replaceTrack(null); } } screenRef.current = null; localRef.current = null; setScreenStream(null); setLocalStream(null); };
 
   return <div className="live-media-section">
     <div className="live-media-heading"><div><b>Audio & video</b><span>Peer-to-peer prototype · maximum 6 participants</span></div>
