@@ -132,8 +132,12 @@ export default {
     meeting_id: meetingId,
     meeting_uuid: typeof meeting.uuid === 'string' ? meeting.uuid : null,
     participant_user_id: participant.user_id == null ? null : String(participant.user_id),
-    participant_uuid: participant.participant_uuid || participant.participant_user_id || participant.id || null,
-    participant_name: participant.user_name || participant.name || null,
+    participant_uuid: (participant.participant_uuid ?? participant.participant_user_id ?? participant.id) == null
+      ? null
+      : String(participant.participant_uuid ?? participant.participant_user_id ?? participant.id),
+    participant_name: typeof (participant.user_name || participant.name) === 'string'
+      ? (participant.user_name || participant.name)
+      : null,
     participant_email: typeof participant.email === 'string' && participant.email.trim()
       ? participant.email.trim().toLowerCase()
       : null,
