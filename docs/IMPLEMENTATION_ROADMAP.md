@@ -150,4 +150,6 @@ Configurable XP, achievements, streaks, weekly challenges, class leaderboards an
 - Updated the student AI Tutor to emphasize answer checking, precise error explanations and improvement guidance, and to show the point balance.
 - Added a structured answer-review form for the question, passage, answer choices, student response and optional answer key; it prepares a grounded review request without inventing missing answers.
 - The points indicator now reports when the wallet cannot be loaded instead of displaying a misleading fallback balance.
+- Added an Admin-only AI points dashboard to search student balances, grant/deduct points with a reason, and review the recent transaction ledger. The server-side adjustment RPC now rejects inactive/non-student targets and revokes public/anonymous execution.
+- Admin point controls are UI/source changes only; the required migration still needs explicit approval before production use.
 - These changes are on the existing feature branch. The database migration and Edge Function are **not deployed**. Production remains unchanged until explicit approval and successful verification.
