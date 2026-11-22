@@ -77,6 +77,8 @@ assert.ok(recordingScopeMigration.includes("p.role = 'student'"));
 assert.ok(recordingScopeMigration.includes('sr.is_published = true'));
 assert.ok(recordingScopeMigration.includes("ca.status = 'active'"));
 assert.ok(recordingScopeMigration.includes('drop policy if exists session_recordings_storage_staff_delete'));
+assert.ok(recordingScopeMigration.includes("p.role in ('teacher','assistant')"));
+assert.ok(recordingScopeMigration.includes('(storage.foldername(objects.name))[1] = p.id::text'));
 assert.ok(recordingScopeMigration.includes("private.current_user_role() = 'teacher'"));
 
 // Resumable uploads must never send credentials to arbitrary browser-stored URLs.
@@ -84,6 +86,9 @@ assert.match(recordings, /parsed\.origin === endpointOrigin/);
 assert.match(recordings, /parsed\.pathname\.startsWith\('\/storage\/v1\/upload\/resumable\/'\)/);
 assert.match(recordings, /confirmedOffset !== nextOffset/);
 assert.match(recordings, /Could not verify the saved upload session/);
+assert.match(recordings, /\.list\(folder, \{ search: filename, limit: 100 \}\)/);
+assert.match(recordings, /completed private object via Storage\.list/);
+assert.match(recordings, /clearStoredUploadUrl\(\);\s*onProgress\(100\);\s*return;/);
 
 // A completed video must remain recoverable when metadata persistence fails.
 assert.match(recordings, /\.eq\('storage_path', path\)\s*\.\s*maybeSingle\(\)/);
