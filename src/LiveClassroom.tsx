@@ -358,6 +358,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       });
       if (updateError) throw new Error(updateError.message);
       setNotice(status === 'lobby' ? 'The classroom lobby is open.' : status === 'live' ? 'The live lesson has started.' : status === 'ended' ? 'The lesson has ended.' : 'The session was cancelled.');
+      setActiveSession(current => current?.id === session.id ? { ...current, status } : current);
       if (activeSession?.id === session.id && ['ended', 'cancelled'].includes(status)) {
         await client.rpc('live_session_leave', { p_session_id: session.id });
         setActiveSession(null);
@@ -386,9 +387,17 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         status: 'lobby'
       }).select('id').single();
       if (createError || !data) throw new Error(createError?.message || 'Could not open your study room.');
+      const { error: joinError } = await client.rpc('live_session_join', { p_session_id: data.id });
+      if (joinError) throw new Error('The room was created, but you could not enter it: ' + joinError.message);
+      const { data: room, error: roomError } = await client.from('live_sessions')
+        .select('*, courses(title), lessons(title)')
+        .eq('id', data.id)
+        .single();
+      if (roomError || !room) throw new Error('The room is open, but its details could not be loaded. Refresh the page.');
       setStudyRoomTitle('Group study room');
       setShowStudyRoomForm(false);
-      setNotice('Your study room is open. Classmates with active access to this course can join.');
+      setActiveSession(room as LiveSession);
+      setNotice('Your study room is open. You are the host; classmates with active access to this course can join.');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not open the study room.');
