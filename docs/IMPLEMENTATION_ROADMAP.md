@@ -170,3 +170,5 @@ For the maintained, full product scope, implementation stages, acceptance criter
 - Server-side RPCs own lifecycle transitions and attendance timestamps; direct client writes to those fields are revoked.
 - Not yet implemented: WebRTC audio/video, TURN/SFU, screen sharing, chat, moderation and live recording.
 - Migration not applied; build and runtime tests pending; no production deployment.
+
+- Added `src/LiveMedia.tsx`: WebRTC audio/video, participant tiles, camera/microphone controls and screen sharing. Private signaling uses a separate session-scoped topic; STUN-only and six-participant cap are explicit limitations. Runtime/build tests pending.
