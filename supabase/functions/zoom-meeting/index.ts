@@ -95,9 +95,10 @@ export default {
         body: JSON.stringify({
           topic: session.title,
           type: 2,
+          // session.scheduled_at is stored as UTC ISO-8601 with a Z suffix.
+          // Zoom treats Z-formatted start_time as GMT/UTC; do not mix in a local timezone field.
           start_time: session.scheduled_at,
           duration: 60,
-          timezone: 'Africa/Cairo',
           agenda: session.description || 'SAT English live lesson',
           settings: {
             waiting_room: true,
