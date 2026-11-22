@@ -33,7 +33,7 @@ begin
   from public.profiles
   where id = (select auth.uid()) and is_active = true;
 
-  if v_role not in ('admin','teacher') then
+  if coalesce(v_role::text, '') not in ('admin','teacher') then
     raise exception 'Only an active teacher or administrator can attach a live lesson recording';
   end if;
 
