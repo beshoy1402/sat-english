@@ -134,7 +134,10 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     if (status === 'ended') { patch.started_at = session.started_at || now; patch.ended_at = now; }
     setBusy(true); setError(''); setNotice('');
     try {
-      const { error: updateError } = await client.from('live_sessions').update(patch).eq('id', session.id);
+      const { error: updateError } = await client.rpc('live_session_set_status', {
+        p_session_id: session.id,
+        p_status: status
+      });
       if (updateError) throw new Error(updateError.message);
       setNotice(status === 'lobby' ? 'The classroom lobby is open.' : status === 'live' ? 'The live lesson has started.' : status === 'ended' ? 'The lesson has ended.' : 'The session was cancelled.');
       if (activeSession?.id === session.id && ['ended', 'cancelled'].includes(status)) setActiveSession(null);
@@ -148,13 +151,9 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     if (!client || busy || !['lobby', 'live'].includes(session.status)) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      const { error: joinError } = await client.from('live_session_participants').upsert({
-        session_id: session.id,
-        profile_id: profile.id,
-        joined_at: new Date().toISOString(),
-        left_at: null,
-        last_seen_at: new Date().toISOString()
-      }, { onConflict: 'session_id,profile_id' });
+      const { error: joinError } = await client.rpc('live_session_join', {
+        p_session_id: session.id
+      });
       if (joinError) throw new Error(joinError.message);
       setActiveSession(session);
       setNotice('You joined the classroom lobby.');
@@ -167,10 +166,9 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
     if (!activeSession || !client) return;
     setBusy(true);
     try {
-      const { error: leaveError } = await client.from('live_session_participants')
-        .update({ left_at: new Date().toISOString(), last_seen_at: new Date().toISOString() })
-        .eq('session_id', activeSession.id)
-        .eq('profile_id', profile.id);
+      const { error: leaveError } = await client.rpc('live_session_leave', {
+        p_session_id: activeSession.id
+      });
       if (leaveError) throw new Error(leaveError.message);
       setActiveSession(null); setOnlineMembers([]);
       setNotice('You left the classroom. Your attendance record was saved.');
