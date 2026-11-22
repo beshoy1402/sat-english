@@ -45,10 +45,11 @@ test('choice labels are compared after normalization', () => {
 });
 
 test('duplicate choices, invalid point values and unsupported types are rejected', () => {
-  const row = toImportRow({ prompt: 'Pick', choices: ['Same', 'Same'], answer_key: 'A', points: 0, type: 'true_false' }, 4);
+  const row = toImportRow({ prompt: 'Pick', choices: ['Same', 'Same'], answer_key: 'A', points: 0 }, 4);
   assert.ok(row.errors.some(error => error.includes('unique')));
   assert.ok(row.errors.some(error => error.includes('between 0 and 100')));
-  assert.ok(row.errors.some(error => error.includes('Unsupported question type')));
+  const unsupported = toImportRow({ prompt: 'Pick', question_type: 'true_false' }, 5);
+  assert.ok(unsupported.errors.some(error => error.includes('Unsupported question type')));
 });
 
 test('existing question prompts are flagged as duplicates', () => {
