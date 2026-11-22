@@ -41,13 +41,13 @@ Never expose API keys or secrets in client-side code. Keep development, staging 
 ## Current release status
 
 - Core database migrations and the account, AI and learning Edge Functions have been applied to the linked Supabase project.
-- Frontend work is on `feature/shared-staff-dashboards`; the production website has not yet been updated to this complete feature branch.
+- Current implementation is on `feature/recorded-sessions-library`; the production website has not been updated from this branch.
 - AI features require a Developer to save at least one provider API key before students can use them. No provider key is committed to this repository.
 - AI homework output is a draft only. A teacher or authorized assistant must verify and save the final grade and feedback.
 - In-app messaging is realtime within the website; WhatsApp, SMS and external email delivery are not connected.
 - Online lessons use external meeting URLs (for example, Zoom or Google Meet); this is not a native video-conferencing service.
 - AI token/latency/failure usage is recorded, but exact provider costs are not calculated until pricing data is configured.
-- PDF/Word question-bank extraction, payments, WhatsApp API, native live video, advanced proctoring beyond browser signals, disaster recovery restore and full hosting/database cost controls remain incomplete. GitHub pull-request listing, diff inspection and review submission are implemented, but the Developer must still connect a fine-grained GitHub token before the integration can be used.
+- PDF/DOCX/XLSX question-bank extraction, payments, WhatsApp API, native live video, advanced proctoring beyond browser signals, disaster-recovery restore, full hosting/database cost controls and end-to-end acceptance testing remain incomplete. GitHub pull-request listing, diff inspection and review submission are implemented, but the Developer must still connect a fine-grained GitHub token before the integration can be used.
 - A new Vercel build/deployment could not be run after the latest frontend changes because the deployment API daily limit was reached. The latest frontend branch therefore still needs a fresh CI/build verification before production release.
 
 Do not treat the existing production URL as proof that the latest feature branch is deployed.
@@ -101,7 +101,7 @@ The branch `feature/shared-staff-dashboards` uses a local Supabase stack for bac
 
 ### AI provider management and learning services
 
-The Developer Dashboard supports Qwen, Google Gemini, Groq, DeepSeek, OpenRouter, OpenAI, Anthropic Claude, Meta Llama through Together AI, and a custom public HTTPS OpenAI-compatible endpoint.
+The Developer Dashboard provider catalog is restricted in source to NVIDIA NIM (primary), Google Gemini (secondary), and OpenRouter (third fallback). Groq, Qwen, DeepSeek, OpenAI, Anthropic Claude, Meta Llama and custom endpoints are not supported by the current application routing allowlist.
 
 - API keys are stored in Supabase Vault. The browser receives configuration metadata, never the secret key.
 - The provider-settings Edge Function requires an active Developer profile.
@@ -111,5 +111,5 @@ The Developer Dashboard supports Qwen, Google Gemini, Groq, DeepSeek, OpenRouter
 - AI usage logs include provider, model, success/failure, latency and token counts. Exact costs are not estimated without configured pricing data.
 - At least one provider must be enabled and have a valid API key. No real API keys are stored in Git.
 - GitHub PR review uses a separate fine-grained GitHub token stored in Supabase Vault. Grant repository Metadata read, Contents read and Pull requests read/write. The token is not committed to Git.
-- Custom endpoints must be public HTTPS OpenAI-compatible endpoints. A private computer's localhost endpoint is not reachable from the hosted Edge Function unless exposed through a secure public tunnel.
+- NVIDIA NIM uses its OpenAI-compatible chat-completions endpoint; Gemini uses the Google Generative Language API; OpenRouter uses its OpenAI-compatible API. Provider account pricing, quotas and model availability must be verified before enabling each integration.
 - For local development, complete the local Supabase setup above and run `npm run functions:serve` with local credentials.
