@@ -413,6 +413,15 @@ begin
     raise exception 'Live classroom not found';
   end if;
 
+  -- A crashed tab or disconnected device must not occupy a room seat forever.
+  -- Active clients refresh last_seen_at through live_session_heartbeat every 30 seconds.
+  update public.live_session_participants
+  set left_at = now(), last_seen_at = now()
+  where session_id = p_session_id
+    and left_at is null
+    and removed_at is null
+    and last_seen_at < now() - interval '2 minutes';
+
   select count(*) into v_active_count
   from public.live_session_participants
   where session_id = p_session_id
@@ -494,6 +503,38 @@ $function$;
 
 revoke all on function public.live_session_store_zoom_meeting(uuid,text,text,text,text) from public, anon;
 grant execute on function public.live_session_store_zoom_meeting(uuid,text,text,text,text) to authenticated;
+
+create or replace function public.live_session_heartbeat(p_session_id uuid)
+returns timestamptz
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_last_seen timestamptz;
+begin
+  if auth.uid() is null or not private.can_join_live_session(p_session_id) then
+    raise exception 'You are not authorized to refresh attendance for this live classroom';
+  end if;
+
+  update public.live_session_participants
+  set last_seen_at = now()
+  where session_id = p_session_id
+    and profile_id = (select auth.uid())
+    and left_at is null
+    and removed_at is null
+  returning last_seen_at into v_last_seen;
+
+  if not found then
+    raise exception 'Join the classroom before refreshing attendance';
+  end if;
+
+  return v_last_seen;
+end;
+$function$;
+
+revoke all on function public.live_session_heartbeat(uuid) from public, anon;
+grant execute on function public.live_session_heartbeat(uuid) to authenticated;
 
 create or replace function public.live_session_leave(p_session_id uuid)
 returns boolean
