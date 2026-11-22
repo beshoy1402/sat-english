@@ -217,7 +217,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       <div className="live-room-notice"><Users size={17}/><div><b>{onlineMembers.length} online</b><span>Presence is shared only inside this private session channel.</span></div></div>
       <div className="live-presence-list">{onlineMembers.map((member, index) => <div key={member.profile_id || index}><span>{(member.display_name || 'Participant').slice(0,1).toUpperCase()}</span><b>{member.display_name || 'Participant'}{member.profile_id === profile.id ? ' (You)' : ''}</b><small>{member.role || 'Participant'}</small></div>)}{!onlineMembers.length && <small>Connecting to the private classroom…</small>}</div>
       <LiveMedia client={client} sessionId={activeSession.id} profile={profile} members={onlineMembers}/>
-      <div className="live-coming-next"><Video size={16}/><span><b>Classroom connection established</b>Audio/video, screen sharing and in-room chat are the next implementation layer. This lobby does not claim to transmit media yet.</span></div>
+      <div className="live-coming-next"><Video size={16}/><span><b>Live media prototype</b>Audio/video and screen sharing are available through browser WebRTC. This small-room prototype is limited to six participants and does not include a TURN relay or scalable media server.</span></div>
     </section>}
 
     {loading ? <div className="live-empty"><LoaderCircle className="live-spin" size={22}/> Loading live lessons…</div> :
