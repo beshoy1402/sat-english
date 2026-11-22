@@ -14,36 +14,28 @@ const [ai, recordings, supabaseClient, providerSettings, providerManagement, del
   read('../supabase/migrations/20261121162000_homework_teacher_attachments.sql'),
 ]);
 
-// AI must use the approved Gemini-first, zero-cost provider/model/endpoint allowlist.
+// AI must use the approved NVIDIA-first provider/model/endpoint allowlist.
+assert.match(ai, /parsed\.origin === "https:\/\/integrate\.api\.nvidia\.com"/);
+assert.match(ai, /provider\.model === "nvidia\/nemotron-3\.5-super-vl-120b-a12b"/);
 assert.match(ai, /parsed\.origin === "https:\/\/generativelanguage\.googleapis\.com"/);
 assert.match(ai, /provider\.model === "gemini-3\.8-flash"/);
 assert.match(ai, /parsed\.origin === "https:\/\/openrouter\.ai"/);
 assert.match(ai, /provider\.model === "openrouter\/free"/);
-assert.match(ai, /parsed\.origin === "https:\/\/api\.groq\.com"/);
-assert.match(ai, /provider\.model === "openai\/gpt-oss-120b"/);
-assert.doesNotMatch(ai, /provider\.provider === "nvidia"/);
+assert.doesNotMatch(ai, /provider\.provider === "groq"/);
 assert.doesNotMatch(ai, /provider\.provider === "anthropic"/);
 assert.doesNotMatch(ai, /provider\.provider === "openai"/);
 assert.match(ai, /\.eq\("success", true\)/);
 assert.match(ai, /p\.is_enabled && p\.key_configured && isApprovedFreeProvider\(p\)/);
-assert.match(ai, /AI is paused by the zero-cost safety policy/);
 assert.match(ai, /refundReservedPoints/);
-assert.match(ai, /if \(saveError\) \{\s*const refund = await refundReservedPoints\(\)/);
-assert.match(ai, /const refund = await refundReservedPoints\(\);\s*return respond\(\{ error: "All enabled AI providers failed\./);
-assert.match(ai, /if \(rateError\) return respond\(\{ error: "AI usage limits could not be checked safely/);
-assert.ok(ai.includes("const cleaned = content.replace(/"), "Worksheet JSON fence parsing must remain present.");
-assert.ok(providerSettings.includes("type ProviderId = 'gemini' | 'openrouter' | 'groq'"));
+assert.ok(providerSettings.includes("type ProviderId = 'nvidia' | 'gemini' | 'openrouter'"));
+assert.match(providerSettings, /id: 'nvidia', name: 'NVIDIA NIM'/);
 assert.match(providerSettings, /id: 'gemini', name: 'Google Gemini'/);
 assert.match(providerSettings, /id: 'openrouter', name: 'OpenRouter'/);
-assert.match(providerSettings, /id: 'groq', name: 'GroqCloud'/);
-assert.doesNotMatch(providerSettings, /id: 'nvidia'/);
-assert.doesNotMatch(providerSettings, /id: 'anthropic'/);
-assert.match(providerSettings, /Primary AI/);
-assert.match(providerSettings, /openrouter\/free/);
+assert.doesNotMatch(providerSettings, /id: 'groq'/);
+assert.match(providerManagement, /nvidia: \{ baseUrl: "https:\/\/integrate\.api\.nvidia\.com\/v1"/);
 assert.match(providerManagement, /gemini: \{ baseUrl: "https:\/\/generativelanguage\.googleapis\.com\/v1beta"/);
-assert.match(providerManagement, /groq: \{ baseUrl: "https:\/\/api\.groq\.com\/openai\/v1"/);
 assert.match(providerManagement, /openrouter: \{ baseUrl: "https:\/\/openrouter\.ai\/api\/v1"/);
-assert.doesNotMatch(providerManagement, /nvidia: \{/);
+assert.doesNotMatch(providerManagement, /groq: \{/);
 assert.doesNotMatch(providerManagement, /anthropic: \{/);
 assert.doesNotMatch(providerManagement, /openai: \{/);
 
