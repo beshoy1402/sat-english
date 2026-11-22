@@ -66,6 +66,14 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
     return () => window.removeEventListener('beforeunload', warn);
   }, [recording]);
 
+  const clearPendingUpload = () => {
+    if (uploadPathRef.current && videoFile) {
+      const tusKey = 'supabase-tus:sat-session-recordings:' + uploadPathRef.current + ':' + videoFile.size + ':' + videoFile.lastModified;
+      try { localStorage.removeItem(tusKey); } catch { /* Best-effort cleanup; never reuse this path. */ }
+    }
+    uploadPathRef.current = null;
+  };
+
   const finishRecording = () => {
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
   };
@@ -157,6 +165,7 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
 
   const discard = () => {
     if (recording) { stopRequestedRef.current = true; finishRecording(); }
+    clearPendingUpload();
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(''); setVideoFile(null); setSeconds(0); setNotice('Recording discarded.');
   };
@@ -173,23 +182,37 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
     uploadPathRef.current = path;
     try {
       await uploadWithTus(client, 'sat-session-recordings', path, videoFile, setProgress);
-      const { error: insertError } = await client.from('session_recordings').insert({
-        course_id: session.course_id,
-        live_session_id: session.id,
-        title: title.trim(),
-        description: description.trim(),
-        storage_path: path,
-        original_filename: videoFile.name,
-        mime_type: videoFile.type,
-        file_size_bytes: videoFile.size,
-        recorded_at: new Date(startedAtRef.current || Date.now()).toISOString(),
-        is_published: false,
-        created_by: profile.id
-      });
-      if (insertError) throw new Error(insertError.message);
+      // The upload may finish even if the database response is lost. Look up the
+      // storage path first so retrying does not create duplicate library entries.
+      const { data: existing, error: lookupError } = await client
+        .from('session_recordings')
+        .select('id,created_by,course_id,live_session_id')
+        .eq('storage_path', path)
+        .maybeSingle();
+      if (lookupError) throw new Error(lookupError.message);
+      if (existing) {
+        if (existing.created_by !== profile.id || existing.course_id !== session.course_id || existing.live_session_id !== session.id) {
+          throw new Error('This upload path is already linked to a different recording. Keep this draft and contact an administrator.');
+        }
+      } else {
+        const { error: insertError } = await client.from('session_recordings').insert({
+          course_id: session.course_id,
+          live_session_id: session.id,
+          title: title.trim(),
+          description: description.trim(),
+          storage_path: path,
+          original_filename: videoFile.name,
+          mime_type: videoFile.type,
+          file_size_bytes: videoFile.size,
+          recorded_at: new Date(startedAtRef.current || Date.now()).toISOString(),
+          is_published: false,
+          created_by: profile.id
+        });
+        if (insertError) throw new Error(insertError.message);
+      }
       try { localStorage.removeItem('supabase-tus:sat-session-recordings:' + path + ':' + videoFile.size + ':' + videoFile.lastModified); } catch { /* Best-effort cleanup. */ }
       uploadPathRef.current = null;
-      setNotice('Saved to Recorded Sessions as a private draft. Publish it later from the library.');
+      setNotice(existing ? 'This recording was already saved. The library has been refreshed.' : 'Saved to Recorded Sessions as a private draft. Publish it later from the library.');
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(''); setVideoFile(null); setSeconds(0);
     } catch (saveError) {
