@@ -2,7 +2,6 @@ import {useCallback,useEffect,useMemo,useState} from 'react';
 import {BookOpen,Edit3,Plus,RefreshCw,Search,Trash2,UploadCloud} from 'lucide-react';
 import './question-bank.css';
 import { normalizePrompt as normalize, parseCsv, toImportRow } from './question-import.mjs';
-import type { ImportRow } from './question-import.mjs';
 type Row=Record<string,any>;
 type ImportRow={sourceRow:number;exam_program:string;topic:string;difficulty:string;passage:string;prompt:string;question_type:string;choices:string[];answer_key:string;explanation:string;points:number;errors:string[];duplicate:boolean};
 
