@@ -142,7 +142,7 @@ Session states: scheduled, lobby, live, ended, cancelled. Store timestamps and t
 - Student-created study rooms use the website WebRTC provider only; students cannot create Zoom meetings or access Zoom host controls.
 - Teacher Zoom delivery uses an administrator-configured Zoom Server-to-Server OAuth app and the Zoom Meetings API. Store `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` and `ZOOM_HOST_USER_ID` only as Supabase Edge Function secrets. Never put Zoom credentials in browser code, database rows or Git.
 - The Zoom function validates the caller's Supabase user JWT, active staff profile, session ownership and selected provider before creating or refreshing a Zoom meeting. The function returns the host start URL only to the authorized teacher. Student clients receive the participant join URL only.
-- Required Zoom app permissions must include the granular meeting create/read scopes (`meeting:write:meeting:admin` and `meeting:read:meeting:admin`). Zoom account licensing, host scheduling permissions and account-level policies may limit availability; verify these on the connected Zoom account before launch.
+- Required Zoom app permissions must include the granular meeting create/read/end/delete scopes (`meeting:write:meeting:admin`, `meeting:read:meeting:admin`, `meeting:update:status:admin` and `meeting:delete:meeting:admin`). Zoom account licensing, host scheduling permissions and account-level policies may limit availability; verify these on the connected Zoom account before launch.
 - Current Zoom integration opens the official Zoom meeting in the Zoom desktop client or browser; it does not embed the Zoom Meeting SDK inside the website. Zoom participant attendance synchronization through webhooks is a separate follow-up.
 - Use reconnect handling, stale-peer cleanup, bounded message payloads and explicit teardown of media tracks/channels.
 
@@ -219,7 +219,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 **Current media prototype:** `src/LiveMedia.tsx` adds browser camera/microphone capture, peer-to-peer WebRTC audio/video, participant video tiles, mute/camera controls and screen sharing. It uses a separate private `live-session-media:<UUID>` signaling topic, STUN discovery only, and a six-participant cap. Media transceivers are prepared before device permission is granted so later track attachment can use the negotiated audio/video sections.
 
-**Still not included:** TURN relay, SFU/scalable classrooms, Zoom webhook attendance synchronization, embedded Zoom Meeting SDK, live recording, automated browser/network acceptance tests and verified multi-device connectivity. Hand raise currently uses ephemeral private presence; classroom chat is persisted in the source schema with server-side rate limits and teacher chat-mute RPCs. STUN-only connectivity is not guaranteed on restrictive networks. This is an unverified prototype, not a production-ready video classroom. The migration has not been applied to any Supabase project.
+**Still not included:** TURN relay, SFU/scalable classrooms, Zoom webhook attendance synchronization for meetings ended outside the platform, per-teacher Zoom account OAuth connections, embedded Zoom Meeting SDK, live recording, automated browser/network acceptance tests and verified multi-device connectivity. Hand raise currently uses ephemeral private presence; classroom chat is persisted in the source schema with server-side rate limits and teacher chat-mute RPCs. STUN-only connectivity is not guaranteed on restrictive networks. This is an unverified prototype, not a production-ready video classroom. The migration has not been applied to any Supabase project.
 
 ## 6. Current implementation status
 
@@ -242,7 +242,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 - AI points migration and AI learning Edge Function changes are source-only and not deployed.
 - Admission rules are not yet populated with verified university/faculty/year formulas.
 - Recorded Sessions Library schema/storage migration must be checked against the actual environment before production use.
-- Integrated live classroom implementation is the next major milestone; its schema and private Realtime authorization need review before activation.
+- Integrated live classroom, student study-room and Zoom delivery implementation are source-only; schema and private Realtime authorization need review before activation. Zoom secrets and the Edge Function are not configured/deployed.
 - PDF/DOCX/XLSX/image extraction, import batch rollback/retry, complete test coverage, final security audit and launch verification remain outstanding.
 
 ## 7. Delivery order from here
@@ -258,7 +258,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 ## 8. Change log
 - **2026-11-22:** Continued Question Bank CSV parser hardening on `feature/recorded-sessions-library`; no deployment, production migration or Edge Function deployment.
-- **Next milestone:** Complete Live Classroom verification, Zoom account configuration/webhook attendance, and explicit recording workflow.
+- **Next milestone:** Complete Live Classroom verification, configure and test the school Zoom host account, implement Zoom webhook attendance synchronization, and continue the explicit recording workflow.
 
 - **2026-11-23:** Added source-only live classroom scheduling, session lifecycle, attendance and private Realtime presence. Added staff/student navigation. Hardened state changes and attendance timestamps behind server-side RPCs, restricted attendance visibility to self/managers, filtered staff course choices to manageable courses, and validated lesson/course linkage. No migration applied and no deployment.
 
@@ -273,3 +273,5 @@ The first Live Classroom code slice is now committed to the working feature bran
 - **2026-11-23 (continued):** Added teacher participant removal with an audited server-side action, attendance closure, reconnect blocking and client-side room/media teardown after the removed participant verifies the database state. No migration applied.
 
 - **2026-11-23 (continued):** Added student-created website study rooms scoped to active course access, one active room per student and a six-participant database-enforced cap. Student room owners can start/end and moderate their own rooms. Teachers can select website or Zoom delivery when scheduling. Added source-only Zoom Server-to-Server OAuth meeting creation/host-link Edge Function and a separate RLS-protected host URL table. No Zoom secrets configured, no migration applied, and no Edge Function deployed.
+
+- **2026-11-23 (continued):** Added Zoom meeting end/cancel API calls and updated platform session status. Added a dedicated Zoom setup guide documenting the central school Zoom host account, required scopes, secret configuration and known integration limits. No Zoom secrets configured and no Edge Function deployed.
