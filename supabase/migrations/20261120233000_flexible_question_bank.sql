@@ -51,8 +51,13 @@ begin
     update public.question_bank_items set exam_program=p_exam_program,topic=coalesce(nullif(trim(p_topic),''),'General'),difficulty=p_difficulty,
       passage=coalesce(p_passage,''),prompt=p_prompt,question_type=p_question_type,choices=coalesce(p_choices,'[]'::jsonb),
       answer_key=p_answer_key,explanation=coalesce(p_explanation,''),points=p_points,updated_at=now()
-    where id=p_id returning id into v_id;
-    if v_id is null then raise exception 'Question bank item not found'; end if;
+    where id=p_id
+      and (
+        coalesce(private.current_user_role()::text,'') = 'admin'
+        or created_by = (select auth.uid())
+      )
+    returning id into v_id;
+    if v_id is null then raise exception 'Question bank item not found or you cannot edit it'; end if;
   end if;
   return v_id;
 end $$;
@@ -63,8 +68,13 @@ create or replace function public.staff_delete_question_bank_item(p_id uuid)
 returns void language plpgsql security definer set search_path='' as $$
 begin
   if coalesce(private.current_user_role()::text,'') not in ('admin','teacher','assistant') then raise exception 'Teaching staff role required'; end if;
-  delete from public.question_bank_items where id=p_id;
-  if not found then raise exception 'Question bank item not found'; end if;
+  delete from public.question_bank_items
+  where id=p_id
+    and (
+      coalesce(private.current_user_role()::text,'') = 'admin'
+      or created_by = (select auth.uid())
+    );
+  if not found then raise exception 'Question bank item not found or you cannot delete it'; end if;
 end $$;
 revoke all on function public.staff_delete_question_bank_item(uuid) from public,anon;
 grant execute on function public.staff_delete_question_bank_item(uuid) to authenticated;
@@ -74,8 +84,15 @@ returns integer language plpgsql security definer set search_path='' as $$
 declare v_exam public.exams; v_item public.question_bank_items; v_order integer; v_count integer:=0;
 begin
   if coalesce(private.current_user_role()::text,'') not in ('admin','teacher','assistant') then raise exception 'Teaching staff role required'; end if;
-  select * into v_exam from public.exams where id=p_exam_id;
+  select * into v_exam from public.exams where id=p_exam_id for update;
   if not found then raise exception 'Exam not found'; end if;
+  if coalesce(private.current_user_role()::text,'') <> 'admin'
+    and v_exam.created_by <> (select auth.uid()) then
+    raise exception 'You can only add question-bank items to exams you created';
+  end if;
+  if v_exam.status::text <> 'draft' then
+    raise exception 'Question-bank items can only be added to draft exams';
+  end if;
   select coalesce(max(sort_order),0) into v_order from public.questions where exam_id=p_exam_id;
   for v_item in select * from public.question_bank_items where id=any(coalesce(p_item_ids,'{}'::uuid[])) order by created_at loop
     if v_item.exam_program<>v_exam.exam_program then raise exception 'Question % belongs to a different exam program',v_item.id; end if;
