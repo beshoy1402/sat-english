@@ -76,28 +76,6 @@ grant select on public.live_session_messages to authenticated;
 revoke all on public.live_session_moderation_events from anon, authenticated;
 grant select on public.live_session_moderation_events to authenticated;
 
-drop policy if exists live_session_messages_read_participants on public.live_session_messages;
-create policy live_session_messages_read_participants
-on public.live_session_messages for select to authenticated
-using (
-  private.can_manage_live_session(session_id)
-  or (
-    private.can_join_live_session(session_id)
-    and exists (
-      select 1 from public.live_session_participants lp
-      where lp.session_id = live_session_messages.session_id
-        and lp.profile_id = (select auth.uid())
-        and lp.left_at is null
-        and lp.removed_at is null
-    )
-  )
-);
-
-drop policy if exists live_session_moderation_read_managers on public.live_session_moderation_events;
-create policy live_session_moderation_read_managers
-on public.live_session_moderation_events for select to authenticated
-using (private.can_manage_live_session(session_id));
-
 
 alter table public.live_sessions enable row level security;
 alter table public.live_session_participants enable row level security;
@@ -198,6 +176,29 @@ revoke all on function private.can_join_live_session(uuid) from public, anon;
 grant execute on function private.can_access_live_session(uuid) to authenticated;
 grant execute on function private.can_manage_live_session(uuid) to authenticated;
 grant execute on function private.can_join_live_session(uuid) to authenticated;
+
+drop policy if exists live_session_messages_read_participants on public.live_session_messages;
+create policy live_session_messages_read_participants
+on public.live_session_messages for select to authenticated
+using (
+  private.can_manage_live_session(session_id)
+  or (
+    private.can_join_live_session(session_id)
+    and exists (
+      select 1 from public.live_session_participants lp
+      where lp.session_id = live_session_messages.session_id
+        and lp.profile_id = (select auth.uid())
+        and lp.left_at is null
+        and lp.removed_at is null
+    )
+  )
+);
+
+drop policy if exists live_session_moderation_read_managers on public.live_session_moderation_events;
+create policy live_session_moderation_read_managers
+on public.live_session_moderation_events for select to authenticated
+using (private.can_manage_live_session(session_id));
+
 
 drop policy if exists live_sessions_read_authorized on public.live_sessions;
 create policy live_sessions_read_authorized
@@ -342,7 +343,7 @@ begin
   values (p_session_id, auth.uid(), now(), now())
   on conflict (session_id, profile_id)
   do update set left_at = null, last_seen_at = now()
-  where public.live_session_participants.removed_at is null
+  where live_session_participants.removed_at is null
   returning * into v_participant;
 
   if not found then
