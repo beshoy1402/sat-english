@@ -425,3 +425,12 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Improved TUS retry behavior by checking for the exact private object before creating a new upload. A completed upload whose metadata insert failed is reused on retry; the completed TUS session URL is cleared after finalization.
 - Verified with GitHub Actions run [45004178052](https://github.com/beshoy1402/sat-english/actions/runs/45004178052): policy checks, 10 import regression tests, TypeScript and Vite build all passed.
 - Not yet verified against a disposable live database or real browser sessions. Required next checks: migration application in isolated development, role-by-role RLS/Storage tests, live lesson host access, interrupted TUS recovery, and deletion consistency. No migration was applied to production and no deployment occurred.
+
+
+## Live Classroom Realtime admission hardening — source only (2026-11-22)
+
+- Separated course/session eligibility from active Realtime participation. The join RPC continues using `private.can_join_live_session` so a user can be admitted before an attendance row exists; the new `private.can_use_live_session_channel` requires that row to exist and remain active.
+- Applied active-participant checks to private Realtime send/receive policies and persistent hand-raise/history SELECT policies. This prevents an enrolled-but-not-joined student from bypassing the six-person join limit by subscribing directly to presence, chat broadcasts, or WebRTC signaling.
+- Updated the browser client so Realtime authorization failures and attendance-heartbeat failures query the caller's own attendance row. Missing, ended or removed attendance closes the active room and tears down the mounted media/recording components; removed participants see a clear message that they cannot rejoin.
+- CI run [45004522753](https://github.com/beshoy1402/sat-english/actions/runs/45004522753) passed policy assertions, 10 question-import regression tests, TypeScript and Vite build.
+- No database migration has been applied and no deployment was started. Remaining validation: apply in isolated development, test six-seat race conditions, confirm direct topic subscription is rejected without an active attendance row, and browser-test removal/revocation and media teardown.
