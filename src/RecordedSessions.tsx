@@ -20,7 +20,7 @@ type Recording = {
   courses?: { title?: string } | null;
 };
 
-type Course = { id: string; title: string };
+type Course = { id: string; title: string; created_by?: string };
 
 const BUCKET = 'sat-session-recordings';
 const MAX_FILE_BYTES = 500 * 1024 * 1024;
@@ -230,11 +230,16 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
     setError('');
     try {
       const [courseResult, recordingResult] = await Promise.all([
-        client.from('courses').select('id,title').order('created_at', { ascending: false }),
+        client.from('courses').select('id,title,created_by').order('created_at', { ascending: false }),
         client.from('session_recordings').select('*, courses(title)').order('created_at', { ascending: false })
       ]);
       if (courseResult.error) setError(courseResult.error.message);
-      else setCourses(courseResult.data ?? []);
+      else {
+        const visibleCourses = profile.role === 'admin'
+          ? (courseResult.data ?? [])
+          : (courseResult.data ?? []).filter((course: Course) => course.created_by === profile.id);
+        setCourses(visibleCourses);
+      }
       if (recordingResult.error) setError(recordingResult.error.message);
       else setRecordings(recordingResult.data ?? []);
     } catch (loadError) {
@@ -242,7 +247,7 @@ export default function RecordedSessions({ client, profile }: { client: any; pro
     } finally {
       setLoading(false);
     }
-  }, [client]);
+  }, [client, profile.id, profile.role]);
 
   useEffect(() => { void load(); }, [load]);
 
