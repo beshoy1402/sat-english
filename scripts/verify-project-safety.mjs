@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
-const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson, liveClassroom, liveMigration, liveCss, questionBankMigration] = await Promise.all([
+const [ai, recordings, supabaseClient, providerSettings, providerManagement, deleteAccount, app, homework, homeworkMigration, admission, admissionMigration, questionBank, packageJson, liveClassroom, liveMigration, liveCss, questionBankMigration, styles] = await Promise.all([
   read('../supabase/functions/ai-learning/index.ts'),
   read('../src/RecordedSessions.tsx'),
   read('../src/lib/supabase.ts'),
@@ -20,6 +20,7 @@ const [ai, recordings, supabaseClient, providerSettings, providerManagement, del
   read('../supabase/migrations/20261123100000_live_classroom_foundation.sql'),
   read('../src/live-classroom.css'),
   read('../supabase/migrations/20261120233000_flexible_question_bank.sql'),
+  read('../src/styles.css'),
 ]);
 
 // AI must use the approved NVIDIA-first provider/model/endpoint allowlist.
@@ -120,10 +121,19 @@ assert.match(admission, /matching\.source_url/);
 assert.match(app, /active==='admissionRules'&&profile\.role==='admin'/);
 assert.match(app, /active==='admission'&&profile\.role==='student'/);
 
+// The responsive workspace refinement must retain its navigation, mobile and visual-system hooks.
+assert.match(styles, /\.workspace-hero\\s*\\{/);
+assert.match(styles, /\.side-nav button\\.active/);
+assert.match(styles, /\.mobile-scrim/);
+assert.match(styles, /@media\\(max-width:760px\\)/);
+assert.match(styles, /prefers-reduced-motion/);
+
 // Question-bank document imports must be bounded, previewed and explicit about OCR limits.
 assert.match(questionBank, /readXlsxRows/);
 assert.match(questionBank, /readDocxText/);
 assert.match(questionBank, /readPdfText/);
+assert.match(questionBank, /first worksheet must include a question column named prompt, question or question_text/);
+assert.match(questionBank, /\.join\('\\n'\)/);
 assert.match(questionBank, /25\*1024\*1024/);
 assert.match(questionBank, /pdf\.numPages>80/);
 assert.match(questionBank, /No selectable text was found/);
