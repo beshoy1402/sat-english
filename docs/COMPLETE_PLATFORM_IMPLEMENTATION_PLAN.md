@@ -248,7 +248,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 ## 7. Delivery order from here
 
-1. **Integrated Live Classroom:** scheduling, secure lobby, attendance, private Realtime presence, six-person WebRTC audio/video + screen-share prototype, persisted chat, hand raise, teacher chat mute, audited student removal, student-created study rooms and teacher-selected Zoom/website delivery are in source; next verify the database and media flows, configure the school Zoom account, and add Zoom webhook attendance.
+1. **Integrated Live Classroom:** scheduling, secure lobby, attendance, private Realtime presence, six-person WebRTC audio/video + screen-share prototype, persisted chat, hand raise, teacher chat mute, audited student removal, student-created study rooms and teacher-selected Zoom/website delivery are in source; next verify the database and media flows, configure the school Zoom account and webhook subscription, and runtime-test attendance synchronization.
 2. **Live Recording:** explicit browser capture, draft upload, lesson linkage and permission/size/error handling.
 3. **Question Import Expansion:** XLSX, DOCX and PDF extraction, image handling, editable preview and safe batch retry/rollback.
 4. **Practice and Exam Completion:** validate end-to-end student workflows, timer/autosave and score/report accuracy.
@@ -259,7 +259,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 ## 8. Change log
 - **2026-11-22:** Continued Question Bank CSV parser hardening on `feature/recorded-sessions-library`; no deployment, production migration or Edge Function deployment.
-- **Next milestone:** Complete Live Classroom verification, configure and test the school Zoom host account, implement Zoom webhook attendance synchronization, and continue the explicit recording workflow.
+- **Next milestone:** Complete Live Classroom verification, configure and test the school Zoom host account, activate and runtime-test Zoom webhook attendance synchronization, and continue the explicit recording workflow.
 
 - **2026-11-23:** Added source-only live classroom scheduling, session lifecycle, attendance and private Realtime presence. Added staff/student navigation. Hardened state changes and attendance timestamps behind server-side RPCs, restricted attendance visibility to self/managers, filtered staff course choices to manageable courses, and validated lesson/course linkage. No migration applied and no deployment.
 
