@@ -24,13 +24,14 @@ const GroupCenter=lazy(()=>import('./GroupCenter'));
 const QuestionBank=lazy(()=>import('./QuestionBank'));
 const TeachingAI=lazy(()=>import('./TeachingAI'));
 const RecordedSessions=lazy(()=>import('./RecordedSessions'));
+const LiveClassroom=lazy(()=>import('./LiveClassroom'));
 const AdmissionCalculator=lazy(()=>import('./AdmissionCalculator'));
 const AIPointsAdmin=lazy(()=>import('./AIPointsAdmin'));
 
 const roles:Record<AppRole,string>={admin:'Administrator',teacher:'Teacher',assistant:'Assistant',developer:'Developer',designer:'Designer',student:'Student',parent:'Parent'};
 const staffNav:[string,string,any][] = [
  ['overview','Overview',LayoutDashboard],['students','Students',Users],['staff','Team accounts',ShieldCheck],['teachingAI','AI Teaching Studio',BrainCircuit],
- ['groups','Class groups',Users],['courses','Courses',BookOpen],['lessons','Lessons',BookOpen],['recordings','Recorded sessions',Video],['assignments','Homework',ClipboardList],
+ ['groups','Class groups',Users],['courses','Courses',BookOpen],['lessons','Lessons',BookOpen],['recordings','Recorded sessions',Video],['liveClassroom','Live classroom',Video],['assignments','Homework',ClipboardList],
  ['submissions','Homework review',ClipboardList],['exams','Exams',Target],['questions','Question bank',FileText],
  ['attendance','Attendance',CalendarDays],['gradebook','Gradebook',FileText],['courseAccess','Course access',ShieldCheck],['resources','Resources',FileText],
  ['calendar','Calendar',CalendarDays],['notifications','Notifications',Bell],['messages','Messages',MessageCircle],['announcements','Announcements',Bell],['analytics','Analytics',Activity],
@@ -41,7 +42,7 @@ const nav:Record<AppRole,[string,string,any][]> = {
  admin:staffNav,teacher:staffNav,assistant:assistantNav,
  developer:[['overview','Overview',LayoutDashboard],['staff','Team accounts',ShieldCheck],['developer','Developer workspace',Code2],['github','GitHub pull requests',GitPullRequest],['aiProviders','AI providers',BrainCircuit],['designReview','Design review',Palette],['notifications','Notifications',Bell],['analytics','System health',Activity],['settings','Settings',Settings]],
  designer:[['overview','Overview',LayoutDashboard],['designer','Design studio',Palette],['notifications','Notifications',Bell],['announcements','Content preview',Eye],['settings','Settings',Settings]],
- student:[['overview','My learning',LayoutDashboard],['aiTutor','AI English tutor',BrainCircuit],['studyPlan','Study plan',Target],['messages','Messages',MessageCircle],['groups','My groups',Users],['courses','My courses',BookOpen],['lessons','Lessons',BookOpen],['recordings','Recorded sessions',Video],['assignments','Homework',ClipboardList],['exams','Practice & exams',Target],['resources','Study library',FileText],['grades','Grades',FileText],['gradeHistory','Grade change history',History],['calendar','My calendar',CalendarDays],['notifications','Notifications',Bell],['announcements','Announcements',Bell],['admission','University admission calculator',GraduationCap]],
+ student:[['overview','My learning',LayoutDashboard],['aiTutor','AI English tutor',BrainCircuit],['studyPlan','Study plan',Target],['messages','Messages',MessageCircle],['groups','My groups',Users],['courses','My courses',BookOpen],['lessons','Lessons',BookOpen],['recordings','Recorded sessions',Video],['liveClassroom','Live classroom',Video],['assignments','Homework',ClipboardList],['exams','Practice & exams',Target],['resources','Study library',FileText],['grades','Grades',FileText],['gradeHistory','Grade change history',History],['calendar','My calendar',CalendarDays],['notifications','Notifications',Bell],['announcements','Announcements',Bell],['admission','University admission calculator',GraduationCap]],
  parent:[['overview','Family overview',LayoutDashboard],['courses','Learning progress',BookOpen],['assignments','Homework monitoring',ClipboardList],['studyPlan','Study plan',Target],['messages','Messages',MessageCircle],['groups','Class groups',Users],['grades','Grades',FileText],['gradeHistory','Grade change history',History],['attendance','Attendance',CalendarDays],['calendar','Calendar',CalendarDays],['notifications','Notifications',Bell],['announcements','Announcements',Bell]]
 };
 const table:Record<string,string>={gradebook:'grade_entries',grades:'grade_entries',gradeHistory:'grade_entry_history',courses:'courses',lessons:'lessons',assignments:'assignments',submissions:'submissions',exams:'exams',questions:'questions',attendance:'attendance_sessions',courseAccess:'course_access',resources:'learning_resources',calendar:'calendar_events',announcements:'announcements',audit:'audit_events'};
@@ -141,6 +142,7 @@ export default function App(){
  {active==='courses'&&<CourseCenter client={supabase} profile={profile} view="courses"/>}
  {active==='lessons'&&<CourseCenter client={supabase} profile={profile} view="lessons"/>}
  {active==='recordings'&&<RecordedSessions client={supabase} profile={profile}/>}
+ {active==='liveClassroom'&&<LiveClassroom client={supabase} profile={profile}/>}
  {active==='courseAccess'&&isStaff&&<CourseCenter client={supabase} profile={profile} view="courseAccess"/>}
  {active==='assignments'&&<HomeworkCenter client={supabase} profile={profile} view="assignments"/>}
  {active==='submissions'&&isStaff&&<HomeworkCenter client={supabase} profile={profile} view="submissions"/>}
