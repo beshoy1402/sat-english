@@ -219,3 +219,11 @@ For the maintained, full product scope, implementation stages, acceptance criter
 3. OpenRouter — third fallback, priority 3.
 
 Groq has been removed from the application catalog and execution allowlist. Claude and ChatGPT/OpenAI API are not included. The UI, provider-management Edge Function, AI-learning allowlist, source migration and CI policy checks have been aligned. Migration and Edge Function deployment are still pending approval; production has not been changed. Verify provider account pricing/quotas before activation.
+
+
+## Admission calculator — rule registry source implementation (2026-11-22)
+
+- Added a versioned rule registry migration with admin-only draft/publish/supersede permissions and student read access to verified rules only.
+- Added the admin Admission Rules area and student calculator lookup, input-scale validation, score breakdown and source display.
+- No university/faculty formulas have been guessed or preloaded; official rules must be verified individually before publication.
+- Migration `20261123130000_admission_rule_registry.sql` remains unapplied. CI/typecheck for the latest commit is pending.
