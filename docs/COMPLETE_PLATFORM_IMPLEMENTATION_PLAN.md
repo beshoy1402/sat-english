@@ -194,7 +194,9 @@ The first Live Classroom code slice is now committed to the working feature bran
 - `src/LiveClassroom.tsx` and `src/live-classroom.css`: staff scheduling, optional lesson association, open-lobby/start/end/cancel controls, student join/leave, and private Realtime presence roster.
 - Staff and student navigation now includes **Live classroom**.
 
-**Not included yet:** actual WebRTC audio/video transport, TURN/SFU, screen sharing, classroom chat, moderation, and live browser recording. The UI explicitly states that the current room is a lobby/presence layer and does not transmit media. The migration has not been applied to any Supabase project; this source is not production-ready until the migration and permission tests pass.
+**Current media prototype:** `src/LiveMedia.tsx` adds browser camera/microphone capture, peer-to-peer WebRTC audio/video, participant video tiles, mute/camera controls and screen sharing. It uses a separate private `live-session-media:<UUID>` signaling topic, STUN discovery only, and a six-participant cap. Media transceivers are prepared before device permission is granted so later track attachment can use the negotiated audio/video sections.
+
+**Still not included:** TURN relay, SFU/scalable classrooms, in-room chat, hand raise/moderation, recording, automated rate limits and full browser/network acceptance tests. STUN-only connectivity is not guaranteed on restrictive networks. This is an unverified prototype, not a production-ready video classroom. The migration has not been applied to any Supabase project.
 
 ## 6. Current implementation status
 
@@ -211,7 +213,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Latest question-bank parser hardening rejects unterminated quoted fields, empty headings and duplicate headings; preview displays original source row numbers.
 
 ### Not yet verified or activated
-- Live Classroom scheduling/lobby code and migration are committed to the feature branch but have not been built, runtime-tested or applied to Supabase. Audio/video, screen sharing, chat and live recording are still outstanding. The Vercel check still reports the previously encountered free deployment-rate limit; it is not a successful build result.
+- Live Classroom scheduling/lobby, WebRTC audio/video and screen-sharing source are committed to the feature branch but have not been built, runtime-tested or applied to Supabase. Chat, moderation, TURN/SFU, live recording and end-to-end tests remain outstanding. The Vercel check still reports the previously encountered free deployment-rate limit; it is not a successful build result.
 - The latest branch changes have not been verified by a successful build/runtime test.
 - Vercel deployment attempts were blocked by the free daily deployment API limit; do not upgrade the plan to bypass it.
 - AI points migration and AI learning Edge Function changes are source-only and not deployed.
@@ -222,7 +224,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 
 ## 7. Delivery order from here
 
-1. **Integrated Live Classroom:** scheduling, secure lobby, attendance and private Realtime presence source are in place; next implement and test WebRTC media, moderation, chat and reconnect behavior.
+1. **Integrated Live Classroom:** scheduling, secure lobby, attendance, private Realtime presence and a six-person WebRTC audio/video + screen-share prototype are in source; next complete chat, moderation, reconnection and end-to-end security/media tests.
 2. **Live Recording:** explicit browser capture, draft upload, lesson linkage and permission/size/error handling.
 3. **Question Import Expansion:** XLSX, DOCX and PDF extraction, image handling, editable preview and safe batch retry/rollback.
 4. **Practice and Exam Completion:** validate end-to-end student workflows, timer/autosave and score/report accuracy.
@@ -236,3 +238,5 @@ The first Live Classroom code slice is now committed to the working feature bran
 - **Next milestone:** Integrated Live Classroom design and implementation, followed by explicit recording workflow.
 
 - **2026-11-23:** Added source-only live classroom scheduling, session lifecycle, attendance and private Realtime presence. Added staff/student navigation. Hardened state changes and attendance timestamps behind server-side RPCs, restricted attendance visibility to self/managers, filtered staff course choices to manageable courses, and validated lesson/course linkage. No migration applied and no deployment.
+
+- **2026-11-23 (continued):** Added a six-person WebRTC audio/video and screen-sharing prototype using private Realtime signaling and STUN-only ICE discovery. No deployment or database application.
