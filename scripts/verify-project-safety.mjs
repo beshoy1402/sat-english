@@ -100,6 +100,8 @@ assert.match(admissionMigration, /create or replace function public\.guard_admis
 assert.match(admissionMigration, /Admission rules must be created as drafts/);
 assert.match(admissionMigration, /Published admission rules cannot be edited/);
 assert.match(admissionMigration, /Superseded admission rule versions are immutable/);
+assert.match(admissionMigration, /Published admission rule history cannot be deleted/);
+assert.match(admissionMigration, /revoke all on function public\.guard_admission_rule_version\(\) from public, anon, authenticated/);
 assert.match(admissionMigration, /pg_advisory_xact_lock/);
 assert.match(admission, /Number\.isInteger\(year\)/);
 assert.match(admission, /minimum<0\|\|minimum>100/);
