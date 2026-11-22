@@ -258,3 +258,10 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - The hosted Supabase project reports 47 applied migration versions, while the feature branch has 51 migration files and none of the remote applied version IDs have matching files in the branch.
 - Recover the exact applied migration source or build/review an authoritative baseline from a schema snapshot before running a local reset and database tests.
 - Do not use production migration repair or deployment to work around this. No production change was made.
+
+
+## Question bank permission hardening (2026-11-22)
+
+- The question bank remains RPC-only with direct table grants revoked for anon/authenticated.
+- Non-admin staff can edit/delete only items they created; exam assembly is limited to the exam creator or administrator and draft exams only.
+- Source migration only. Database execution and negative RLS/RPC authorization tests remain blocked pending migration-history reconciliation.
