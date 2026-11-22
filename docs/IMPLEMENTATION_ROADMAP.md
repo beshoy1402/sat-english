@@ -318,3 +318,13 @@ Groq has been removed from the application catalog and execution allowlist. Clau
 - Resumable upload helper checks the private bucket for the exact object path before starting a new TUS session. If the video upload completed but metadata persistence failed, retry reuses the existing object instead of attempting a duplicate upload; completed TUS URLs are cleared.
 - GitHub Actions run [45004178052](https://github.com/beshoy1402/sat-english/actions/runs/45004178052) passed: policy assertions, 10 import tests, TypeScript and Vite build.
 - Remaining: apply/test this migration only in a disposable Supabase development database after schema reconciliation, then run adversarial role tests (admin, course owner, lesson host, unrelated teacher, assistant, developer, enrolled/non-enrolled student). The migration is not applied to production.
+
+
+## Live Classroom Realtime admission hardening (2026-11-22)
+
+- Identified that `can_join_live_session` intentionally represented *eligibility* to join, because the join RPC calls it before creating an attendance row. Reusing that predicate for Realtime topic policies meant an enrolled user could subscribe directly without consuming a participant seat.
+- Added source-only migration `20261123150000_require_live_participant_for_realtime.sql` with a separate `private.can_use_live_session_channel` predicate. It requires an eligible open session plus the caller's active attendance row.
+- Applied the stricter predicate to private Realtime receive/send policies and persistent hand-raise/history reads. The six-seat join RPC remains the only way to create an attendance row.
+- Updated the classroom client to check its own attendance row after Realtime channel failure or heartbeat failure. If the row is missing, left, or removed, it exits the room and unmounts local media/recording components; removed users receive an explicit non-rejoin message.
+- GitHub Actions run [45004522753](https://github.com/beshoy1402/sat-english/actions/runs/45004522753) passed: safety-policy assertions, 10 question-import tests, TypeScript and Vite build.
+- This is source/CI verification only. Migration remains unapplied. Still required: isolated Supabase migration execution, six-seat concurrency tests, direct Realtime subscription denial for eligible-but-not-joined accounts, and browser validation of revocation and media teardown.
