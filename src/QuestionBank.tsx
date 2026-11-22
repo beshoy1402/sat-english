@@ -6,14 +6,14 @@ type ImportRow={exam_program:string;topic:string;difficulty:string;passage:strin
 const normalize=(v:string)=>v.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 function parseCsv(source:string):Record<string,string>[]{
  const rows:string[][]=[];let row:string[]=[],cell='',quoted=false;
- for(let i=0;i<source.length;i++){const c=source[i];if(quoted){if(c==='"'&&source[i+1]==='"'){cell+='"';i++;}else if(c==='"')quoted=false;else cell+=c;}else if(c==='"')quoted=true;else if(c===','){row.push(cell);cell='';}else if(c==='\\n'||c==='\\r'){if(c==='\\r'&&source[i+1]==='\\n')i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell='';}else cell+=c;}
+ for(let i=0;i<source.length;i++){const c=source[i];if(quoted){if(c==='"'&&source[i+1]==='"'){cell+='"';i++;}else if(c==='"')quoted=false;else cell+=c;}else if(c==='"')quoted=true;else if(c===','){row.push(cell);cell='';}else if(c==='\n'||c==='\r'){if(c==='\r'&&source[i+1]==='\n')i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell='';}else cell+=c;}
  row.push(cell);if(row.some(v=>v.trim()))rows.push(row);if(!rows.length)return [];
- const headers=rows.shift()!.map(v=>v.trim().toLowerCase().replace(/[\\s-]+/g,'_'));
+ const headers=rows.shift()!.map(v=>v.trim().toLowerCase().replace(/[\s-]+/g,'_'));
  return rows.map(values=>Object.fromEntries(headers.map((h,i)=>[h,values[i]??''])));
 }
 function toImportRow(raw:Record<string,any>,index:number,existing:Set<string>):ImportRow{
  const choicesRaw=raw.choices??raw.options??[];
- const choices=Array.isArray(choicesRaw)?choicesRaw.map(v=>typeof v==='string'?v:String(v?.text??v?.label??'' )).filter(Boolean):String(choicesRaw).split(/\\r?\\n/).map(v=>v.trim()).filter(Boolean);
+ const choices=Array.isArray(choicesRaw)?choicesRaw.map(v=>typeof v==='string'?v:String(v?.text??v?.label??'' )).filter(Boolean):String(choicesRaw).split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
  const prompt=String(raw.prompt??raw.question??raw.question_text??'').trim();
  const type=String(raw.question_type??raw.type??'multiple_choice').toLowerCase().replace(/[ -]/g,'_');
  const answer=String(raw.answer_key??raw.answer??raw.correct_answer??'').trim();
