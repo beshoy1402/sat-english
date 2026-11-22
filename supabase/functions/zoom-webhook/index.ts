@@ -47,6 +47,7 @@ export default {
   if (!secret) return json({ error: 'Zoom webhook is not configured' }, 503);
 
   const rawBody = await req.text();
+  if (rawBody.length > 256_000) return json({ error: 'Webhook payload is too large' }, 413);
   let event: Record<string, any>;
   try {
     event = JSON.parse(rawBody);
