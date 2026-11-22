@@ -55,7 +55,7 @@ Every role must be enforced server-side with Supabase RLS and Edge Function chec
 - Manual question creation/editing, program/topic/skill/difficulty metadata, answer keys and explanations.
 - CSV and structured JSON import with preview, row validation, duplicate detection and explicit confirmation.
 - Downloadable import error report with original source row numbers.
-- Next import stages: PDF, DOCX and XLSX extraction; embedded images/diagrams; column mapping; editable preview; safer retry and import-batch rollback.
+- Source now supports XLSX first-sheet extraction, DOCX text extraction and text-based PDF extraction using numbered question blocks. Document imports are previewed and validated before confirmed saves. Remaining stages: OCR for scanned PDFs; embedded images/diagrams; multi-sheet/column mapping; editable preview; import-batch rollback and retry.
 - Preserve source attribution. OCR or extraction output must be reviewed; never silently invent missing choices or answer keys.
 - Keep imports bounded and memory-safe. Do not claim a large import is accurate until sample records and full database results are checked.
 
@@ -247,7 +247,7 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Admission rules are not yet populated with verified university/faculty/year formulas.
 - Recorded Sessions Library schema/storage migration must be checked against the actual environment before production use.
 - Integrated live classroom, student study-room and Zoom delivery implementation are source-only; schema and private Realtime authorization need review before activation. Zoom secrets and the Edge Function are not configured/deployed.
-- PDF/DOCX/XLSX/image extraction, import batch rollback/retry, complete test coverage, final security audit and launch verification remain outstanding.
+- XLSX, DOCX and text-based PDF extraction are now implemented in source. Scanned-PDF OCR, embedded-image extraction, editable preview, multi-sheet mapping, import-batch rollback/retry, document-format fixture tests, full E2E coverage, final security audit and launch verification remain outstanding.
 
 ## 7. Delivery order from here
 
@@ -347,3 +347,14 @@ The first Live Classroom code slice is now committed to the working feature bran
 - Added static safety assertions for admission registry RLS, admin-only publishing, verified-only student reads, source attribution and UI routing.
 - This does not verify SQL execution, hosted Supabase migration compatibility, browser rendering, storage, WebRTC, Zoom, provider API calls or end-to-end workflows.
 - The branch remains unpublished. No migration applied, Edge Function deployed, secrets changed or production deployment performed.
+
+
+## Question-bank document import expansion — source only (2026-11-22)
+
+- Added browser-side XLSX parsing (first worksheet, header-based rows), DOCX raw-text extraction and PDF.js text extraction.
+- DOCX/PDF extraction expects numbered question blocks and labelled A)–D) options, Answer: and optional Explanation: lines. Extracted rows enter the same existing preview, validation, duplicate detection and confirmed batch-save workflow as CSV/JSON.
+- Added 25 MB file limit, 2,500-question cap and 80-page PDF cap. Scanned/image-only PDFs return a clear unsupported-OCR message rather than being treated as imported questions.
+- Added PDF text line reconstruction so question numbering and option labels are more likely to survive extraction.
+- This is not image/diagram OCR, does not support multi-sheet XLSX mapping, and does not make the preview editable. Complex documents must be reviewed carefully; use CSV/JSON for precise control.
+- Added dependencies: `read-excel-file`, `mammoth`, and `pdfjs-dist`. Build/policy verification for the import parser passed on commit `602f83235ff19e0f0f6f4c9fdcaa9422a0f4b1db`; additional static import assertions have been added in the next CI run.
+- No database migration, deployment or production change was made.
