@@ -72,11 +72,11 @@ export default function LiveRecording({ client, profile, session, canRecord, onR
   };
 
   useEffect(() => {
-    if (!recording) return;
+    if (!recording && !busy) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [recording]);
+  }, [recording, busy]);
 
   const clearPendingUpload = () => {
     if (uploadPathRef.current && videoFile) {
