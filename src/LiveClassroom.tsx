@@ -138,6 +138,15 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
         setChatMessages(current => current.some(message => message.id === data.id) ? current : [...current, data as LiveMessage].slice(-100));
       }
     });
+    channel.on('broadcast', { event: 'chat-moderation-changed' }, async ({ payload }: { payload: { profile_id?: string } }) => {
+      if (disposed || payload?.profile_id !== profile.id) return;
+      const { data } = await client.from('live_session_participants')
+        .select('profile_id,chat_muted_until')
+        .eq('session_id', activeSession.id)
+        .eq('profile_id', profile.id)
+        .maybeSingle();
+      if (!disposed && data) setMutedUntil(current => ({ ...current, [profile.id]: data.chat_muted_until }));
+    });
     channel.subscribe(async (status: string) => {
       if (status === 'SUBSCRIBED') {
         const trackStatus = await channel.track({
@@ -225,6 +234,11 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
       });
       if (muteError) throw new Error(muteError.message);
       setMutedUntil(current => ({ ...current, [member.profile_id!]: data || null }));
+      await roomChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'chat-moderation-changed',
+        payload: { profile_id: member.profile_id }
+      });
       setNotice(nextMuted ? member.display_name + ' is muted in chat for 10 minutes.' : member.display_name + ' can chat again.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not update chat moderation.');
@@ -367,7 +381,7 @@ export default function LiveClassroom({ client, profile }: { client: any; profil
           {!chatMessages.length && <div className="live-chat-empty">No messages yet. Say hello to your class.</div>}
         </div>
         <form className="live-chat-compose" onSubmit={sendChatMessage}>
-          <input value={chatDraft} onChange={event => setChatDraft(event.target.value.slice(0,1000))} maxLength={1000} placeholder={mutedUntil[profile.id] && new Date(mutedUntil[profile.id]!).getTime() > Date.now() ? 'Your chat is temporarily muted' : 'Write a message…'} disabled={chatBusy || Boolean(mutedUntil[profile.id] && new Date(mutedUntil[profile.id]!).getTime() > Date.now())}/>
+          <input value={chatDraft} onChange={event => setChatDraft(event.target.value.slice(0,1000))} maxLength={1000} aria-label="Classroom message" placeholder={mutedUntil[profile.id] && new Date(mutedUntil[profile.id]!).getTime() > Date.now() ? 'Your chat is temporarily muted' : 'Write a message…'} disabled={chatBusy || Boolean(mutedUntil[profile.id] && new Date(mutedUntil[profile.id]!).getTime() > Date.now())}/>
           <button className="live-primary" type="submit" disabled={chatBusy || !chatDraft.trim() || Boolean(mutedUntil[profile.id] && new Date(mutedUntil[profile.id]!).getTime() > Date.now())}><Send size={14}/>{chatBusy ? 'Sending…' : 'Send'}</button>
         </form>
         {mutedUntil[profile.id] && new Date(mutedUntil[profile.id]!).getTime() > Date.now() && <small className="live-chat-muted-note">A teacher temporarily muted your classroom chat.</small>}
